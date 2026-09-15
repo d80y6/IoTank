@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { MarketSignal, RegulatoryNotice, SignalSourceType } from '@/types';
+import { logger } from '@/utils/logger';
 import { supabase } from '@/config/supabase';
 
 export interface MarketIntelligenceConfig {
@@ -27,7 +28,7 @@ export class MarketIntelligenceService {
                 headers['Authorization'] = `Bearer ${session.access_token}`;
             }
         } catch (e) {
-            console.warn('[MarketIntelligenceService] Auth check failed, proceeding anonymously.');
+            logger.warn('[MarketIntelligenceService] Auth check failed, proceeding anonymously.');
         }
 
         return headers;
@@ -100,7 +101,7 @@ export class MarketIntelligenceService {
             const uniqueArticles = Array.from(new Map(allArticles.map(a => [a.url, a])).values());
             return uniqueArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).map((article: any) => {
                 const title = article.title.toLowerCase();
-                let sourceType: SignalSourceType = 'General News' as any;
+                let sourceType: SignalSourceType = 'General News';
                 let relevanceScore = 0.8;
                 if (title.includes('epra') || title.includes('legislation')) {
                     sourceType = 'Regulatory';
@@ -128,7 +129,7 @@ export class MarketIntelligenceService {
                 };
             });
         } catch (error) {
-            console.error('Error fetching NewsAPI:', error);
+            logger.error('Error fetching NewsAPI:', error);
             return this.getFallbackNews();
         }
     }
@@ -146,7 +147,7 @@ export class MarketIntelligenceService {
             const data = await response.json();
             return data.response?.data || [];
         } catch (error) {
-            console.error('Error fetching EIA:', error);
+            logger.error('Error fetching EIA:', error);
             return null;
         }
     }
@@ -172,24 +173,18 @@ export class MarketIntelligenceService {
                 }
             }
         } catch (error) {
-            console.error(`Error fetching benchmarks from proxy:`, error);
+            logger.error(`Error fetching benchmarks from proxy:`, error);
         }
         return results;
     }
 
     async fetchEPRANotices(): Promise<RegulatoryNotice[]> {
-        const now = new Date();
-        const currentMonth = now.toLocaleString('default', { month: 'long' });
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleString('default', { month: 'long' });
-        return [{
-            id: `epra-${now.getFullYear()}-${now.getMonth()}`,
-            authority: 'EPRA',
-            noticeType: 'price_cycle',
-            title: `Monthly Petroleum Price Review: ${currentMonth} - ${nextMonth} ${now.getFullYear()}`,
-            effectiveDate: now.getTime(),
-            summary: `EPRA announces the latest pump prices based on stabilized landing costs.`,
-            documentUrl: 'https://www.epra.go.ke/petroleum-prices/'
-        }];
+        // M-04 FIX: The previous implementation returned a hardcoded mock EPRA notice on every
+        // call, causing syncAll() to upsert the same fake record indefinitely and polluting
+        // regulatory_notices. EPRA scraping is handled by the 'official-scraper' Edge Function
+        // via useMarketNews.ts. This client-side method intentionally returns nothing.
+        logger.info('[MarketIntelligenceService] fetchEPRANotices() deferred to Edge Function scraper.');
+        return [];
     }
 
     async syncAll(stationId: string): Promise<boolean> {
@@ -197,7 +192,7 @@ export class MarketIntelligenceService {
         let news: MarketSignal[] = [];
         const triggerAlert = async (type: 'market_news' | 'regulatory_update', message: string, severity: 'info' | 'warning' = 'info') => {
             try {
-                await supabase.from('alerts').insert({
+                await supabase.from('alerts').upsert({
                     station_id: stationId,
                     alert_type: type, // Standardized to the actual alert type
                     severity,
@@ -208,8 +203,8 @@ export class MarketIntelligenceService {
                     is_acknowledged: false,
                     is_resolved: false,
                     created_at: new Date().toISOString()
-                });
-            } catch (err) { console.error('Failed to trigger news alert:', err); }
+                }, { onConflict: 'station_id,alert_type,title' }); // Avoid duplicate news alerts
+            } catch (err) { logger.error('Failed to trigger news alert:', err); }
         };
 
         try {
@@ -233,7 +228,7 @@ export class MarketIntelligenceService {
                 if (error) throw error;
                 if ((signal.relevanceScore ?? 0) >= 0.9) await triggerAlert('market_news', `High-Impact News: ${signal.title}`);
             }
-        } catch (e) { console.error('News sync failed:', e); someFailure = true; }
+        } catch (e) { logger.error('News sync failed:', e); someFailure = true; }
 
         try {
             const epra = await this.fetchEPRANotices();
@@ -252,7 +247,7 @@ export class MarketIntelligenceService {
                 if (error) throw error;
                 await triggerAlert('regulatory_update', `Regulatory Update: ${notice.title}`, 'warning');
             }
-        } catch (e) { console.error('EPRA sync failed:', e); someFailure = true; }
+        } catch (e) { logger.error('EPRA sync failed:', e); someFailure = true; }
 
         try {
             const eiaData = await this.fetchEIAPrices();
@@ -265,7 +260,7 @@ export class MarketIntelligenceService {
                         fuel_type: 'crude_oil',
                         region: 'Global/EIA',
                         price_per_liter: parseFloat(item.value),
-                        currency: 'USD',
+                        currency: 'KES',
                         timestamp: new Date(item.period).getTime() || Date.now(),
                         source: 'eia',
                         created_at: new Date().toISOString()
@@ -273,7 +268,7 @@ export class MarketIntelligenceService {
                     if (error) throw error;
                 }
             }
-        } catch (e) { console.error('EIA sync failed:', e); someFailure = true; }
+        } catch (e) { logger.error('EIA sync failed:', e); someFailure = true; }
 
         try {
             const benchmarks = await this.fetchCrudeBenchmarks();
@@ -285,14 +280,14 @@ export class MarketIntelligenceService {
                     fuel_type: b.symbol,
                     region: 'Global',
                     price_per_liter: parseFloat(b.data.value),
-                    currency: 'USD',
+                    currency: 'KES',
                     timestamp: Date.now(),
                     source: 'alpha-vantage',
                     created_at: new Date().toISOString()
                 });
                 if (error) throw error;
             }
-        } catch (e) { console.error('Benchmark sync failed:', e); someFailure = true; }
+        } catch (e) { logger.error('Benchmark sync failed:', e); someFailure = true; }
 
         return !someFailure;
     }

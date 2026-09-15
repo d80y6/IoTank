@@ -20,7 +20,6 @@ const Login = () => {
         setIsLoading(true);
         try {
             await signIn(email, password);
-            console.log("Authentication initiated...");
             
             // We wait for systemUser to be set by the context
             // If it takes too long, we time out.

@@ -58,8 +58,8 @@ export const DeliveryReconciliationForm: React.FC<DeliveryReconciliationFormProp
                         <h2 className="text-xl font-black text-slate-800 tracking-tight">Delivery Verification</h2>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Waybill & Physics Audit</p>
                     </div>
-                    <button className="close-btn p-2 hover:bg-slate-100 rounded-full transition-colors" type="button" onClick={onClose}>
-                        <FiX size={20} className="text-slate-400" />
+                    <button className="close-btn" type="button" onClick={onClose} title="Close Verification Panel">
+                        <FiX />
                     </button>
                 </div>
 

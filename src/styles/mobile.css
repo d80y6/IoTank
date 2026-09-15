@@ -4,135 +4,91 @@
    ============================================================================= */
 
 /* Mobile First Approach */
-@media (max-width: 480px) {
-
-    /* Extra Small Devices */
-    html {
-        font-size: 14px;
-        /* Prevent scroll chaining */
-        overscroll-behavior-y: none;
-    }
-
-    body {
-        /* Fix for mobile address bar */
-        min-height: 100vh;
-        min-height: 100dvh;
-        overflow-x: hidden;
-    }
-
-    .card {
-        padding: var(--spacing-base) !important;
-        margin: var(--spacing-sm) !important;
-        border-radius: var(--border-radius-md) !important;
-    }
-
-    .btn {
-        padding: var(--spacing-sm) var(--spacing-base) !important;
-        font-size: var(--font-size-sm) !important;
-    }
-
-    .grid-cols-2,
-    .grid-cols-3,
-    .grid-cols-4 {
-        grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-        gap: var(--spacing-sm) !important;
-    }
-
-    /* Touch-friendly targets */
-    .btn,
-    button,
-    input,
-    select,
-    textarea {
-        min-height: 44px;
-        /* iOS HIG recommendation */
-    }
-
-    /* Mobile navigation */
-    .navbar {
-        padding: var(--spacing-sm) !important;
-    }
-
-    /* Sidebar: keep icon strip visible (72px) for nav access - see Sidebar.css */
-
-    /* Mobile tables */
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    /* Mobile modals */
-    .modal {
-        margin: var(--spacing-sm) !important;
-        max-height: 85vh;
-        max-height: 85dvh;
-        overflow-y: auto;
-        border-radius: var(--border-radius-xl) !important;
-    }
-
-    /* Tank cards mobile optimization */
-    .tank-card {
-        margin-bottom: var(--spacing-sm) !important;
-    }
-
-    .tank-grid {
-        grid-template-columns: 1fr !important;
-        gap: var(--spacing-sm) !important;
-    }
-
-    /* Dashboard stats: single column on narrow portrait so all features visible */
-    .dashboard-stats,
-    .stats-grid,
-    .dashboard-stats-container .stats-grid {
-        grid-template-columns: 1fr !important;
-        gap: var(--spacing-sm) !important;
-    }
-
-    .health-compliance-grid {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* Charts mobile */
-    .chart-container {
-        height: 250px !important;
-    }
-
-    /* Forms mobile */
-    .form-group {
-        margin-bottom: var(--spacing-lg) !important;
-    }
-
-    .login-form {
-        padding: var(--spacing-base) !important;
-    }
-
-    /* Conflict with LoginForm.css margin: 0 auto - removing important margin */
-    .login-card {
-        margin: 0 auto !important;
-    }
-}
-
-/* Very Narrow Devices */
+/* ==================== 1. SMALL SMARTPHONES (320px - 360px) ==================== */
 @media (max-width: 360px) {
+    html {
+        font-size: 13px; /* Slightly smaller for very tight screens */
+    }
+
     .main-content {
         padding: var(--spacing-xs) !important;
     }
 
     .card {
         padding: var(--spacing-sm) !important;
+        margin: var(--spacing-xs) !important;
+    }
+
+    .btn {
+        padding: var(--spacing-xs) var(--spacing-sm) !important;
+        font-size: 12px !important;
     }
 }
 
-@media (min-width: 481px) and (max-width: 768px) {
+/* ==================== 2. STANDARD SMARTPHONES (360px - 414px) ==================== */
+@media (min-width: 361px) and (max-width: 414px) {
+    html {
+        font-size: 14px;
+    }
+    
+    .card {
+        padding: var(--spacing-base) !important;
+    }
+}
 
-    /* Small Devices (Tablets) */
+/* ==================== 3. LARGE/MAX SMARTPHONES (414px - 480px) ==================== */
+@media (min-width: 415px) and (max-width: 480px) {
+    .grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr) !important; /* Allow 2 columns on larger phones */
+    }
+}
+
+/* ==================== 4. MOBILE COMMON (Up to 480px) ==================== */
+@media (max-width: 480px) {
+    body {
+        min-height: 100dvh;
+        overflow-x: hidden;
+    }
+
+    .grid-cols-3,
+    .grid-cols-4 {
+        grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    .btn, button, input, select, textarea {
+        min-height: 44px; /* iOS HIG recommendation */
+    }
+
+    .navbar {
+        padding: var(--spacing-sm) !important;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal {
+        margin: var(--spacing-sm) !important;
+        max-height: 85dvh;
+    }
+
+    .tank-grid, .stats-grid, .health-compliance-grid {
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    .chart-container {
+        height: 250px !important;
+    }
+}
+
+/* ==================== 5. SMALL TABLETS (Portrait) (600px - 768px) ==================== */
+@media (min-width: 600px) and (max-width: 768px) {
     .grid-cols-3,
     .grid-cols-4 {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-
-    .card {
-        padding: var(--spacing-base) !important;
     }
 
     .sidebar {
@@ -145,7 +101,6 @@
 
     .tank-grid {
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: var(--spacing-base) !important;
     }
 
     .dashboard-stats {
@@ -153,9 +108,8 @@
     }
 }
 
+/* ==================== 6. STANDARD TABLETS (Portrait/Landscape) (768px - 1024px) ==================== */
 @media (min-width: 769px) and (max-width: 1024px) {
-
-    /* Medium Devices (Landscape Tablets, Small Desktops) */
     .grid-cols-4 {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
@@ -169,19 +123,26 @@
     }
 }
 
-@media (min-width: 1025px) and (max-width: 1440px) {
-
-    /* Large Devices (Desktops) */
+/* ==================== 7. SMALL LAPTOPS (1024px - 1280px) ==================== */
+@media (min-width: 1025px) and (max-width: 1280px) {
     .container {
-        max-width: 1200px;
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 0 var(--spacing-lg) !important;
+    }
+}
+
+/* ==================== 8. STANDARD DESKTOPS/LAPTOPS (1280px - 1440px) ==================== */
+@media (min-width: 1281px) and (max-width: 1440px) {
+    .container {
+        max-width: 1320px;
         margin: 0 auto;
         padding: 0 var(--spacing-xl) !important;
     }
 }
 
+/* ==================== 9. LARGE DISPLAYS (HD/4K) (1440px+) ==================== */
 @media (min-width: 1441px) {
-
-    /* Extra Large Devices */
     .container {
         max-width: var(--container-max-width);
         margin: 0 auto;

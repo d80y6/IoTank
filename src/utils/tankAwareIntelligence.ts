@@ -6,6 +6,7 @@
 
 import { Tank, MarketSignal, SupplyRisk, GeminiInsight } from '@/types';
 import { IntelligenceAIService } from '@/services/IntelligenceAIService';
+import { logger } from '@/utils/logger';
 
 export interface TankSpecificAnalysis {
   tankId: string;
@@ -89,8 +90,8 @@ export function generateTankSpecificAnalysis(
 
     // Calculate financial impact
     const priceChangeSignal = signals.find(s => 
-      s.title.toLowerCase().includes('price') && 
-      (s.title.toLowerCase().includes('increase') || s.title.toLowerCase().includes('hike'))
+      (s.title || '').toLowerCase().includes('price') && 
+      ((s.title || '').toLowerCase().includes('increase') || (s.title || '').toLowerCase().includes('hike'))
     );
     
     const projectedPrice = priceChangeSignal ? currentMarketPrice * 1.07 : currentMarketPrice * 1.02; // 7% increase if signal found
@@ -174,12 +175,13 @@ export async function generateTankAwareInsights(
   tanks: Tank[],
   signals: MarketSignal[],
   risks: SupplyRisk[],
-  _aiService: IntelligenceAIService
+  notices: any[],
+  aiService: IntelligenceAIService
 ): Promise<GeminiInsight[]> {
   const tankAnalyses = generateTankSpecificAnalysis(tanks, signals, risks);
   const fleetSummary = generateFleetIntelligenceSummary(tankAnalyses);
 
-  // Create individual tank insights for critical tanks
+  // 1. Create individual tank insights for critical tanks (Heuristic-based for speed/reliability)
   const criticalTankInsights: GeminiInsight[] = tankAnalyses
     .filter(tank => tank.procurementUrgency === 'CRITICAL')
     .map(tank => ({
@@ -187,7 +189,7 @@ export async function generateTankAwareInsights(
       tankId: tank.tankId,
       type: 'procurement' as const,
       title: `CRITICAL: ${tank.tankName} Requires Immediate Refill`,
-      summary: `${tank.tankName} has ${tank.currentLevel.toFixed(1)}% fuel remaining with ${tank.timeToEmpty.toFixed(1)} days to empty. Current market conditions indicate ${tank.marketFactors.sentiment} sentiment with ${tank.marketFactors.volatility.toFixed(0)}% volatility.`,
+      summary: `${tank.tankName} has ${tank.currentLevel.toFixed(1)}% fuel remaining with ${tank.timeToEmpty.toFixed(1)} days to empty. Current market conditions indicate ${tank.marketFactors.sentiment} sentiment.`,
       recommendation: tank.recommendation,
       prompt: `Analyze tank-specific risk for ${tank.tankName} with current level ${tank.currentLevel}% and market signals`,
       response: `Tank-specific analysis complete with risk score ${tank.riskScore.toFixed(0)}/100`,
@@ -200,25 +202,45 @@ export async function generateTankAwareInsights(
       }
     }));
 
-  // Create fleet-level strategic insight
-  const fleetInsight: GeminiInsight = {
-    id: 'fleet-strategic-summary',
-    type: 'procurement',
-    title: `Fleet-Wide Strategic Intelligence: ${fleetSummary.overallRisk} Risk Level`,
-    summary: `Fleet status: ${fleetSummary.criticalTanks} critical tanks, ${fleetSummary.totalTanks} total. Market analysis shows ${tankAnalyses[0]?.marketFactors.sentiment || 'neutral'} conditions with ${fleetSummary.totalSavingsPotential.toFixed(0)} KES potential savings across the fleet.`,
-    recommendation: fleetSummary.fleetRecommendation,
-    prompt: 'Generate fleet-wide strategic procurement intelligence',
-    response: 'Fleet intelligence synthesis complete',
-    confidence: 0.87,
-    timestamp: Date.now(),
-    modelVersion: 'gemini-fleet-strategic',
-    supportingData: {
-      fleetSummary,
-      tankAnalyses: tankAnalyses.slice(0, 3) // Top 3 tank analyses
-    }
-  };
+  // 2. Create fleet-level strategic insight (AI-Powered reasoning)
+  try {
+    const aiFleetInsight = await aiService.generateInsight(signals, risks, notices, tanks);
+    
+    // Enrich AI insight with fleet summary data if needed
+    const fleetInsight: GeminiInsight = {
+      ...aiFleetInsight,
+      id: 'fleet-strategic-summary',
+      supportingData: {
+        ...aiFleetInsight.supportingData,
+        fleetSummary,
+        tankAnalyses: tankAnalyses.slice(0, 3)
+      }
+    };
 
-  return [...criticalTankInsights, fleetInsight];
+    return [...criticalTankInsights, fleetInsight];
+  } catch (err) {
+    logger.warn('[TankIQ] AI Fleet insight failed, falling back to heuristic:', err);
+    
+    // Fallback: Create fleet-level strategic insight using heuristics
+    const fleetInsight: GeminiInsight = {
+      id: 'fleet-strategic-summary-fallback',
+      type: 'procurement',
+      title: `Fleet Strategy: ${fleetSummary.overallRisk} Risk Level`,
+      summary: `Fleet status: ${fleetSummary.criticalTanks} critical tanks. Market analysis shows ${tankAnalyses[0]?.marketFactors.sentiment || 'neutral'} conditions with ${fleetSummary.totalSavingsPotential.toLocaleString()} KES potential savings.`,
+      recommendation: fleetSummary.fleetRecommendation,
+      prompt: 'Generate fleet-wide strategic procurement intelligence (Fallback)',
+      response: 'Fleet intelligence synthesis complete (Heuristic)',
+      confidence: 0.85,
+      timestamp: Date.now(),
+      modelVersion: 'tank-intelligence-heuristic',
+      supportingData: {
+        fleetSummary,
+        tankAnalyses: tankAnalyses.slice(0, 3)
+      }
+    };
+
+    return [...criticalTankInsights, fleetInsight];
+  }
 }
 
 /**
@@ -228,7 +250,7 @@ function calculateMarketVolatility(signals: MarketSignal[]): number {
   const volatilityKeywords = ['volatile', 'uncertain', 'fluctuation', 'instability', 'turbulent'];
   const volatilitySignals = signals.filter(s => 
     volatilityKeywords.some(keyword => 
-      (s.title + ' ' + s.summary).toLowerCase().includes(keyword)
+      ((s.title || '') + ' ' + (s.summary || '')).toLowerCase().includes(keyword)
     )
   );
   
@@ -244,9 +266,9 @@ function generateTankRecommendation(
   currentLevel: number,
   signals: MarketSignal[]
 ): string {
-  const priceSignals = signals.filter(s => s.title.toLowerCase().includes('price'));
+  const priceSignals = signals.filter(s => (s.title || '').toLowerCase().includes('price'));
   const hasPriceIncrease = priceSignals.some(s => 
-    s.title.toLowerCase().includes('increase') || s.title.toLowerCase().includes('hike')
+    (s.title || '').toLowerCase().includes('increase') || (s.title || '').toLowerCase().includes('hike')
   );
 
   if (timeToEmpty < 2) {
@@ -268,8 +290,8 @@ function generateTankRecommendation(
  * Extract market factors from signals
  */
 function extractMarketFactors(signals: MarketSignal[], risks: SupplyRisk[]) {
-  const priceSignals = signals.filter(s => s.title.toLowerCase().includes('price'));
-  const regulatorySignals = signals.filter(s => s.source === 'EPRA' || s.title.toLowerCase().includes('epra'));
+  const priceSignals = signals.filter(s => (s.title || '').toLowerCase().includes('price'));
+  const regulatorySignals = signals.filter(s => s.source === 'EPRA' || (s.title || '').toLowerCase().includes('epra'));
 
   // Determine sentiment
   const bullishKeywords = ['increase', 'rise', 'bullish', 'upward'];
@@ -277,10 +299,10 @@ function extractMarketFactors(signals: MarketSignal[], risks: SupplyRisk[]) {
   
   let sentiment = 'neutral';
   const bullishCount = priceSignals.filter(s => 
-    bullishKeywords.some(keyword => s.title.toLowerCase().includes(keyword))
+    bullishKeywords.some(keyword => (s.title || '').toLowerCase().includes(keyword))
   ).length;
   const bearishCount = priceSignals.filter(s => 
-    bearishKeywords.some(keyword => s.title.toLowerCase().includes(keyword))
+    bearishKeywords.some(keyword => (s.title || '').toLowerCase().includes(keyword))
   ).length;
   
   if (bullishCount > bearishCount) sentiment = 'bullish';

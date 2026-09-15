@@ -25,10 +25,23 @@ export const ShiftManagementPage: React.FC = () => {
         return { total, critical, avgVariance };
     }, [shifts]);
 
-    const activeDuration = useMemo(() => {
-        if (!activeShift?.updated_at) return 0;
-        return differenceInMinutes(new Date(), new Date(activeShift.updated_at));
-    }, [activeShift]);
+    const [activeDuration, setActiveDuration] = React.useState(0);
+
+    React.useEffect(() => {
+        if (!activeShift?.created_at) {
+            setActiveDuration(0);
+            return;
+        }
+        
+        const updateTimer = () => {
+            setActiveDuration(differenceInMinutes(new Date(), new Date(activeShift.created_at)));
+        };
+        
+        updateTimer();
+        const interval = setInterval(updateTimer, 60000); // Update every minute
+        
+        return () => clearInterval(interval);
+    }, [activeShift?.created_at]);
 
     const isLive = activeShift?.status === 'OPEN';
 
@@ -71,7 +84,7 @@ export const ShiftManagementPage: React.FC = () => {
                                 {Math.floor(activeDuration / 60)}h {activeDuration % 60}m
                             </div>
                             <div className="sub-info">
-                                Started at {format(new Date(activeShift.updated_at), 'HH:mm, MMM d')}
+                                Started at {format(new Date(activeShift.created_at), 'HH:mm, MMM d')}
                             </div>
                         </>
                     ) : (

@@ -8,10 +8,11 @@ import TermsModal from '../Landing/TermsModal';
 import '../Landing/TermsModal.css';
 import { OnboardingModal } from './OnboardingModal';
 import { RegistrationRequestForm } from './RegistrationRequestForm';
-import { AuditService } from '@/services/AuditService';
+
 import { supabase } from '@/config/supabase';
 import { getAuthFriendlyErrorMessage } from '@/utils/authErrors';
-import brandMark from '@/assets/iotank-logo-v3.png';
+import brandMark from '@/assets/iotank-official-logo.png';
+import { logger } from '@/utils/logger';
 
 
 
@@ -24,7 +25,7 @@ export const LoginForm: React.FC = () => {
     const [rateLimitError, setRateLimitError] = useState('');
     const [remainingAttempts, setRemainingAttempts] = useState(0);
 
-    const { signIn, signInWithGoogle, currentUser, mfaChallengeRequired, verifyMFA, cancelMFAChallenge, signOut } = useAuth();
+    const { signIn, signInWithGoogle, currentUser, mfaChallengeRequired, mfaFailures, verifyMFA, cancelMFAChallenge, signOut, verifySecurityPin, resetMfaFailures } = useAuth();
     const navigate = useNavigate();
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [isTermsOpen, setIsTermsOpen] = useState(false);
@@ -32,6 +33,9 @@ export const LoginForm: React.FC = () => {
     const [mfaCode, setMfaCode] = useState('');
     const [mfaLoading, setMfaLoading] = useState(false);
     const [shouldShake, setShouldShake] = useState(false);
+    const [pinCode, setPinCode] = useState('');
+    const [pinLoading, setPinLoading] = useState(false);
+    const [visiblePinIndices, setVisiblePinIndices] = useState<number[]>([]);
 
     // Disable auto-redirect to prevent "instant login" mystery.
     // We now show an "Active Session" state in the UI instead.
@@ -48,26 +52,13 @@ export const LoginForm: React.FC = () => {
 
     const processSignIn = async () => {
         try {
-            const userCredential = await signIn(email, password);
-            if (userCredential?.user) {
-                // Log success
-                await supabase.rpc('log_auth_attempt', { p_email: email, p_is_success: true });
-
-                // 🟢 Forensic Log
-                await AuditService.log(
-                    'SECURITY',
-                    'LOGIN',
-                    userCredential.user.user_metadata?.station_id || '',
-                    `Identity verification successful for ${email}`,
-                    'INFO',
-                    { method: 'PASSWORD', email }
-                );
-            }
-            navigate('/dashboard');
+            await signIn(email, password);
+            // Note: The AuthContext listener will set global 'loading' to true,
+            // preventing the useEffect from navigating. Once the listener sets
+            // mfaChallengeRequired to true and loading to false, the UI will 
+            // naturally swap to the MFA form.
         } catch (err: any) {
-            console.error('Auth Error:', err);
-            // Log failure
-            await supabase.rpc('log_auth_attempt', { p_email: email, p_is_success: false });
+            logger.error('Auth Error:', err);
             
             const friendlyMsg = getAuthFriendlyErrorMessage(err);
             setError(friendlyMsg);
@@ -106,7 +97,7 @@ export const LoginForm: React.FC = () => {
             setRemainingAttempts(limit?.remaining_attempts || 0);
             await processSignIn();
         } catch (err) {
-            console.error('Rate limit check failed:', err);
+            logger.error('Rate limit check failed:', err);
             // Fallback: allow attempt if RPC fails (don't lock out users due to infra issues)
             await processSignIn();
         }
@@ -123,14 +114,37 @@ export const LoginForm: React.FC = () => {
         setMfaLoading(true);
         try {
             await verifyMFA(codeToVerify);
-            navigate('/dashboard');
+            // Navigation is safely handled by the reactive useEffect hook once currentUser is enriched.
         } catch (err: any) {
-            console.error('MFA Verification Error:', err);
+            logger.error('MFA Verification Error:', err);
             setError(err.message || 'Invalid verification code. Please try again.');
             setShouldShake(true);
             setTimeout(() => setShouldShake(false), 600);
         } finally {
             setMfaLoading(false);
+        }
+    };
+
+    const handlePinSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (pinCode.length !== 6) return;
+        setPinLoading(true);
+        setError('');
+        try {
+            const success = await verifySecurityPin(pinCode);
+            if (success) {
+                // Security verification passed, proceed to dashboard
+                // verifySecurityPin in AuthContext already escalates if successful
+                navigate('/dashboard');
+            } else {
+                setError('Invalid Security PIN.');
+                setShouldShake(true);
+                setTimeout(() => setShouldShake(false), 600);
+            }
+        } catch (err: any) {
+            setError(err.message || 'Verification failed.');
+        } finally {
+            setPinLoading(false);
         }
     };
 
@@ -156,7 +170,7 @@ export const LoginForm: React.FC = () => {
             // and the useEffect above handles navigation to /dashboard.
             await signInWithGoogle();
         } catch (err: any) {
-            console.error("Google Auth Error:", err);
+            logger.error("Google Auth Error:", err);
             setError(getAuthFriendlyErrorMessage(err));
             setLoading(false);
         }
@@ -248,8 +262,12 @@ export const LoginForm: React.FC = () => {
                             <>
                                 <div className="login-header">
                                     <div className="mfa-lock-icon">🔐</div>
-                                    <h2 className="login-title">Two-Factor Auth</h2>
-                                    <p className="login-subtitle">Open your authenticator app and enter the 6-digit code</p>
+                                    <h2 className="login-title">{mfaFailures >= 3 && currentUser?.securityPinEnabled ? 'PIN Verification' : 'Two-Factor Auth'}</h2>
+                                    <p className="login-subtitle">
+                                        {mfaFailures >= 3 && currentUser?.securityPinEnabled 
+                                            ? 'MFA limit reached. Please verify your 6-digit Security PIN.' 
+                                            : 'Open your authenticator app and enter the 6-digit code'}
+                                    </p>
                                 </div>
                                 <div className="login-body">
                                     {error && (
@@ -258,42 +276,92 @@ export const LoginForm: React.FC = () => {
                                             <span>{error}</span>
                                         </div>
                                     )}
-                                    <form onSubmit={handleMFASubmit} className="login-form">
-                                        <div className="form-group">
-                                            <label htmlFor="mfa-code"><FaShieldAlt className="inline-icon" /> Verification Code</label>
-                                            <input
-                                                id="mfa-code"
-                                                type="text"
-                                                inputMode="numeric"
-                                                pattern="[0-9]{6}"
-                                                maxLength={6}
-                                                value={mfaCode}
-                                                onChange={(e) => {
-                                                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                                                    setMfaCode(val);
-                                                    if (error) setError('');
-                                                    if (val.length === 6 && !mfaLoading) {
-                                                        handleMFASubmit(undefined, val);
-                                                    }
-                                                }}
-                                                placeholder="000000"
-                                                autoFocus
-                                                required
-                                                className="mfa-input-display"
-                                            />
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            className="btn btn-primary login-btn-submit"
-                                            disabled={mfaLoading || mfaCode.length !== 6}
-                                        >
-                                            {mfaLoading ? <div className="loading-dots"><span></span><span></span><span></span></div> : 'Verify & Sign In'}
-                                        </button>
-                                    </form>
+                                    {mfaFailures >= 3 && currentUser?.securityPinEnabled ? (
+                                        <form onSubmit={handlePinSubmit} className="login-form">
+                                            <div className="form-group">
+                                                <label><FaShieldAlt className="inline-icon" /> Security PIN</label>
+                                                <div className="flex justify-center gap-2 mb-6">
+                                                    {[...Array(6)].map((_, i) => (
+                                                        <input
+                                                            key={`pin-login-${i}`}
+                                                            id={`pin-login-input-${i}`}
+                                                            type={visiblePinIndices.includes(i) ? "text" : "password"}
+                                                            maxLength={1}
+                                                            className="w-10 h-12 bg-slate-100 border-2 border-slate-200 rounded-lg text-center text-xl font-bold focus:border-blue-500 focus:bg-white outline-none transition-all"
+                                                            value={pinCode[i] || ''}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/\D/g, '');
+                                                                if (!val && e.target.value) return;
+                                                                const newPin = pinCode.split('');
+                                                                newPin[i] = val;
+                                                                const finalPin = newPin.join('').slice(0, 6);
+                                                                setPinCode(finalPin);
+                                                                if (val) {
+                                                                    setVisiblePinIndices(prev => [...prev, i]);
+                                                                    setTimeout(() => {
+                                                                        setVisiblePinIndices(prev => prev.filter(idx => idx !== i));
+                                                                    }, 1000);
+                                                                    if (i < 5) {
+                                                                        document.getElementById(`pin-login-input-${i + 1}`)?.focus();
+                                                                    }
+                                                                }
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Backspace' && !pinCode[i] && i > 0) {
+                                                                    document.getElementById(`pin-login-input-${i - 1}`)?.focus();
+                                                                }
+                                                            }}
+                                                            autoFocus={i === 0}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                className="btn btn-primary login-btn-submit"
+                                                disabled={pinLoading || pinCode.length !== 6}
+                                            >
+                                                {pinLoading ? <div className="loading-dots"><span></span><span></span><span></span></div> : 'Verify PIN'}
+                                            </button>
+                                        </form>
+                                    ) : (
+                                        <form onSubmit={handleMFASubmit} className="login-form">
+                                            <div className="form-group">
+                                                <label htmlFor="mfa-code"><FaShieldAlt className="inline-icon" /> Verification Code</label>
+                                                <input
+                                                    id="mfa-code"
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]{6}"
+                                                    maxLength={6}
+                                                    value={mfaCode}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                                        setMfaCode(val);
+                                                        if (error) setError('');
+                                                        if (val.length === 6 && !mfaLoading) {
+                                                            handleMFASubmit(undefined, val);
+                                                        }
+                                                    }}
+                                                    placeholder="000000"
+                                                    autoFocus
+                                                    required
+                                                    className="mfa-input-display"
+                                                />
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                className="btn btn-primary login-btn-submit"
+                                                disabled={mfaLoading || mfaCode.length !== 6}
+                                            >
+                                                {mfaLoading ? <div className="loading-dots"><span></span><span></span><span></span></div> : 'Verify & Sign In'}
+                                            </button>
+                                        </form>
+                                    )}
                                     <button
                                         type="button"
                                         className="btn btn-outline btn-block mt-3"
-                                        onClick={() => { cancelMFAChallenge(); setError(''); setMfaCode(''); }}
+                                        onClick={() => { cancelMFAChallenge(); resetMfaFailures(); setError(''); setMfaCode(''); setPinCode(''); }}
                                     >
                                         ← Back to Login
                                     </button>

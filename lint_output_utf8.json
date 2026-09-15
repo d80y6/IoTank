@@ -1,0 +1,468 @@
+﻿[
+  {
+    "function": "public.get_client_dashboard_summary",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"client_id\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "8",
+          "text": "SELECT client_id                  FROM public.profiles WHERE supabase_uid = p_supabase_uid"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.get_tankiq_delivery_logs",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column d.volume_liters does not exist",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "90",
+          "text": "SELECT jsonb_agg(jsonb_build_object(\n        'tank_name', t.tank_name,\n        'volume', d.volume_liters,\n        'date', d.delivery_date,\n        'supplier', d.supplier_name\n    ))\n    FROM deliveries d\n    JOIN tanks t ON d.tank_id = t.id\n    WHERE d.station_id = p_station_id\n    ORDER BY d.delivery_date DESC\n    LIMIT p_limit"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.validate_core_schema",
+    "issues": [
+      {
+        "level": "warning",
+        "message": "target type is different type than source type",
+        "statement": {
+          "lineNumber": "5",
+          "text": "statement block"
+        },
+        "hint": "The input expression type does not have an assignment cast to the target type.",
+        "detail": "cast \"text\" value to \"text[]\" type",
+        "context": "during statement block local variable \"v_missing_columns\" initialization on line 3",
+        "sqlState": "42804"
+      }
+    ]
+  },
+  {
+    "function": "public.log_auth_attempt",
+    "issues": [
+      {
+        "level": "error",
+        "message": "function net.ip_address_to_inet(text) does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "115",
+          "text": "INSERT INTO public.auth_attempts (email, is_success, ip_address)\r\n    VALUES (LOWER(TRIM(p_email)), p_is_success, net.ip_address_to_inet(current_setting('request.headers')::json-\u003e\u003e'x-real-ip'))"
+        },
+        "hint": "No function matches the given name and argument types. You might need to add explicit type casts.",
+        "sqlState": "42883"
+      }
+    ]
+  },
+  {
+    "function": "public.get_tankiq_market_context",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"raw_market_data.created_at\" must appear in the GROUP BY clause or be used in an aggregate function",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "358",
+          "text": "SELECT jsonb_build_object(\n        'latest_prices', (\n            SELECT jsonb_agg(jsonb_build_object(\n                'fuel_type', fuel_type,\n                'price', price_per_liter,\n                'source', source,\n                'date', created_at\n            ))\n            FROM raw_market_data\n            WHERE source = 'epra'\n            ORDER BY created_at DESC\n            LIMIT 3\n        ),\n        'regulatory_notices', (\n            SELECT jsonb_agg(jsonb_build_object(\n                'title', title,\n                'summary', summary,\n                'effective_date', effective_date\n            ))\n            FROM regulatory_notices\n            ORDER BY created_at DESC\n            LIMIT 2\n        )\n    )"
+        },
+        "sqlState": "42803"
+      }
+    ]
+  },
+  {
+    "function": "public.get_tankiq_station_summary",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"alerts.timestamp\" must appear in the GROUP BY clause or be used in an aggregate function",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "884",
+          "text": "SELECT jsonb_build_object(\n        'station_id', p_station_id,\n        'timestamp', now(),\n        'tanks', (\n            SELECT jsonb_agg(jsonb_build_object(\n                'label', tank_name,\n                'fuel_type', fuel_type,\n                'capacity', tank_capacity,\n                'current_volume', current_volume,\n                'fill_percent', ROUND((current_volume / NULLIF(tank_capacity, 0)) * 100, 1)\n            ))\n            FROM tanks\n            WHERE station_id = p_station_id AND status = 'active'\n        ),\n        'recent_alerts', (\n            SELECT jsonb_agg(jsonb_build_object(\n                'type', alert_type,\n                'severity', severity,\n                'message', message,\n                'time', timestamp\n            ))\n            FROM alerts\n            WHERE station_id = p_station_id AND is_resolved = false\n            ORDER BY timestamp DESC\n            LIMIT 5\n        )\n    )"
+        },
+        "sqlState": "42803"
+      }
+    ]
+  },
+  {
+    "function": "public.get_tankiq_consumption_stats",
+    "issues": [
+      {
+        "level": "error",
+        "message": "aggregate function calls cannot be nested",
+        "statement": {
+          "lineNumber": "5",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "342",
+          "text": "SELECT jsonb_build_object(\n        'period_days', p_days,\n        'summary', (\n            -- This is a simplified calculation for the AI to reason about\n            -- Real production would use a more complex aggregate\n            SELECT jsonb_agg(jsonb_build_object(\n                'tank_name', t.tank_name,\n                'total_burn', SUM(s.volume_sold_liters),\n                'avg_daily_burn', SUM(s.volume_sold_liters) / p_days\n            ))\n            FROM tanks t\n            JOIN shift_closures s ON t.id = s.tank_id\n            WHERE t.station_id = p_station_id \n              AND s.closed_at \u003e (now() - (p_days || ' days')::INTERVAL)\n            GROUP BY t.id, t.tank_name\n        )\n    )"
+        },
+        "sqlState": "42803"
+      }
+    ]
+  },
+  {
+    "function": "public.add_debt_to_client",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"public.client_billing\" does not exist",
+        "statement": {
+          "lineNumber": "6",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "51",
+          "text": "SELECT cb.firebase_uid                       FROM public.client_billing cb WHERE cb.id = p_client_id"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.admin_record_external_payment",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"created_by\" of relation \"transactions\" does not exist",
+        "statement": {
+          "lineNumber": "33",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "94",
+          "text": "INSERT INTO transactions (station_id, transaction_type, amount, description, payment_status, created_by)\n  VALUES (p_station_id, 'payment', p_amount, 'External Payment via ' || p_method || ' (Ref: ' || p_reference || ')', 'completed', v_admin_uid::text)\n  RETURNING id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.admin_update_station_profile",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"admin_logs\" does not exist",
+        "statement": {
+          "lineNumber": "21",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "INSERT INTO admin_logs (system_user_id, auth_user_id, action_type, affected_station_id, description, detail_json)\n  VALUES (v_system_user_id, v_admin_uid, 'profile_updated', p_station_id, 'Updated station profile metadata', p_updates)"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.admin_reactivate_station",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"admin_logs\" does not exist",
+        "statement": {
+          "lineNumber": "17",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "INSERT INTO admin_logs (system_user_id, auth_user_id, action_type, affected_station_id, description)\n  VALUES (v_system_user_id, v_admin_uid, 'station_reactivated', p_station_id, 'Reactivated station account')"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.get_admin_risk_matrix",
+    "issues": [
+      {
+        "level": "error",
+        "message": "structure of query does not match function result type",
+        "statement": {
+          "lineNumber": "3",
+          "text": "RETURN QUERY"
+        },
+        "detail": "Returned type numeric does not match expected type double precision in column 5.",
+        "sqlState": "42804"
+      }
+    ]
+  },
+  {
+    "function": "public.update_master_password",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"firebase_uid\" does not exist",
+        "statement": {
+          "lineNumber": "10",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "128",
+          "text": "UPDATE public.profiles \n  SET master_access_password = crypt(new_password, gen_salt('bf', 8)) \n  WHERE supabase_uid = s_uid OR firebase_uid = f_uid"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.verify_master_password",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"firebase_uid\" does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "101",
+          "text": "SELECT master_access_password                  FROM public.profiles\n  WHERE supabase_uid = s_uid OR firebase_uid = f_uid\n  LIMIT 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.cleanup_old_audit_logs",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"public.data_access_logs\" does not exist",
+        "statement": {
+          "lineNumber": "8",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "DELETE FROM public.data_access_logs WHERE created_at \u003c NOW() - INTERVAL '90 days'"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.admin_delete_user",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"supabase_uid\" does not exist",
+        "statement": {
+          "lineNumber": "23",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "69",
+          "text": "SELECT role                     FROM public.system_users\r\n    WHERE supabase_uid = target_user_id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.get_admin_dashboard_stats",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"device_id\" does not exist",
+        "statement": {
+          "lineNumber": "39",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "23",
+          "text": "SELECT COUNT(DISTINCT device_id)                          FROM public.sensor_readings \n     WHERE created_at \u003e NOW() - INTERVAL '15 minutes'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.calculate_monthly_usage_bill",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"public.usage_logs\" does not exist",
+        "statement": {
+          "lineNumber": "4",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "62",
+          "text": "SELECT COALESCE(SUM(total_cost), 0)                     FROM public.usage_logs\n  WHERE client_id = p_client_id\n    AND timestamp \u003e= p_billing_period_start\n    AND timestamp \u003c= p_billing_period_end\n    AND is_billed = FALSE"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.detect_theft_anomaly",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column sr.ambient_volume does not exist",
+        "statement": {
+          "lineNumber": "7",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "12",
+          "text": "SELECT AVG(sr.ambient_volume), STDDEV(sr.ambient_volume)\n                          FROM public.sensor_readings sr\n  WHERE sr.tank_id = p_tank_id\n    AND sr.timestamp \u003e= NOW() - (p_time_window_minutes || ' minutes')::INTERVAL\n    AND sr.timestamp \u003c NOW() - INTERVAL '5 minutes'"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.bootstrap_super_admin",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"full_name\" of relation \"system_users\" does not exist",
+        "statement": {
+          "lineNumber": "29",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "46",
+          "text": "INSERT INTO public.system_users (\n    email, full_name, role, supabase_uid, is_active\n  )\n  VALUES (\n    v_normalized_email, TRIM(p_full_name), 'super_admin', p_supabase_uid, TRUE\n  )\n  ON CONFLICT (email) DO UPDATE SET\n    role = 'super_admin',\n    is_active = TRUE,\n    supabase_uid = EXCLUDED.supabase_uid\n  RETURNING id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.get_current_user_record",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column su.full_name does not exist",
+        "statement": {
+          "lineNumber": "4",
+          "text": "RETURN QUERY"
+        },
+        "query": {
+          "position": "63",
+          "text": "SELECT\r\n        su.id as user_id,\r\n        su.email,\r\n        su.full_name,\r\n        su.role,\r\n        true as is_system_admin,\r\n        NULL::UUID as client_id\r\n    FROM public.system_users su\r\n    WHERE su.supabase_uid = auth.uid()\r\n    LIMIT 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.log_registration_event",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"public.registration_events\" does not exist",
+        "statement": {
+          "lineNumber": "3",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "INSERT INTO public.registration_events (\r\n        registration_id, event_type, actor_user_id, actor_email, notes, detail_json\r\n    ) VALUES (\r\n        p_registration_id, p_event_type,\r\n        auth.uid(), -- Use current user instead of lookup\r\n        p_actor_email, p_notes, p_detail_json\r\n    )"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.process_payment",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"id\" does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "IF"
+        },
+        "query": {
+          "position": "61",
+          "text": "NOT (\r\n    EXISTS (SELECT 1 FROM public.fuel_stations WHERE id = p_station_id AND owner_id = v_caller_uid)\r\n    OR public.is_admin()\r\n  )"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.admin_adjust_station_debt",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column \"created_by\" of relation \"transactions\" does not exist",
+        "statement": {
+          "lineNumber": "27",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "94",
+          "text": "INSERT INTO transactions (station_id, transaction_type, amount, description, payment_status, created_by)\n  VALUES (p_station_id, 'adjustment', ABS(p_adjustment_amount), p_reason, 'completed', v_admin_uid::text)\n  RETURNING id"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  },
+  {
+    "function": "public.admin_suspend_station",
+    "issues": [
+      {
+        "level": "error",
+        "message": "relation \"admin_logs\" does not exist",
+        "statement": {
+          "lineNumber": "22",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "13",
+          "text": "INSERT INTO admin_logs (system_user_id, auth_user_id, action_type, affected_station_id, description, changes_made)\n  VALUES (v_system_user_id, v_admin_uid, 'station_suspended', p_station_id, 'Suspended station account. Reason: ' || p_reason, \n          jsonb_build_object('before_status', v_old_status, 'after_status', 'suspended'))"
+        },
+        "sqlState": "42P01"
+      }
+    ]
+  },
+  {
+    "function": "public.get_user_bundle_v1",
+    "issues": [
+      {
+        "level": "error",
+        "message": "column su.full_name does not exist",
+        "statement": {
+          "lineNumber": "11",
+          "text": "SQL statement"
+        },
+        "query": {
+          "position": "144",
+          "text": "WITH identity AS (\n    -- 1. Check system_users (IoTank Staff)\n    SELECT\n      'system'::TEXT          AS identity_type,\n      su.role,\n      su.full_name            AS display_name,\n      su.photo_url,\n      NULL::UUID              AS station_id,\n      'IoTank Governance'     AS station_name,\n      '/iotank-logo.png'      AS logo_url,\n      NULL::TEXT              AS county,\n      NULL::JSONB             AS address,\n      NULL::TEXT              AS phone_number,\n      ARRAY[]::UUID[]         AS site_ids,\n      FALSE                   AS mfa_enabled,\n      su.is_active,\n      su.created_at,\n      su.email,\n      CASE \n        WHEN su.role = 'super_admin'   THEN 1\n        WHEN su.role = 'admin_helper'  THEN 2\n        WHEN su.role = 'support_staff' THEN 3\n        WHEN su.role = 'analyst'       THEN 4\n        ELSE 99\n      END                     AS auth_level\n    FROM public.system_users su\n    WHERE su.auth_user_id = v_uid AND su.is_active = TRUE\n\n    UNION ALL\n\n    -- 2. Check profiles (Station Users)\n    SELECT\n      'profile'::TEXT         AS identity_type,\n      p.role,\n      p.display_name,\n      p.photo_url,\n      p.station_id,\n      fs.station_name,\n      fs.logo_url,\n      fs.county,\n      p.address,\n      p.phone_number,\n      p.site_ids,\n      COALESCE(p.mfa_enabled, FALSE) AS mfa_enabled,\n      TRUE                    AS is_active,\n      p.created_at,\n      p.email,\n      CASE \n        WHEN p.role IN ('admin', 'owner') THEN 5\n        WHEN p.role = 'supervisor' THEN 6\n        WHEN p.role = 'operator'   THEN 7\n        WHEN p.role = 'viewer'     THEN 8\n        ELSE 99\n      END                     AS auth_level\n    FROM public.profiles p\n    LEFT JOIN public.fuel_stations fs ON p.station_id = fs.station_id\n    WHERE p.auth_user_id = v_uid\n    LIMIT 1\n  )\n  SELECT to_jsonb(identity.*)\n                  FROM identity\n  LIMIT 1"
+        },
+        "sqlState": "42703"
+      }
+    ]
+  }
+]
+

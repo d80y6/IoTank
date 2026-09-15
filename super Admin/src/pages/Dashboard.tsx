@@ -34,7 +34,7 @@ const Dashboard = () => {
             setStats(statsData);
             setDevices(devicesData);
         } catch (err) {
-            console.error("Dashboard Sync Error:", err);
+            
         } finally {
             setLoading(false);
         }
@@ -51,7 +51,6 @@ const Dashboard = () => {
                 'postgres_changes', 
                 { event: '*', schema: 'public', table: 'devices' }, 
                 () => {
-                    console.log('[DashboardRealtime] Hardware update detected. Refreshing stats...');
                     fetchData();
                 }
             )
@@ -59,7 +58,6 @@ const Dashboard = () => {
                 'postgres_changes', 
                 { event: '*', schema: 'public', table: 'tanks' }, 
                 () => {
-                    console.log('[DashboardRealtime] Inventory change detected. Refreshing stats...');
                     fetchData();
                 }
             )
@@ -109,11 +107,11 @@ const Dashboard = () => {
                     <div className="header-stats">
                         <div className="header-stat-item">
                             <p className="header-stat-label">System Uptime</p>
-                            <p className="header-stat-val">{stats?.health?.uptime || '99.9%'}</p>
+                            <p className="header-stat-val">{stats?.health?.uptime || 'Loading...'}</p>
                         </div>
                         <div className="header-stat-item">
                             <p className="header-stat-label">Signal Latency</p>
-                            <p className="header-stat-val">{stats?.health?.queryLatency || '24ms'}</p>
+                            <p className="header-stat-val">{stats?.health?.queryLatency || '...'}</p>
                         </div>
                     </div>
                 </div>
@@ -129,9 +127,9 @@ const Dashboard = () => {
                                 <FiDatabase size={14} className="text-emerald-500" />
                             </div>
                             <div className="stat-val-group">
-                                <span className="stat-value">SECURE</span>
+                                <span className="stat-value">{stats?.health?.apiStatus?.supabase === 'green' ? 'SECURE' : 'DEGRADED'}</span>
                                 <div className="stat-footer">
-                                    <span>{stats?.health?.dbSize || '142 MB'} used</span>
+                                    <span>{stats?.health?.dbSize && stats.health.dbSize !== '0' ? stats.health.dbSize : 'Calculating...'}</span>
                                     <FiCheckCircle size={10} className="text-emerald-500" />
                                 </div>
                             </div>
@@ -144,10 +142,10 @@ const Dashboard = () => {
                                 <FiMessageSquare size={14} className="text-indigo-500" />
                             </div>
                             <div className="stat-val-group">
-                                <span className="stat-value">STABLE</span>
+                                <span className="stat-value">{stats?.health?.apiStatus?.twilio === 'green' ? 'STABLE' : 'UNSTABLE'}</span>
                                 <div className="stat-footer">
-                                    <span>Twilio Active</span>
-                                    <FiActivity size={10} className="text-indigo-400" />
+                                    <span>{stats?.health?.apiStatus?.twilio === 'green' ? 'Twilio Active' : 'API Error'}</span>
+                                    <FiActivity size={10} className={stats?.health?.apiStatus?.twilio === 'green' ? "text-indigo-400" : "text-rose-500"} />
                                 </div>
                             </div>
                         </div>
@@ -159,9 +157,9 @@ const Dashboard = () => {
                                 <FiEngine size={14} className="text-amber-500" />
                             </div>
                             <div className="stat-val-group">
-                                <span className="stat-value">NOMINAL</span>
+                                <span className="stat-value">{stats?.health?.alertRate ? 'NOMINAL' : 'STANDBY'}</span>
                                 <div className="stat-footer">
-                                    <span>98.4% Prob</span>
+                                    <span>{stats?.health?.alertRate || '0%'} Reliability</span>
                                     <FiZap size={10} className="text-amber-500" />
                                 </div>
                             </div>
@@ -173,7 +171,7 @@ const Dashboard = () => {
                                 <FiDownload size={14} className="text-emerald-500" />
                             </div>
                             <div className="stat-val-group">
-                                <span className="stat-value">{stats?.health?.dataIngestionRate || '1.2k'}</span>
+                                <span className="stat-value">{stats?.health?.dataIngestionRate && stats.health.dataIngestionRate !== '0' ? stats.health.dataIngestionRate : '0 /sec'}</span>
                                 <div className="stat-footer">
                                     <span>REQ / MINUTE</span>
                                     <span className="status-indicator status-online"></span>
@@ -223,7 +221,7 @@ const Dashboard = () => {
                             <span className="stat-label">Active Operators</span>
                             <span className="stat-value">{stats?.health?.totalUsers || 0}</span>
                             <div className="stat-footer">
-                                <span className="text-emerald-500 font-bold">+12.5%</span>
+                                <span className="text-emerald-500 font-bold">{stats?.health?.totalOperators || 0} Admins</span>
                                 <span>Global Nodes</span>
                             </div>
                         </div>

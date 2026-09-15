@@ -7,6 +7,7 @@ import { Navbar } from './Navbar';
 import { useAlerts, useTanks, useAllLatestReadings } from '@/hooks/useSupabase';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { useAlertEngine } from '@/hooks/useAlertEngine';
+import { useEPRANotifier } from '@/hooks/useEPRANotifier';
 import { AlertBanner } from '../Alerts/AlertBanner';
 import TermsModal from '../Landing/TermsModal';
 import { PhotoNudgeBanner } from './PhotoNudgeBanner';
@@ -14,7 +15,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FiFacebook, FiInstagram, FiTwitter } from 'react-icons/fi';
 import { PageLoader } from '../Common/PageLoader';
 import { TankIQSidebar } from '../Analysis/TankIQSidebar';
-import brandMark from '@/assets/iotank-logo-v3.png';
+import { useWindowSize } from '@/hooks/useWindowSize';
+import { NotificationService } from '@/services/NotificationService';
+import brandMark from '@/assets/iotank-official-logo.png';
 
 const TourGuide = lazy(() => import('../Tour/TourGuide').then(module => ({ default: module.TourGuide })));
 
@@ -22,6 +25,8 @@ import './MainLayout.css';
 
 import { RefillVerificationModal } from '../Alerts/RefillVerificationModal';
 import { SecurityIntrusionModal } from '../Alerts/SecurityIntrusionModal';
+import SecurityPromptModal from '../Auth/SecurityPromptModal';
+import { AutoUpdatePriceModal } from '../Market/AutoUpdatePriceModal';
 
 export const MainLayout: React.FC = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -42,6 +47,19 @@ export const MainLayout: React.FC = () => {
         const dismissed = sessionStorage.getItem('photo_nudge_dismissed');
         return !currentUser?.photoURL && !dismissed;
     });
+
+    const [showSecurityPrompt, setShowSecurityPrompt] = useState(false);
+
+    // [REACTIVE SECURITY LOGIC]: Synchronize the nudge state when the user profile is enriched.
+    // If the user has MFA or a PIN, the nudge should disappear automatically.
+    React.useEffect(() => {
+        const dismissed = sessionStorage.getItem('security_nudge_dismissed');
+        const shouldShow = !!currentUser && !currentUser.mfaEnabled && !currentUser.securityPinEnabled && !dismissed;
+        setShowSecurityPrompt(shouldShow);
+    }, [currentUser?.mfaEnabled, currentUser?.securityPinEnabled, currentUser?.authUserId]);
+
+    // Activate EPRA Notifications Engine
+    useEPRANotifier();
 
     // Mobile Sidebar Inactivity Timer
     const mobileMenuTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -115,6 +133,8 @@ export const MainLayout: React.FC = () => {
 
     // [SECURITY GLOBAL TRIGGER]: Automatically pop security intrusion modal for THEFT/LEAK
     const [activeSecurityAlert, setActiveSecurityAlert] = useState<any>(null);
+    const snoozedAlertsRef = React.useRef<Record<string, number>>({});
+    
     React.useEffect(() => {
         const latestSecurity = alerts.find((a: import('@/types').Alert) => 
             (a.type === 'anomaly' || a.type === 'leak_detected' || a.type === 'theft_detected') && 
@@ -124,10 +144,13 @@ export const MainLayout: React.FC = () => {
             (a.metadata?.detectedAt ? (Date.now() - new Date(a.metadata.detectedAt).getTime()) < 300000 : true)
         );
         
-        if (latestSecurity && (!activeSecurityAlert || activeSecurityAlert.id !== latestSecurity.id)) {
-            // We use the first event in the TelemetryQueue if available for forensic data, 
-            // otherwise build from alert metadata
-            setActiveSecurityAlert(latestSecurity);
+        if (latestSecurity) {
+            const snoozeTimestamp = snoozedAlertsRef.current[latestSecurity.id];
+            const isSnoozed = snoozeTimestamp && (Date.now() - snoozeTimestamp < 20000); // 20 seconds snooze
+            
+            if (!isSnoozed && (!activeSecurityAlert || activeSecurityAlert.id !== latestSecurity.id)) {
+                setActiveSecurityAlert(latestSecurity);
+            }
         }
     }, [alerts, activeSecurityAlert]);
 
@@ -146,8 +169,69 @@ export const MainLayout: React.FC = () => {
         });
     }, [readings, alertEngine]);
 
+    // [NOTIFICATION NUDGE]: Prompt user to enable browser alerts if not set
+    React.useEffect(() => {
+        const checkNudge = async () => {
+            if (NotificationService.shouldShowNudge()) {
+                const isBlocked = Notification.permission === 'denied';
+                
+                // Wait a bit after mount for visual clarity
+                const timer = setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('system-toast', {
+                        detail: {
+                            title: isBlocked ? 'Tactical Alerts: Permissions Blocked' : 'Tactical Alerts: Enable Browser Dispatch',
+                            message: isBlocked 
+                                ? 'Browser notifications are currently blocked for this site. To receive real-time critical security alerts and telemetry warnings when closed, please click the site settings (lock icon next to the URL) and change Notifications to "Allow".'
+                                : 'Get real-time browser notifications for critical security events and inventory levels even when you are on other tabs.',
+                            type: isBlocked ? 'warning' : 'info',
+                            persistent: true,
+                            actions: [
+                                {
+                                    label: 'Dismiss',
+                                    onClick: () => NotificationService.dismissNudge()
+                                },
+                                ...(!isBlocked ? [{
+                                    label: 'Enable Alerts',
+                                    primary: true,
+                                    onClick: async () => {
+                                        const granted = await NotificationService.requestPermission();
+                                        if (granted && currentUser?.authUserId) {
+                                            await NotificationService.subscribeToPush(currentUser.authUserId);
+                                            window.dispatchEvent(new CustomEvent('system-toast', {
+                                                detail: {
+                                                    title: 'Alerts Activated',
+                                                    message: 'Browser dispatch is now active. You will receive mission-critical updates in real-time.',
+                                                    type: 'success'
+                                                }
+                                            }));
+                                        }
+                                    }
+                                }] : [])
+                            ]
+                        }
+                    }));
+                }, 3000);
+                return () => clearTimeout(timer);
+            }
+        };
+        checkNudge();
+    }, [currentUser?.authUserId]);
+
+    const { width } = useWindowSize();
+
+    // Auto-collapse sidebar on tablet, expand on desktop, use mobile menu on phone
+    React.useEffect(() => {
+        if (width <= 600) {
+            setSidebarCollapsed(false); // Mobile menu doesn't use 'collapsed' state usually
+        } else if (width > 600 && width <= 1024) {
+            setSidebarCollapsed(true);
+        } else {
+            setSidebarCollapsed(false);
+        }
+    }, [width]);
+
     const toggleSidebar = () => {
-        if (window.innerWidth <= 768) {
+        if (width <= 600) {
             setIsMobileMenuOpen(!isMobileMenuOpen);
         } else {
             setSidebarCollapsed(!sidebarCollapsed);
@@ -181,6 +265,7 @@ export const MainLayout: React.FC = () => {
             <TankIQSidebar 
                 isOpen={isTankIQOpen} 
                 onClose={() => setIsTankIQOpen(false)} 
+                onToggle={() => setIsTankIQOpen(!isTankIQOpen)}
             />
 
             <div className="content-wrapper">
@@ -231,7 +316,9 @@ export const MainLayout: React.FC = () => {
                                 <span className="pulse-cyan"></span> <span className="hidden sm:inline">Status:</span> Operational
                             </div>
                             <div className="v-divider"></div>
-                            <a href="#privacy" onClick={(e) => { e.preventDefault(); openLegalModal(3); }} className="footer-nav-link !text-[10px]">Privacy</a>
+                            <a href="#privacy" onClick={(e) => { e.preventDefault(); openLegalModal(0); }} className="footer-nav-link !text-[10px]">Privacy</a>
+                            <div className="v-divider"></div>
+                            <a href="#aup" onClick={(e) => { e.preventDefault(); openLegalModal(2); }} className="footer-nav-link !text-[10px]">Acceptable Use</a>
                         </div>
                         
                         <div className="v-divider hidden lg:block"></div>
@@ -285,9 +372,25 @@ export const MainLayout: React.FC = () => {
                             }
                         }
                     }}
-                    onClose={() => setActiveSecurityAlert(null)}
+                    onClose={() => {
+                        if (activeSecurityAlert) {
+                            snoozedAlertsRef.current[activeSecurityAlert.id] = Date.now();
+                        }
+                        setActiveSecurityAlert(null);
+                    }}
                 />
             )}
+
+            <SecurityPromptModal 
+                isOpen={!!showSecurityPrompt} 
+                onClose={() => {
+                    setShowSecurityPrompt(false);
+                    sessionStorage.setItem('security_nudge_dismissed', 'true');
+                }} 
+            />
+
+            {/* Global Market Price Auto-Update (Immediate & 1hr Reminder) */}
+            <AutoUpdatePriceModal stationId={stationId} />
         </div>
     );
 };

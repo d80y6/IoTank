@@ -14,6 +14,7 @@ import { getSeverityClass } from '../../services/AlertScoringEngine';
 import { SkeletonDashboard, SkeletonTable } from '../Common/SkeletonLoader';
 import { resolveAllAlerts, propagateStationThresholds } from '@/hooks/useSupabase';
 import { sanitizeIds } from '@/utils/formatUtils';
+import { logger } from '@/utils/logger';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'mission' | 'thresholds' | 'preferences';
@@ -114,7 +115,7 @@ const EscalationLadder: React.FC<{ activeAlerts: Alert[] }> = ({ activeAlerts })
     );
 };
 
-const RiskTrendViz: React.FC = () => {
+const RiskTrendViz: React.FC<{ activeAlerts: Alert[] }> = ({ activeAlerts }) => {
     return (
         <div className="risk-trend-viz">
             <div className="label-stack">
@@ -125,7 +126,10 @@ const RiskTrendViz: React.FC = () => {
                     <div 
                         key={i} 
                         className="viz-bar active" 
-                        style={{ animationDelay: `${i * 0.1}s`, height: `${Math.random() * 60 + 40}%` }} 
+                        style={{ 
+                            animationDelay: `${i * 0.1}s`, 
+                            height: `${40 + ((activeAlerts.length * (i + 1)) % 60)}%` 
+                        }} 
                     />
                 ))}
             </div>
@@ -139,6 +143,20 @@ export const AlertsCenter: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('mission');
     const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('ALL');
     const [isLoading, setIsLoading] = useState(true);
+    const [notificationsActive, setNotificationsActive] = useState(NotificationService.isEnabled());
+
+    const handleToggleNotifications = async () => {
+        if (notificationsActive) {
+            NotificationService.disable();
+            setNotificationsActive(false);
+        } else {
+            const granted = await NotificationService.requestPermission();
+            if (granted && currentUser?.authUserId) {
+                await NotificationService.subscribeToPush(currentUser.authUserId);
+            }
+            setNotificationsActive(granted);
+        }
+    };
 
 
 
@@ -166,7 +184,7 @@ export const AlertsCenter: React.FC = () => {
             // but we can add a toast or similar if we had a toast provider here.
             // For now, the Audit log is enough for the backend.
         } catch (err) {
-            console.error('Failed to propagate logic:', err);
+            logger.error('Failed to propagate logic:', err);
         } finally {
             setIsPropagating(false);
         }
@@ -228,7 +246,7 @@ export const AlertsCenter: React.FC = () => {
                 'INFO'
             );
         } catch (err) {
-            console.error('Error resolving all alerts:', err);
+            logger.error('Error resolving all alerts:', err);
         } finally {
             setIsClearing(false);
         }
@@ -273,7 +291,7 @@ export const AlertsCenter: React.FC = () => {
                     <div className="sidebar-meta-block">
                         <div className="meta-item">
                             <FiActivity size={12} />
-                            <span>System Uptime: <strong>99.98%</strong></span>
+                            <span>System Status: <strong>ONLINE</strong></span>
                         </div>
                         <div className="meta-item">
                             <FiZap size={12} />
@@ -301,7 +319,7 @@ export const AlertsCenter: React.FC = () => {
 
                         {activeTab === 'mission' && rawActiveAlerts.length > 0 && (
                             <div className="hud-top-actions">
-                                <RiskTrendViz />
+                                <RiskTrendViz activeAlerts={activeAlerts} />
                                 <button 
                                     className={`tactical-btn-premium danger ${isClearing ? 'loading' : ''}`} 
                                     onClick={handleResolveAll} 
@@ -372,8 +390,14 @@ export const AlertsCenter: React.FC = () => {
                                                             <tr>
                                                                 <td colSpan={5} className="empty-stream-state">
                                                                     <div className="empty-tactical-state unified">
-                                                                        <FiShield size={48} className="empty-icon-glow" />
-                                                                        <p>Zero immediate threats detected.</p>
+                                                                        <div className="secure-haven-graphic">
+                                                                            <div className="shield-ring outer"></div>
+                                                                            <div className="shield-ring inner"></div>
+                                                                            <FiShield className="empty-icon-glow" />
+                                                                        </div>
+                                                                        <h3 className="empty-state-title">Operational Perimeter Secure</h3>
+                                                                        <p className="empty-state-desc">Zero immediate threats or anomalies detected within the current telemetry window.</p>
+                                                                        <div className="scan-line-v2"></div>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -528,7 +552,12 @@ export const AlertsCenter: React.FC = () => {
                                                         <div className="toggle-label"><FiBell /> Native Push Services</div>
                                                         <p>Biological bypass for real-time tactical pulses.</p>
                                                     </div>
-                                                    <button className={`tactical-switch ${NotificationService.isEnabled() ? 'active' : ''}`} onClick={() => {}} title="Toggle native push notifications" aria-label="Toggle native push notifications">
+                                                    <button 
+                                                        className={`tactical-switch ${notificationsActive ? 'active' : ''}`} 
+                                                        onClick={handleToggleNotifications} 
+                                                        title="Toggle native push notifications" 
+                                                        aria-label="Toggle native push notifications"
+                                                    >
                                                         <div className="switch-knob" />
                                                     </button>
                                                 </div>

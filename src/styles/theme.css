@@ -179,7 +179,7 @@
 
   /* ==================== LAYOUT ==================== */
   --container-max-width: 1680px;
-  --sidebar-width: 260px;
+  --sidebar-width: 240px;
   --sidebar-collapsed-width: 72px;
   --navbar-height: 72px;
 
@@ -217,11 +217,21 @@
   --z-popover: 1060;
   --z-tooltip: 1070;
 
-  /* ==================== BREAKPOINTS (for JS) ==================== */
-  --breakpoint-mobile: 480px;
-  --breakpoint-tablet: 768px;
-  --breakpoint-desktop: 1024px;
-  --breakpoint-wide: 1440px;
+  /* ==================== BREAKPOINTS (9-Tier Precision) ==================== */
+  /* Mobile Devices */
+  --breakpoint-sm-phone: 320px;   /* Small Smartphones (iPhone SE) */
+  --breakpoint-phone: 360px;      /* Standard Smartphones (Galaxy S) */
+  --breakpoint-lg-phone: 414px;   /* Large/Max Smartphones (iPhone Pro Max) */
+  
+  /* Tablet Devices */
+  --breakpoint-sm-tablet: 600px;  /* Small Tablets Portrait (Kindle Fire) */
+  --breakpoint-tablet: 768px;     /* Standard Tablets Portrait (iPad Air) */
+  --breakpoint-lg-tablet: 1024px; /* Large Tablets (iPad Pro / Landscape) */
+  
+  /* Laptop & Desktop Devices */
+  --breakpoint-sm-laptop: 1280px; /* Small Laptops (Chromebooks) */
+  --breakpoint-laptop: 1440px;    /* Standard Desktops/Laptops (MacBook Pro) */
+  --breakpoint-hd: 1920px;        /* Large Displays (HD/4K) */
 }
 
 /* =============================================================================

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, Suspense, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import {
   FiCheckCircle, FiMessageSquare, FiDroplet,
   FiTwitter, FiLinkedin, FiFacebook, FiMenu, FiX,
@@ -16,7 +17,7 @@ import {
 } from '../../hooks/useScrollAnimation';
 
 // Import Assets
-import brandMark from '@/assets/iotank-logo-v3.png';
+import brandMark from '@/assets/iotank-official-logo.png';
 import dashboardMockup from '@/assets/dashboard-mockup.png';
 
 const ExcellenceSection = React.lazy(() => import('./ExcellenceSection'));
@@ -31,6 +32,7 @@ const LeadMagnetNewsletter = React.lazy(() => import('./LeadMagnetNewsletter'));
 
 import { DocViewer } from './DocViewer';
 import { LiveChat } from './LiveChat';
+import { logger } from '@/utils/logger';
 import {
     LossCalculatorModal,
     CrisisIntro,
@@ -106,7 +108,7 @@ export const LandingPage: React.FC = () => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          videoElement.play().catch(err => console.warn("Video play interrupted:", err));
+          videoElement.play().catch(err => logger.warn("Video play interrupted:", err));
         } else {
           videoElement.pause();
         }
@@ -178,6 +180,14 @@ export const LandingPage: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // [AUTH BUGFIX]: Redirect authenticated users away from the landing page
+  const { currentUser, loading: authLoading } = useAuth();
+  useEffect(() => {
+    if (!authLoading && currentUser?.stationId) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, authLoading, navigate]);
+
   // ── Magnetic Button ───────────────────────────────────────────
   const magneticBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -219,7 +229,7 @@ export const LandingPage: React.FC = () => {
       <nav className={`navbar ${scrolled ? 'scrolled' : ''} ${isMenuOpen ? 'menu-open' : ''}`}>
         <div className="container navbar-inner">
           <div className="brand">
-            <img src={brandMark} alt="IoTank Brandmark" className="brand-logo-nav" style={{ width: 'auto', height: '38px' }} />
+            <img src={brandMark} alt="IoTank AI Fuel Monitoring Kenya" className="brand-logo-nav" style={{ width: 'auto', height: '38px' }} />
             <span>Joe Engineering</span>
           </div>
 
@@ -256,8 +266,9 @@ export const LandingPage: React.FC = () => {
           {/* Kinetic H1 — words slide up on load */}
           <div className="hero-content text-center">
             <h1 className="hero-h1 hero-kinetic-h1">
-              <span className="word-line"><span>Fuel intelligence for</span></span>
-              <span className="word-line"><span>safer, smarter stations.</span></span>
+              <span className="sr-only">IoTank: AI-powered fuel monitoring system for safer, smarter petrol stations in Kenya.</span>
+              <span className="word-line" aria-hidden="true"><span>Fuel intelligence for</span></span>
+              <span className="word-line" aria-hidden="true"><span>safer, smarter stations.</span></span>
             </h1>
           </div>
 
@@ -273,7 +284,7 @@ export const LandingPage: React.FC = () => {
                 playsInline
                 preload="metadata"
                 crossOrigin="anonymous"
-                onError={(e) => { console.error("Local video failed:", videos[0], e); setVideoFailed(true); }}
+                onError={(e) => { logger.error("Local video failed:", e); setVideoFailed(true); }}
                 poster={brandMark}
                 title="Modern Data Flow Animation"
                 onCanPlay={(e) => (e.currentTarget.muted = true)}
@@ -352,8 +363,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className={`solution-pill badge-reveal ${solutionHeadVisible ? 'is-visible' : ''}`} style={{ marginBottom: '12px' }}>THE SOLUTION</div>
             <h2 className="h2 solution-heading">
-              From Guesswork to{' '}
-              <span className={`text-cyan text-underline-reveal ${solutionHeadVisible ? 'is-visible' : ''}`}>Precision</span>
+              The <span className={`text-cyan text-underline-reveal ${solutionHeadVisible ? 'is-visible' : ''}`}>IoTank Solution</span>
             </h2>
             <span className={`line-draw-reveal ${solutionHeadVisible ? 'is-visible' : ''}`} />
           </div>
@@ -364,7 +374,7 @@ export const LandingPage: React.FC = () => {
             <div className={`solution-image-side blur-focus-reveal ${solutionHeadVisible ? 'is-visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
               <img
                 src={dashboardMockup}
-                alt="IoTank Intelligence Dashboard"
+                alt="IoTank Intelligence Dashboard - Fuel Tank Monitoring and Analytics"
                 className="solution-mockup-img hover-lift"
                 loading="eager"
               />
@@ -373,7 +383,7 @@ export const LandingPage: React.FC = () => {
             {/* Right: Text + feature cards — stagger */}
             <div ref={solutionCardsRef} className="solution-content-side">
               <p className={`body-text reveal-on-scroll ${solutionCardsVisible ? 'is-visible' : ''}`} style={{ marginBottom: '10px', transitionDelay: '0.05s' }}>
-                IoTank replaces manual dipping and fragmented reporting with a continuous intelligence system.
+                IoTank is Kenya's definitive answer to fuel losses, replacing manual dipping with a continuous industrial intelligence system.
               </p>
               <p className={`body-text reveal-on-scroll ${solutionCardsVisible ? 'is-visible' : ''}`} style={{ marginBottom: '28px', transitionDelay: '0.15s' }}>
                 Instead of reacting after losses happen, you get real-time tank levels (±1mm precision), temperature-corrected volume, and AI procurement timing signals.
@@ -415,8 +425,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className={`solution-pill badge-reveal ${howWorksVisible ? 'is-visible' : ''}`} style={{ background: 'rgba(0, 181, 216, 0.1)', border: '1px solid rgba(0, 181, 216, 0.2)', marginBottom: '12px' }}>HOW IT WORKS</div>
             <h2 className="h2 solution-heading">
-              From{' '}
-              <SplitText text="Sensor to Strategy" isVisible={howWorksVisible} className="shimmer-gradient-text" />
+              How <SplitText text="IoTank Works" isVisible={howWorksVisible} className="shimmer-gradient-text" />
             </h2>
             <p className={`body-text reveal-on-scroll ${howWorksVisible ? 'is-visible' : ''}`} style={{ color: '#94A3B8', transitionDelay: '0.3s' }}>No spreadsheets. No assumptions. No surprises.</p>
             <span className={`line-draw-reveal ${howWorksVisible ? 'is-visible' : ''}`} />

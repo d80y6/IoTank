@@ -104,11 +104,19 @@ export const hardwareService = {
     },
 
     async getFirmwareLibrary() {
-        // This would eventually be a 'firmware_releases' table
-        return [
-            { id: '1', version: '2.6.0', release_date: '2026-03-15', type: 'stable', compatible_hw: ['ESP32-S3'], size_mb: 2.1, checksum: 'sha256...', status: 'active' },
-            { id: '2', version: '2.5.3', release_date: '2026-02-10', type: 'stable', compatible_hw: ['Both'], size_mb: 1.9, checksum: 'sha256...', status: 'archived' }
-        ] as FirmwareVersion[];
+        const { data, error } = await supabase
+            .from('firmware_releases')
+            .select('*')
+            .order('release_date', { ascending: false });
+        
+        if (error || !data || data.length === 0) {
+            console.warn('Firmware library empty or missing table, using fallback.');
+            return [
+                { id: '1', version: '2.6.0', release_date: '2026-03-15', type: 'stable', compatible_hw: ['ESP32-S3'], size_mb: 2.1, checksum: 'sha256...', status: 'active' },
+                { id: '2', version: '2.5.3', release_date: '2026-02-10', type: 'stable', compatible_hw: ['Both'], size_mb: 1.9, checksum: 'sha256...', status: 'archived' }
+            ] as FirmwareVersion[];
+        }
+        return data as FirmwareVersion[];
     },
 
     async getOTACampaigns() {

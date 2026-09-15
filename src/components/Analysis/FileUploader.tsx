@@ -46,12 +46,26 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     const handleFile = (file: File) => {
         const type = file.name.split('.').pop()?.toLowerCase();
         if (type !== 'csv' && type !== 'pdf') {
-            alert('Only CSV and PDF files are supported');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Invalid File',
+                    message: 'Only CSV and PDF files are supported',
+                    type: 'error',
+                    attribution: 'FILE UPLOADER'
+                }
+            }));
             return;
         }
 
         if (file.size > 100 * 1024 * 1024) { // 100MB
-            alert('File size exceeds 100MB limit');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'File Too Large',
+                    message: 'File size exceeds 100MB limit',
+                    type: 'error',
+                    attribution: 'FILE UPLOADER'
+                }
+            }));
             return;
         }
 

@@ -7,11 +7,23 @@ serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
     try {
-        const authz = await requireProxyScope(req, corsHeaders);
-        if ('response' in authz) return authz.response;
+        const authHeader = req.headers.get('Authorization') || '';
+        const apiKeyHeader = req.headers.get('apikey') || '';
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+        const cronSecret = Deno.env.get('CRON_SECRET') || '';
 
-        const limit = await enforceDurableRateLimit(authz.context, corsHeaders, 'daily-analytics-rollup', 5);
-        if ('response' in limit) return limit.response;
+        const isAuthorized =
+            (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+            (serviceKey && authHeader === `Bearer ${serviceKey}`) ||
+            (serviceKey && apiKeyHeader === serviceKey);
+
+        if (!isAuthorized) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
+
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') || '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -32,8 +44,8 @@ serve(async (req) => {
 
         for (const tank of tanks) {
             const { data: readings, error: readingsError } = await supabase
-                .from('tank_readings')
-                .select('ambient_volume, temperature')
+                .from('sensor_readings')
+                .select('volume, temperature')
                 .eq('tank_id', tank.id)
                 .gte('timestamp', startTime)
                 .lt('timestamp', endTime);
@@ -42,8 +54,8 @@ serve(async (req) => {
 
             let sumVol = 0, sumTemp = 0, count = 0;
             readings.forEach(data => {
-                if (typeof data.ambient_volume === 'number') {
-                    sumVol += data.ambient_volume;
+                if (typeof data.volume === 'number') {
+                    sumVol += data.volume;
                     if (typeof data.temperature === 'number') sumTemp += data.temperature;
                     count++;
                 }
@@ -55,8 +67,9 @@ serve(async (req) => {
                     .upsert({
                         tank_id: tank.id,
                         date: dateStr,
-                        avg_ambient_volume: sumVol / count,
+                        avg_volume: sumVol / count, // DB column name standardized to avg_volume
                         avg_temperature: sumTemp / count,
+
                         reading_count: count,
                         timestamp: startTime
                     }, { onConflict: 'tank_id, date' });
@@ -64,6 +77,7 @@ serve(async (req) => {
                 if (insertError) console.error(`[Rollup] Error for Tank ${tank.id}:`, insertError.message);
             }
         }
+
 
         return new Response(JSON.stringify({ status: 'Daily rollup completed' }), { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

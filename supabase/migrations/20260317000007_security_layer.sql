@@ -180,7 +180,6 @@ ON tanks FOR UPDATE
 USING (public.firebase_uid() = firebase_uid)
 WITH CHECK (
   public.firebase_uid() = firebase_uid
-  AND firebase_uid = (SELECT firebase_uid FROM tanks WHERE id = tanks.id)
 );
 
 DROP POLICY IF EXISTS "Users can delete own tanks" ON tanks;
@@ -233,7 +232,6 @@ ON alerts FOR UPDATE
 USING (public.firebase_uid() = firebase_uid)
 WITH CHECK (
   public.firebase_uid() = firebase_uid
-  AND firebase_uid = (SELECT firebase_uid FROM alerts WHERE id = alerts.id)
 );
 
 DROP POLICY IF EXISTS "System can insert alerts" ON alerts;

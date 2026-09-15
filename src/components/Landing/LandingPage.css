@@ -116,6 +116,19 @@ ul {
     }
 }
 
+/* Accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
 
 .section-compact {
     padding: 40px 0;
@@ -311,12 +324,10 @@ p,
 @keyframes gemini-flow {
     0% {
         --gemini-angle: 0deg;
-        opacity: 1;
     }
 
     100% {
         --gemini-angle: 360deg;
-        opacity: 1;
     }
 }
 
@@ -330,33 +341,30 @@ p,
 .btn-gemini-glow::before {
     content: '' !important;
     position: absolute;
-    inset: -2px;
-    /* Slight overflow for better perimeter visibility */
-    padding: 2.5px;
-    /* Line thickness */
+    inset: -1.5px; /* Thinner line for elegance */
+    padding: 2px;
     border-radius: inherit;
     background: conic-gradient(from var(--gemini-angle),
             transparent 0deg,
-            transparent 300deg,
-            #4285F4 315deg,
-            #EA4335 330deg,
-            #FBBC04 345deg,
+            transparent 260deg,
+            #4285F4 285deg,
+            #EA4335 310deg,
+            #FBBC04 335deg,
             #34A853 355deg,
             transparent 360deg) border-box !important;
     -webkit-mask:
         linear-gradient(#fff 0 0) content-box,
         linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
-    mask-composite: exclude;
     mask:
         linear-gradient(#fff 0 0) content-box,
         linear-gradient(#fff 0 0);
     mask-composite: exclude;
     pointer-events: none;
     z-index: 10;
-    /* Bring to front for visibility */
-    animation: gemini-flow 3s linear infinite;
-    opacity: 1;
+    animation: gemini-flow 4s linear infinite; /* Slower for smoothness */
+    will-change: --gemini-angle;
+    transform: translateZ(0); /* GPU acceleration */
 }
 
 .btn-gemini-glow:hover::after {
@@ -2529,19 +2537,14 @@ section[id="pricing"] .p-8 {
 }
 
 .footer-logo-frame {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #FFFFFF;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .footer-logo-img {
-    width: 80%;
-    height: auto;
+    height: 32px;
+    width: auto;
 }
 
 .footer-company-desc {
@@ -3201,5 +3204,82 @@ section[id="pricing"] .p-8 {
 @media (max-width: 640px) {
     .hero-kinetic-h1 {
         font-size: clamp(1.9rem, 7vw, 2.5rem);
+    }
+}
+
+/* ============================================================
+   GRANULAR RESPONSIVE OVERRIDES (9-Tier Alignment)
+   ============================================================ */
+
+/* Tier 1: Small Smartphones (320px - 360px) */
+@media (max-width: 360px) {
+    .navbar {
+        padding: 0 12px;
+        height: 64px;
+    }
+    .brand {
+        font-size: 1.1rem;
+    }
+    .hero-kinetic-h1 {
+        font-size: 1.8rem !important;
+    }
+    .cta-actions-modern {
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+    .btn-cta-primary, .btn-cta-outline {
+        width: 100%;
+        padding: 12px 24px;
+    }
+}
+
+/* Tier 2: Standard Smartphones (360px - 414px) */
+@media (min-width: 361px) and (max-width: 414px) {
+    .section {
+        padding: 32px 0;
+    }
+    .hero-kinetic-h1 {
+        font-size: 2.1rem !important;
+    }
+}
+
+/* Tier 3: Large/Max Smartphones (414px - 480px) */
+@media (min-width: 415px) and (max-width: 480px) {
+    .container {
+        padding: 0 20px;
+    }
+}
+
+/* Tier 5: Standard Tablets (Portrait) (600px - 768px) */
+@media (min-width: 601px) and (max-width: 768px) {
+    .nav-links {
+        display: none; /* Keep links hidden for clean tablet portrait */
+    }
+    .mobile-menu-toggle {
+        display: flex;
+    }
+}
+
+/* Tier 7: Small Laptops (1024px - 1280px) */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .hero-kinetic-h1 {
+        font-size: 3rem;
+    }
+    .container {
+        max-width: 980px;
+    }
+}
+
+/* Tier 9: Large Displays (HD/4K) (1920px+) */
+@media (min-width: 1920px) {
+    .container {
+        max-width: 1600px;
+    }
+    .hero-kinetic-h1 {
+        font-size: 4.5rem;
+    }
+    .body-text {
+        font-size: 1.25rem;
     }
 }

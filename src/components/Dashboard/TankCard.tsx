@@ -1,4 +1,3 @@
-/* eslint-disable react/display-name */
 import React, { useState, useMemo, useEffect } from 'react';
 import { Tank, TankReading } from '@/types';
 import { useLatestReading, useHistoricalReadings } from '@/hooks/useSupabase';
@@ -6,15 +5,15 @@ import { useConsumptionAnalytics } from '@/hooks/useConsumptionAnalytics';
 import { formatVolume, formatTemperature } from '@/utils/formatUtils';
 import { getFuelStatus } from '@/utils/dashboardUtils';
 import { 
-    FiMapPin, FiClock, FiRefreshCw, FiActivity, 
-    FiThermometer, FiAlertCircle, FiTrash2, FiShield, FiLock, FiX 
+    FiActivity, FiClock, FiRefreshCw, 
+    FiThermometer, FiAlertCircle, FiTrash2, FiShield, FiLock, FiX, FiWifi, FiShoppingCart 
 } from 'react-icons/fi';
 
 import { useNavigate } from 'react-router-dom';
 import { AuditService } from '@/services/AuditService';
 import { useAuth } from '@/hooks/useAuth';
 import { deleteTank } from '@/hooks/useSupabase';
-import { PermissionGate } from '../Auth/PermissionGate';
+import { logger } from '@/utils/logger';
 
 import '../Common/DesignSystemCards.css';
 import './TankCard.css';
@@ -27,6 +26,7 @@ interface TankCardProps {
 
 export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, initialReading }) => {
     const navigate = useNavigate();
+    const isGhost = tank.id === 'ghost-tank';
     const [showDetailedAnalytics, setShowDetailedAnalytics] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deletePassword, setDeletePassword] = useState('');
@@ -35,9 +35,87 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
 
     const { verifySettingsPassword } = useAuth();
     
-    // 1. Fetch live updates only if manually requested or if we don't have an initial reading
-    // This dramatically reduces initial dashboard connection overhead
-    const { reading: liveReading } = useLatestReading(stationId, tank.id, !initialReading || showDetailedAnalytics);
+    // Accurate Real-Time Formatting for Offline Detection & Status Badges
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 15000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // [PRICE CALIBRATION NUDGE]: Recurring 20min nudge for unconfigured / newly created tanks
+    const retailPrice = (tank as any).metadata?.retailPrice;
+    const isPriceNotSet = !isGhost && (!retailPrice || retailPrice <= 0);
+    const storageKey = useMemo(() => `iotank_last_price_nudge_${tank.id}`, [tank.id]);
+
+    useEffect(() => {
+        if (!isPriceNotSet) return;
+
+        const showNudge = () => {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Asset Value Calibration Required',
+                    message: `Tank "${tank.name}" has no retail price configured. Please calibrate its retail price in Settings to enable real-time financial tracking.`,
+                    type: 'warning',
+                    persistent: true,
+                    attribution: 'GOVERNANCE CORE',
+                    actions: [
+                        {
+                            label: 'Calibrate Now',
+                            primary: true,
+                            onClick: () => {
+                                navigate(`/settings?tab=inventory&tankId=${tank.id}`);
+                            }
+                        }
+                    ]
+                }
+            }));
+            localStorage.setItem(storageKey, Date.now().toString());
+        };
+
+        const checkNudge = () => {
+            const lastNudge = localStorage.getItem(storageKey);
+            const nowTime = Date.now();
+            const intervalMs = 20 * 60 * 1000; // 20 minutes
+
+            if (!lastNudge || (nowTime - parseInt(lastNudge)) >= intervalMs) {
+                showNudge();
+            }
+        };
+
+        // Run nudge check 3 seconds after mounting to allow initial dashboard render to settle
+        const initialTimeout = setTimeout(checkNudge, 3000);
+
+        // Periodically verify elapsed time every 30 seconds
+        const periodicInterval = setInterval(checkNudge, 30000);
+
+        return () => {
+            clearTimeout(initialTimeout);
+            clearInterval(periodicInterval);
+        };
+    }, [isPriceNotSet, tank.id, tank.name, navigate, storageKey]);
+
+    const formatTime = (timestamp: number) => {
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+
+        if (minutes <= 5) return `Live Sync`;
+        if (minutes < 60) return `${minutes}m ago`;
+        
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours < 24) {
+            return `${hours}h ${mins}m ago`;
+        }
+        
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        return `${days}d ${remainingHours}h ago`;
+    };
+
+    // 1. Fetch live updates with HIGH PRIORITY. 
+    // We enable this for all cards to ensure the "Last Updated" tag is always current.
+    // The overhead is minimal for ~20 tanks and critical for real-time perception.
+    const { reading: liveReading } = useLatestReading(stationId, tank.id, true);
     
     // Prioritize live reading from subscription, fall back to passed in initial reading
     const reading = liveReading || initialReading;
@@ -46,7 +124,6 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
     const currency = 'Ksh';
 
     // 2. Fetch 24h historical data only when needed (e.g. hovered or detailed view)
-    // For the initial grid, we can skip this heavy fetching
     const timeRange = useMemo(() => ({
         start: Date.now() - (24 * 60 * 60 * 1000),
         end: Date.now()
@@ -55,6 +132,12 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
     const { readings } = useHistoricalReadings(stationId, tank.id, timeRange, 100, 'hour', showDetailedAnalytics);
     const analytics = useConsumptionAnalytics(tank, readings);
 
+
+    const handleCardClick = () => {
+        if (!isGhost) {
+            navigate(`/inventory?tankId=${tank.id}`);
+        }
+    };
 
     const handleSync = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -108,57 +191,27 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
             // 4. Close and Refresh (UI will handle the disappearance via useTanks invalidation)
             setShowDeleteModal(false);
         } catch (err: any) {
-            console.error("Deletion Failed:", err);
+            logger.error("Deletion Failed:", err);
             setDeleteError(err.message || "Authorization failed. Please verify password.");
         } finally {
             setIsDeleting(false);
         }
     };
 
-    const handleCardClick = () => {
-        if (!isGhost) {
-            navigate(`/inventory?tankId=${tank.id}`);
-        }
-    };
-
     // Calculate dynamic percentage: (Volume / Capacity) * 100
-    const currentVolume = reading ? (reading.volumeCorrected || reading.volume || 0) : 0;
+    const currentVolume = reading ? (reading.volumeCorrected || reading.volume || 0) : (tank.currentVolume || 0);
     const tankCapacity = tank.capacity || 1; // Prevent division by zero
-    const calculatedPercentage = reading ? Number(Math.min(100, Math.max(0, (currentVolume / tankCapacity) * 100)).toFixed(1)) : 0;
+    const calculatedPercentage = Number(Math.min(100, Math.max(0, (currentVolume / tankCapacity) * 100)).toFixed(1));
 
     // Determine status based on fuel level
-    const isGhost = tank.id === 'ghost-tank';
-    const status = reading ? getFuelStatus(calculatedPercentage) : 
-                  isGhost ? { label: 'Pending Hardware', className: 'status-offline', severity: 'info' as const } :
-                  { label: 'Offline', className: 'status-offline', severity: 'ok' as const };
+    const hasData = !!reading || typeof tank.currentVolume === 'number';
+    const status = hasData ? getFuelStatus(calculatedPercentage) : 
+                  isGhost ? { label: 'Hardware Pending', className: 'status-offline', severity: 'info' as const } :
+                  { label: tank.lastReading ? `Last Sync: ${formatTime(tank.lastReading)}` : 'Offline', className: 'status-offline', severity: 'ok' as const };
 
     // Calculate gauge rotation (0-180 degrees)
-    const gaugeRotation = reading ? (calculatedPercentage / 100) * 180 : 0;
+    const gaugeRotation = hasData ? (calculatedPercentage / 100) * 180 : 0;
 
-    // Accurate Real-Time Formatting
-    const [now, setNow] = useState(Date.now());
-    useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 15000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const formatTime = (timestamp: number) => {
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-
-        if (minutes < 1) return `Just now`;
-        if (minutes < 60) return `${minutes}m ago`;
-        
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
-        if (hours < 24) {
-            return `${hours}h ${mins}m ago`;
-        }
-        
-        const days = Math.floor(hours / 24);
-        const remainingHours = hours % 24;
-        return `${days}d ${remainingHours}h ago`;
-    };
 
     // Asset value configuration link
     const handleConfigurePrice = (e: React.MouseEvent) => {
@@ -168,7 +221,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
 
     // Calculated Asset Value logic
     const getAssetValue = () => {
-        if (!reading) return '0.00';
+        if (!reading && !tank.currentVolume) return '0.00';
         const retailPrice = (tank as any).metadata?.retailPrice;
         
         if (!retailPrice || retailPrice <= 0) {
@@ -183,7 +236,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
             );
         }
 
-        const volume = reading.volumeCorrected || reading.volume || 0;
+        const volume = reading ? (reading.volumeCorrected || reading.volume || 0) : (tank.currentVolume || 0);
         return (volume * retailPrice).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -196,16 +249,37 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
             onMouseEnter={() => setShowDetailedAnalytics(true)}
         >
             <div className="p-4 flex flex-col flex-1">
-                <div className="tank-card-header">
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-2 mb-1">
+                <div className="tank-card-header-v2 flex justify-between items-start mb-4">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
                             <h3 className="tank-name">{tank.name}</h3>
-                            <span className="live-telemetry-badge">{isGhost ? 'Ready to Connect' : 'Live Telemetry'}</span>
+                            {!isGhost && (
+                                <div className="node-signal-container">
+                                    {(() => {
+                                        const isOffline = !reading || !reading.timestamp || (Date.now() - reading.timestamp) > 60 * 60 * 1000;
+                                        const signalValue = isOffline ? 'Offline' : (reading.signalQuality || 'Fair');
+                                        const scoreMap: Record<string, number> = { 'Excellent': 4, 'Good': 3, 'Fair': 2, 'Weak': 1, 'Unusable': 0 };
+                                        const bars = typeof signalValue === 'number' ? Math.round(signalValue / 25) : (scoreMap[String(signalValue)] || 0);
+                                        const signalState = isOffline ? 'offline' : 
+                                                           (bars >= 3 ? 'optimal' : (bars >= 2 ? 'fair' : 'critical'));
+                                        
+                                        return (
+                                            <div className={`node-signal-capsule state-${signalState}`}>
+                                                <span className="status-label">{isOffline ? 'OFFLINE' : 'ONLINE'}</span>
+                                                <div className="flex items-center gap-2 border-l border-white/20 pl-2">
+                                                    <FiWifi size={14} className="signal-icon" />
+                                                    <div className="signal-bars-enhanced">
+                                                        {[1, 2, 3, 4].map(num => (
+                                                            <div key={num} className={`bar-enhanced bar-step-${num} ${bars >= num ? 'filled' : ''}`} />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
                         </div>
-                        <p className="tank-location text-secondary">
-                            <FiMapPin className="inline-icon" />
-                            {tank.location}
-                        </p>
                     </div>
 
                     <div className={`status-badge ${status.className}`}>
@@ -223,7 +297,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                                 strokeWidth="10"
                                 strokeLinecap="round"
                             />
-                            {reading && (
+                            {(reading || tank.currentVolume) && (
                                 <path
                                     d="M 20 100 A 80 80 0 0 1 180 100"
                                     fill="none"
@@ -245,7 +319,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                                 />
                             )}
                             <text x="100" y="78" textAnchor="middle" className="gauge-value">
-                                {reading ? `${Math.round(calculatedPercentage)}%` : (isGhost ? '0%' : '0%')}
+                                {hasData ? `${Math.round(calculatedPercentage)}%` : (isGhost ? '0%' : '0%')}
                             </text>
                         </svg>
                         
@@ -256,23 +330,47 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                                 disabled={isGhost}
                                 title="Click to view detailed analytics"
                             >
-                                {reading ? formatVolume(reading.volumeCorrected || reading.volume || 0) : (isGhost ? '0 L' : '0 L')}
+                                {hasData ? formatVolume(reading ? (reading.volumeCorrected || reading.volume || 0) : (tank.currentVolume || 0)) : (isGhost ? '0 L' : '0 L')}
                             </button>
                         </div>
                     </div>
 
                     <div className="metrics-grid">
-                        <div className="metric-box">
+                        <div className={`metric-box ${
+                            isGhost ? '' :
+                            analytics.timeToOrderHrs === null ? '' :
+                            (analytics.timeToOrderHrs < 0 ? 'metric-critical border-red-500 bg-red-50/10' :
+                             analytics.timeToOrderHrs <= 24 ? 'metric-warning' : '')
+                        }`}>
                             <div className="flex items-center gap-1.5">
-                                <FiActivity className="text-secondary text-[10px]" />
-                                <span className="metric-label">Mode / State</span>
+                                <FiShoppingCart className={`text-secondary text-[10px] ${(!isGhost && analytics.timeToOrderHrs !== null && analytics.timeToOrderHrs <= 24) ? 'animate-pulse text-amber-500' : ''}`} />
+                                <span className="metric-label">Reorder Point</span>
                             </div>
-                            <span className={`metric-value ${tank.currentState === 'leak_suspicion' ? 'text-danger' :
-                                tank.currentState === 'delivery' ? 'text-success' :
-                                    tank.currentState === 'dispensing' ? 'text-indigo-600' : 'text-slate-600'
-                                }`}>
-                                {isGhost ? 'OFFLINE' : (tank.currentState ? tank.currentState.replace('_', ' ').toUpperCase() : (reading && (now - reading.timestamp) < 300000 ? 'STABLE' : 'IDLE'))}
-                            </span>
+                            {(() => {
+                                if (isGhost || analytics.timeToOrderHrs === null) {
+                                    return <span className="metric-value text-slate-400">Stable</span>;
+                                }
+                                const daysRemaining = analytics.timeToOrderHrs / 24;
+                                if (daysRemaining < 0) {
+                                    const absDays = Math.abs(daysRemaining);
+                                    const displayValue = absDays < 0.1 ? 'Overdue' : `${absDays.toFixed(1)} Days`;
+                                    return (
+                                        <div className="flex flex-col">
+                                            <span className="metric-value text-rose-600 font-extrabold flex items-center gap-1">
+                                                {displayValue}
+                                            </span>
+                                            <span className="text-[7.5px] font-black text-rose-500 uppercase tracking-tight leading-none mt-0.5 animate-pulse">
+                                                Late! Fuel will arrive late
+                                            </span>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <span className={`metric-value ${daysRemaining <= 1 ? 'text-amber-500 font-bold' : 'text-slate-600'}`}>
+                                        {daysRemaining.toFixed(1)} Days
+                                    </span>
+                                );
+                            })()}
                         </div>
                         <div className="metric-box">
                             <div className="flex items-center gap-1.5">
@@ -300,7 +398,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                                 <span className="metric-label">Until Empty</span>
                             </div>
                             <span className="metric-value">
-                                {reading ? (analytics.ete !== 'Calculating...' && analytics.ete !== 'Stable' ? analytics.ete : '--') : (isGhost ? '0h' : '0h')}
+                                {reading ? (analytics.ete !== 'Calculating...' && analytics.ete !== 'Stable' ? analytics.ete : '--') : (isGhost ? '0h' : '--')}
                             </span>
                         </div>
                         <div className="metric-box">
@@ -309,7 +407,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                                 <span className="metric-label">Temp</span>
                             </div>
                             <span className="metric-value">
-                                {reading?.temperature ? formatTemperature(reading.temperature) : (isGhost ? '0°C' : '0°C')}
+                                {reading?.temperature ? formatTemperature(reading.temperature) : (isGhost ? '0°C' : '--°C')}
                             </span>
                         </div>
                         <div className="metric-box">
@@ -323,12 +421,17 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
 
                 <div className="command-footer">
                     <div className="last-update">
-                        <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Telemetry Link</span>
+                        <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Sensor Connection</span>
                         <div className="flex items-center gap-2 mt-1">
-                            <FiClock className="text-secondary" />
-                            <span className="last-update-tag">
-                                {reading ? formatTime(reading.timestamp) : (isGhost ? 'Waiting...' : 'Offline')}
-                            </span>
+                            {(() => {
+                                const timeStr = reading ? formatTime(reading.timestamp) : (tank.lastReading ? formatTime(tank.lastReading) : (isGhost ? 'Waiting...' : 'Never'));
+                                const isLive = timeStr === 'Live Sync';
+                                return (
+                                    <span className={`last-update-tag ${isLive ? 'text-emerald-400 font-bold' : ''}`}>
+                                        {timeStr}
+                                    </span>
+                                );
+                            })()}
                         </div>
                     </div>
 
@@ -344,23 +447,15 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                         </button>
 
                         <button
-                            className={`sync-btn ${isSyncing ? 'syncing' : ''}`}
+                            className={`force-sync-btn-modern ${isSyncing ? 'syncing' : ''}`}
                             onClick={handleSync}
                             disabled={isSyncing || isGhost}
-                            title={isGhost ? "Hardware Needed" : "Force Sync Telemetry"}
+                            title={isGhost ? "Hardware Needed" : "Force Telemetry Refresh"}
                         >
-                            <FiRefreshCw />
+                            <div className="btn-glow" />
+                            <FiRefreshCw className="sync-icon" />
+                            <span className="btn-text">SYNC</span>
                         </button>
-
-                        <PermissionGate level={5}>
-                            <button
-                                className="sync-btn text-rose-500 hover:bg-rose-500/10"
-                                onClick={(e) => { e.stopPropagation(); setShowDeleteModal(true); }}
-                                title="Permanent Asset Deletion"
-                            >
-                                <FiTrash2 />
-                            </button>
-                        </PermissionGate>
                     </div>
                 </div>
             </div>
@@ -374,7 +469,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
                                 <FiShield className="text-2xl" />
                                 <h3 className="text-xl font-black uppercase tracking-tighter">Secure Purge Protocol</h3>
                             </div>
-                            <button onClick={() => setShowDeleteModal(false)} className="text-secondary hover:text-white">
+                            <button onClick={() => setShowDeleteModal(false)} className="text-secondary hover:text-white" title="Close">
                                 <FiX size={20} />
                             </button>
                         </div>

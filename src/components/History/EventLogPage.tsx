@@ -5,11 +5,11 @@ import {
     FiActivity,
     FiZap,
     FiFileText,
+    FiDroplet,
 } from 'react-icons/fi';
 import {
     MdOutlineEventNote,
-    MdOutlineWaterDrop,
-    MdOutlineBusiness,
+
     MdOutlineMemory,
     MdOutlineAutoAwesome,
     MdComputer,
@@ -48,8 +48,8 @@ import './EventLogPage.css';
 function EventTypeIcon({ type }: { type: string }) {
     const map: Record<string, React.ReactNode> = {
         'Refill Confirmed': <MdLocalGasStation />,
-        'Dispense': <MdOutlineWaterDrop />,
-        'Dispense Recorded': <MdOutlineWaterDrop />,
+        'Dispense': <FiDroplet />,
+        'Dispense Recorded': <FiDroplet />,
         'Temperature Spike': <MdOutlineThermostat />,
         'Temperature Spike Detected': <MdOutlineThermostat />,
         'Level Drop': <MdBarChart />,
@@ -85,14 +85,14 @@ function EventTypeIcon({ type }: { type: string }) {
 
 function SeverityBadge({ severity }: { severity: EventSeverity }) {
     const dots: Record<EventSeverity, string> = {
-        info: '●',
-        warning: '▲',
-        critical: '■',
+        INFO: '●',
+        WARNING: '▲',
+        CRITICAL: '■',
     };
     return (
-        <span className={`el-severity-badge el-severity-badge--${severity}`} role="status">
+        <span className={`el-severity-badge el-severity-badge--${severity.toLowerCase()}`} role="status">
             <span className="el-severity-badge-icon" aria-hidden="true">{dots[severity]}</span>
-            {severity.charAt(0).toUpperCase() + severity.slice(1)}
+            {severity.charAt(0).toUpperCase() + severity.slice(1).toLowerCase()}
         </span>
     );
 }
@@ -136,10 +136,12 @@ export const EventLogPage: React.FC = () => {
     // Category strip data
     const categories: { key: EventCategory | 'all'; label: string; icon: React.ReactNode }[] = [
         { key: 'all', label: 'All', icon: <MdOutlineEventNote size={14} /> },
-        { key: 'telemetry', label: 'Telemetry', icon: <MdOutlineWaterDrop size={14} /> },
-        { key: 'operational', label: 'Operational', icon: <MdOutlineBusiness size={14} /> },
-        { key: 'system', label: 'System', icon: <MdOutlineMemory size={14} /> },
-        { key: 'ai', label: 'AI', icon: <MdOutlineAutoAwesome size={14} /> },
+        { key: 'SHIFT', label: 'Shift', icon: <MdSchedule size={14} /> },
+        { key: 'DELIVERY', label: 'Delivery', icon: <MdLocalGasStation size={14} /> },
+        { key: 'SECURITY', label: 'Security', icon: <MdSecurity size={14} /> },
+        { key: 'SYSTEM', label: 'System', icon: <MdOutlineMemory size={14} /> },
+        { key: 'AI', label: 'AI', icon: <MdOutlineAutoAwesome size={14} /> },
+        { key: 'CALIBRATION', label: 'Calibration', icon: <MdTune size={14} /> },
     ];
 
     // Pagination page buttons (smart window)
@@ -202,13 +204,13 @@ export const EventLogPage: React.FC = () => {
             {/* ── Category Strip ──────────────────────────────── */}
             <div className="el-category-strip">
                 {categories.map(cat => {
-                    const count = cat.key === 'all' ? total : categoryCounts[cat.key as EventCategory];
+                    const count = cat.key === 'all' ? total : (categoryCounts as any)[cat.key.toLowerCase()] || 0;
                     const isActive = filters.category === cat.key;
                     return (
                         <button
                             key={cat.key}
-                            className={`el-cat-chip el-cat-chip--${cat.key} ${isActive ? 'active' : ''}`}
-                            onClick={() => updateFilter('category', cat.key as EventCategory | 'all')}
+                            className={`el-cat-chip el-cat-chip--${cat.key.toLowerCase()} ${isActive ? 'active' : ''}`}
+                            onClick={() => updateFilter('category', cat.key)}
                         >
                             {cat.icon}
                             {cat.label}

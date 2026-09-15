@@ -17,19 +17,22 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-    // Initialize theme to light mode only (Dark mode disabled for presentation)
-    const [theme, setThemeState] = useState<ThemeMode>('light');
+    // Restore user's saved preference, defaulting to 'light' if none set
+    const [theme, setThemeState] = useState<ThemeMode>(() => {
+        const stored = localStorage.getItem('iotank-theme');
+        return (stored === 'dark' || stored === 'light') ? stored as ThemeMode : 'light';
+    });
 
     const [colorBlindMode, setColorBlindModeState] = useState<ColorBlindMode>(() => {
         const stored = localStorage.getItem('iotank-colorblind-mode');
         return (stored as ColorBlindMode) || 'none';
     });
 
-    // Apply theme to document root (Force light)
+    // Apply theme to document root
     useEffect(() => {
         const root = document.documentElement;
-        root.setAttribute('data-theme', 'light');
-        localStorage.setItem('iotank-theme', 'light');
+        root.setAttribute('data-theme', theme);
+        localStorage.setItem('iotank-theme', theme);
     }, [theme]);
 
     // Apply colorblind mode
@@ -41,7 +44,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
     const setTheme = (newTheme: ThemeMode) => {
         setThemeState(newTheme);
-        localStorage.setItem('iotank-theme-manual', 'true'); // Mark as manual preference
     };
 
     const setColorBlindMode = (mode: ColorBlindMode) => {

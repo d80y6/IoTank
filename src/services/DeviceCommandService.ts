@@ -73,8 +73,10 @@ export class DeviceCommandService {
      * Subscribes to commands for a specific station.
      */
     static subscribeToCommands(stationId: string, onUpdate: (payload: any) => void) {
+        // M-07 FIX: Removed _${Date.now()} suffix \u2014 unstable names leak Supabase connection slots on re-renders.
+        const channelName = `device_commands_channel_${stationId}`;
         return supabase
-            .channel('device_commands_channel')
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 {

@@ -24,6 +24,26 @@ export function useBrowserNotifications(stationId: string) {
         // Check for new alerts
         alerts.forEach((alert: Alert) => {
             if (!prevAlertIds.current.has(alert.id)) {
+                const lowerMsg = (alert.message || '').toLowerCase();
+                const lowerTitle = (alert.title || '').toLowerCase();
+                const lowerType = (alert.type || '').toLowerCase();
+
+                const isNoise = 
+                    lowerMsg.includes('detected on alerts') || 
+                    lowerMsg.includes('insert detected') ||
+                    lowerMsg.includes('inset detected') ||
+                    lowerTitle.includes('detected on alerts') ||
+                    lowerTitle.includes('insert detected') ||
+                    lowerTitle.includes('inset detected') ||
+                    lowerType.includes('detected on alerts') ||
+                    lowerType.includes('insert detected') ||
+                    lowerType.includes('inset detected');
+
+                if (isNoise) {
+                    prevAlertIds.current.add(alert.id);
+                    return;
+                }
+
                 // This is a new alert!
                 NotificationService.show(`IoTank Alert: ${alert.severity.toUpperCase()}`, {
                     body: alert.message,

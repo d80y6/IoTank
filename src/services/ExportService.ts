@@ -3,9 +3,19 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
+import { THRESHOLDS } from '@/constants/forensicThresholds';
 
 interface jsPDFWithAutoTable extends jsPDF {
     lastAutoTable?: { finalY: number };
+}
+
+/** Daily snapshot type for compliance pack generation (L-06: replaces any[]) */
+export interface DailyLog {
+    date: string;
+    opening?: number;
+    deliveries?: number;
+    sales?: number;
+    closing?: number;
 }
 
 /**
@@ -318,7 +328,7 @@ export class ExportService {
         const doc = new jsPDF() as jsPDFWithAutoTable;
         const now = new Date();
         const dateStr = format(now, 'dd MMM yyyy, HH:mm');
-        const isDisputed = delivery.status === 'DISPUTED' || (delivery.variance && Math.abs(delivery.variance) > 50);
+        const isDisputed = delivery.status === 'DISPUTED' || (delivery.variance && Math.abs(delivery.variance) > THRESHOLDS.FORENSICS.DELIVERY_VARIANCE_TOLERANCE_L);
 
         // --- BRANDING & HEADER ---
         // Top accent bar (Amethyst Tint)
@@ -396,7 +406,9 @@ export class ExportService {
 
         // --- NOTES SECTION ---
         if (delivery.notes || delivery.explanation) {
-            const notesY = (doc as any).lastAutoTable.finalY + 15;
+            // C-04 FIX: lastAutoTable can be undefined if no autoTable rendered above (e.g. empty delivery).
+            // Use optional chaining + fallback to prevent TypeError crash during PDF export.
+            const notesY = (doc.lastAutoTable?.finalY ?? 135) + 15;
             doc.setFontSize(12);
             doc.text('Auditor / Operator Notes', 14, notesY);
             
@@ -450,19 +462,23 @@ export class ExportService {
         XLSX.utils.book_append_sheet(wb, summarySheet, 'Executive Summary');
 
         // --- TAB 2: DETAILED AUDIT LOG ---
-        const detailedData = deliveries.map(d => ({
-            'Date': format(new Date(d.created_at || d.timestamp), 'yyyy-MM-dd HH:mm'),
-            'Delivery ID': d.id,
-            'Tank': d.tank_name || 'All Tanks',
-            'Invoiced (L)': d.invoiceLiters || 0,
-            'Measured (L)': d.measuredStandardized || 0,
-            'Variance (L)': d.variance || 0,
-            'Temp (°C)': d.deliveryTemp || '',
-            'Dip (L)': d.physicalDip || '',
-            'Status': d.status,
-            'Supplier Status': d.supplierStatus,
-            'Notes': d.notes || d.explanation || ''
-        }));
+        const detailedData = deliveries.map(d => {
+            const rawDate = d.created_at || d.timestamp;
+            const isValidDate = rawDate && !isNaN(new Date(rawDate).getTime());
+            return {
+                'Date': isValidDate ? format(new Date(rawDate), 'yyyy-MM-dd HH:mm') : 'Unknown Time',
+                'Delivery ID': d.id,
+                'Tank': d.tank_name || 'All Tanks',
+                'Invoiced (L)': d.invoiceLiters || 0,
+                'Measured (L)': d.measuredStandardized || 0,
+                'Variance (L)': d.variance || 0,
+                'Temp (°C)': d.deliveryTemp || '',
+                'Dip (L)': d.physicalDip || '',
+                'Status': d.status,
+                'Supplier Status': d.supplierStatus,
+                'Notes': d.notes || d.explanation || ''
+            };
+        });
         const detailedSheet = XLSX.utils.json_to_sheet(detailedData);
         
         // Add some basic styling to column widths
@@ -476,5 +492,111 @@ export class ExportService {
 
         // --- DOWNLOAD ---
         XLSX.writeFile(wb, `Delivery_History_${orgName.replace(/\s+/g, '_')}_${format(now, 'yyyyMMdd')}.xlsx`);
+    }
+
+    /**
+     * PREMIUM: Generates a high-fidelity TankIQ Chat Report (Amethyst Theme)
+     */
+    public static exportTankIQChat(
+        messages: any[],
+        sessionSubject: string,
+        orgName: string,
+        userName: string
+    ) {
+        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const now = new Date();
+        const dateStr = format(now, 'dd MMM yyyy, HH:mm');
+
+        // --- BRANDING & HEADER ---
+        // Top accent bar (Amethyst Primary)
+        doc.setFillColor(67, 56, 202); 
+        doc.rect(0, 0, 210, 15, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22);
+        doc.setTextColor(30, 41, 59);
+        doc.text('TankIQ Intelligence Report', 14, 30);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text('AI-ASSISTANT OPERATIONAL SUMMARY', 14, 36);
+
+        // Header Metadata Box
+        doc.setDrawColor(226, 232, 240);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(14, 42, 182, 25, 3, 3, 'FD');
+
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text('STATION / ORGANIZATION', 20, 50);
+        doc.text('REQUESTED BY', 90, 50);
+        doc.text('TIMESTAMP', 150, 50);
+
+        doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'bold');
+        doc.text(orgName, 20, 57);
+        doc.text(userName, 90, 57);
+        doc.text(dateStr, 150, 57);
+
+        // Session Subject
+        doc.setFontSize(14);
+        doc.setTextColor(67, 56, 202);
+        doc.text(`Subject: ${sessionSubject}`, 14, 82);
+
+        // --- CHAT LOG ---
+        let currentY = 90;
+
+        messages.forEach((msg) => {
+            // Check if we need a new page
+            if (currentY > 260) {
+                doc.addPage();
+                currentY = 20;
+            }
+
+            // Role Badge
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            
+            let roleLabel = 'USER';
+            let roleColor = [71, 85, 105]; // Slate 600
+
+            if (msg.role === 'assistant') {
+                roleLabel = 'TANKIQ';
+                roleColor = [67, 56, 202]; // Indigo 700
+            } else if (msg.role === 'tool') {
+                roleLabel = 'DATA';
+                roleColor = [16, 185, 129]; // Emerald 600
+            } else if (msg.role === 'system') {
+                roleLabel = 'SYSTEM';
+                roleColor = [220, 38, 38]; // Red 600
+            }
+
+            doc.setTextColor(roleColor[0], roleColor[1], roleColor[2]);
+            doc.text(roleLabel, 14, currentY);
+
+            // Message Content
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(30, 41, 59);
+            
+            const splitText = doc.splitTextToSize(msg.content, 170);
+            doc.text(splitText, 25, currentY);
+            
+            const lines = splitText.length;
+            currentY += (lines * 5) + 10;
+        });
+
+        // --- FOOTER ---
+        const pageCount = doc.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text(`Generated by IoTank V2.0.0 | Page ${i} of ${pageCount}`, 14, 285);
+            doc.text('Confidential Operational Intelligence', 150, 285);
+        }
+
+        const safeSubject = sessionSubject.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 30);
+        doc.save(`TankIQ_Report_${safeSubject}_${format(now, 'yyyyMMdd')}.pdf`);
     }
 }

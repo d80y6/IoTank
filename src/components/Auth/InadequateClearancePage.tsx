@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiLock, FiArrowLeft, FiShield, FiAlertTriangle } from 'react-icons/fi';
 import { AuditService } from '@/services/AuditService';
 import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/utils/logger';
 import './InadequateClearancePage.css';
 
 export const InadequateClearancePage: React.FC = () => {
@@ -22,7 +23,7 @@ export const InadequateClearancePage: React.FC = () => {
                     user_role: currentUser.role,
                     auth_level: currentUser.authLevel
                 }
-            ).catch(err => console.error('[Audit Log Failed]', err));
+            ).catch(err => logger.error('[Audit Log Failed]', err));
         }
     }, [currentUser]);
 

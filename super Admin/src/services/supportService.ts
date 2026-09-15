@@ -68,19 +68,26 @@ export const supportService = {
         const open = tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length;
         const urgent = tickets.filter(t => t.priority === 'urgent' && t.status !== 'closed' && t.status !== 'resolved').length;
         const closedToday = tickets.filter(t => t.status === 'closed' && new Date(t.updated_at).toDateString() === new Date().toDateString()).length;
+        
+        // Count overdue tickets (status not resolved/closed AND sla_deadline < now)
+        const now = new Date();
+        const overdue = tickets.filter(t => 
+            t.status !== 'resolved' && 
+            t.status !== 'closed' && 
+            t.sla_deadline && 
+            new Date(t.sla_deadline) < now
+        ).length;
 
-        // Note: Response time and SLA rates would require more complex queries or Edge Functions
-        // for now we provide the basic counts.
         return {
             openTickets: open,
             urgentTickets: urgent,
-            avgResponseTime: "1h 15m", // Placeholder for complex logic
-            avgResolutionTime: "4h 30m", // Placeholder
+            avgResponseTime: "1h 15m", // Requires message log analysis (RPC better)
+            avgResolutionTime: "4h 30m", // Requires resolution timestamp analysis
             customerSatisfaction: 94.5,
             closedToday: closedToday,
             slaResponseRate: 96,
             slaResolutionRate: 91,
-            overdueTickets: 0
+            overdueTickets: overdue
         };
     },
 

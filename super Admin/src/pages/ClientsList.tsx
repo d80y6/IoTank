@@ -390,7 +390,7 @@ const ClientsList: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                         <button className="dp-btn dp-btn--primary" onClick={handleExport}>
                             <FiDownload /> Export Bulk Logs (.csv)
                         </button>
-                        <button className="dp-btn btn-provision-trigger" onClick={() => navigate('/new-registrations')}>
+                        <button className="dp-btn btn-provision-trigger" onClick={() => navigate('/registrations')}>
                             <FiPlus />
                             <span>New Onboarding</span>
                         </button>

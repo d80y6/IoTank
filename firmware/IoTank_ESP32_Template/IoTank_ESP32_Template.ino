@@ -19,13 +19,22 @@
 #define WIFI_SSID "YOUR_WIFI_SSID"
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 
-// --- SUPABASE CONFIGURATION ---
-// Use your Supabase Project URL (e.g., https://your-project.supabase.co)
+// --- SUPABASE & DEVICE SECRETS ---
+// Secrets should be provided via a local 'secrets.h' (ignored) to avoid committing keys.
+#include "secrets.h"
+
+// Fallback defaults (used only if 'secrets.h' is not present)
+#ifndef SUPABASE_URL
 #define SUPABASE_URL "https://suifvborodwergtrbjez.supabase.co"
-// Use your Supabase Anon Key
-#define SUPABASE_ANON_KEY "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1aWZ2Ym9yb2R3ZXJndHJiamV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjA3NDAsImV4cCI6MjA4OTMzNjc0MH0.MNRIzdkr3w7AbhYcp7zdDT4waltCMO33e_vTxZtu8W0"
-// Generate a long-lived Hardware JWT using the 'issue-device-token' Edge Function
+#endif
+
+#ifndef SUPABASE_ANON_KEY
+#define SUPABASE_ANON_KEY "YOUR_SUPABASE_ANON_KEY"
+#endif
+
+#ifndef DEVICE_JWT
 #define DEVICE_JWT "YOUR_DEVICE_JWT_HERE"
+#endif
 
 // --- IDENTITY CONFIGURATION ---
 #define STATION_ID "YOUR_STATION_UUID"
@@ -60,7 +69,7 @@ void setup() {
 }
 
 float readUltrasonic() {
-  if (Serial2.available()) {
+  if (Serial2.available() >= 4) { // Wait for full packet
     if (Serial2.read() == 0xff) {
       data[0] = 0xff;
       for (int i = 1; i < 4; i++) {
@@ -76,7 +85,15 @@ float readUltrasonic() {
   return -1;
 }
 
-void sendTelemetry(float distCm, float tempC) {
+// Logic to convert distance to volume should happen here or on ESP32
+// For this template, we assume the user has a calibration function
+float calculateVolume(float distCm) {
+    // Placeholder: Implement your tank strapping table logic here
+    // Example: Linear tank where 1cm = 10 Litres
+    return distCm * 10.0; 
+}
+
+void sendTelemetry(float volume, float tempC) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi Disconnected. Skipping send.");
     return;
@@ -95,12 +112,13 @@ void sendTelemetry(float distCm, float tempC) {
   StaticJsonDocument<256> doc;
   doc["tank_id"] = TANK_ID;
   doc["station_id"] = STATION_ID;
-  doc["raw_distance"] = distCm * 10; // Convert cm to mm for database
+  doc["volume"] = volume; // Direct volume as requested
   doc["temperature"] = tempC;
   doc["rssi"] = WiFi.RSSI();
 
   String payload;
   serializeJson(doc, payload);
+
 
   Serial.print("Sending payload: ");
   Serial.println(payload);
@@ -127,10 +145,12 @@ void loop() {
   float distCm = readUltrasonic();
 
   if (distCm > 0) {
-    sendTelemetry(distCm, tempC);
+    float volume = calculateVolume(distCm);
+    sendTelemetry(volume, tempC);
   } else {
     Serial.println("Failed to read ultrasonic sensor.");
   }
+
 
   // Heartbeat / Delay
   // In production, consider ESP.deepSleep() for battery savings.

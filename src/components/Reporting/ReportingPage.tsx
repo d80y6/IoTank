@@ -14,9 +14,11 @@ import { useTanks } from '@/hooks/useSupabase';
 import { Tank } from '@/types';
 import { useReports } from '@/hooks/useReports';
 import { supabase } from '@/config/supabase';
+import { validateUUID } from '@/utils/sanitization';
 import { ExportService } from '@/services/ExportService';
 import { format, subDays } from 'date-fns';
 import { scanStationHistory, getReportHighlights } from '@/utils/reportingLogic';
+import { logger } from '@/utils/logger';
 import '../Common/DesignSystemCards.css';
 import './ReportingPage.css';
 
@@ -49,9 +51,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiPackage size={22} />,
         color: 'info',
         highlights: [
-            'All tanks operating within normal volume bands',
-            'Aggregate ullage: 12,400 L across 4 tanks',
-            '0 minimum-level breaches in the selected window',
+            'Dynamic analysis of inventory bands across all active tanks',
+            'Calculation of aggregate ullage based on current safe fill levels',
+            'Verification of minimum-level breach history for the selected period',
         ],
     },
     {
@@ -63,9 +65,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <MdOutlineLocalShipping size={22} />,
         color: 'success',
         highlights: [
-            '8 deliveries processed — 7 Verified, 1 Needs Review',
-            'Total invoiced: 45,000 L · Measured: 44,820 L',
-            'Max variance: −0.8 % (within EPRA ±1 % threshold)',
+            'Reconciliation of invoiced waybill volumes against ATG intake measured',
+            'Detailed variance analysis per truck with EPRA threshold validation',
+            'Tracking of verification status across all recent logistical arrivals',
         ],
     },
     {
@@ -77,9 +79,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiClock size={22} />,
         color: 'accent',
         highlights: [
-            '14 shifts closed in the period',
-            'Aggregate cash variance: KES −240 (0.04 % of turnover)',
-            '2 shifts flagged Shortage — reviewed by supervisor',
+            'Consolidation of pump-to-tank reconciliations for all closed sessions',
+            'Financial auditing of cash vs digital remittances and total turnover',
+            'Identification and flagging of critical shortages for supervisor review',
         ],
     },
     {
@@ -91,9 +93,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiAlertTriangle size={22} />,
         color: 'warning',
         highlights: [
-            'Total unexplained loss: 310 L (0.7 % of throughput)',
-            'Peak variance day: 14 Feb — 120 L gap detected',
-            'Rule inference: Temperature expansion likely cause on 3 events',
+            'Quantitative analysis of unexplained net stock loss and throughput',
+            'Temporal mapping of peak variance events with forensic precision',
+            'AI-assisted rule inference for suspected environmental or operational causes',
         ],
     },
     {
@@ -105,9 +107,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiShield size={22} />,
         color: 'danger',
         highlights: [
-            'Covers Jan 1 – Mar 31 2026 (91 days)',
-            'Includes: daily inventory logs, delivery verification, alert summary, audit extract',
-            'System uptime: 99.2 % — within EPRA continuous monitoring requirement',
+            'Generation of standard regulatory packs including daily operational logs',
+            'Compilation of delivery verification and safety incident summaries',
+            'Full audit trail extraction optimized for regulatory inspection',
         ],
     },
     {
@@ -119,9 +121,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiKey size={22} />,
         color: 'info',
         highlights: [
-            '1,247 events in the selected window',
-            'Sources: System 68 %, User 22 %, AI 10 %',
-            'No tamper flags — all event hashes verified',
+            'Comprehensive export of all system, user, and AI-triggered events',
+            'Detailed actor attribution with timestamped operational traceability',
+            'Verification of event integrity hashes for forensic audit readiness',
         ],
     },
     {
@@ -133,9 +135,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiShoppingCart size={22} />,
         color: 'success',
         highlights: [
-            'Total procured: 85,000 L across 3 suppliers',
-            'Avg price: KES 182.50 / L (market avg: KES 184.00)',
-            'Outstanding balance: KES 42,000 — due 15 Mar 2026',
+            'Summary of total procured volume across active fuel suppliers',
+            'Analysis of purchase price efficiency against market benchmarks',
+            'Account balance tracking for outstanding supplier remittances',
         ],
     },
     {
@@ -147,9 +149,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
         icon: <FiZap size={22} />,
         color: 'danger',
         highlights: [
-            '3 critical alerts fired — all acknowledged within 12 min',
-            '1 delivery marked Failed — supplier dispute lodged',
-            '2 telemetry gaps > 4 h — node connectivity issue resolved',
+            'Consolidated view of all critical operational and security alerts',
+            'Forensic tracking of failed logistical arrivals and supplier disputes',
+            'Identification of telemetry gaps and station node connectivity issues',
         ],
     },
 ];
@@ -179,6 +181,7 @@ export const ReportingPage: React.FC = () => {
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
     const [selectedTankId, setSelectedTankId] = useState('');
+    const [selectedSiteId, setSelectedSiteId] = useState('');
     const [selectedProduct, setSelectedProduct] = useState('');
     const [includeAttachments, setIncludeAttachments] = useState(false);
     const [includeTimeline, setIncludeTimeline] = useState(false);
@@ -244,7 +247,7 @@ export const ReportingPage: React.FC = () => {
         }
 
         // 2. Execute Forensic Scan
-        const { logs, metrics } = await scanStationHistory(stationId, start, end, selectedTankId || undefined);
+        const { logs, metrics } = await scanStationHistory(stationId, start, end, (selectedTankId && validateUUID(selectedTankId)) ? selectedTankId : undefined);
 
         // 3. Prepare professional forensic data for storage
         const dynamicHighlights = getReportHighlights(selectedTemplate.id, metrics);
@@ -283,8 +286,15 @@ export const ReportingPage: React.FC = () => {
             setIsGenerated(true);
             refreshReports(); // Refresh the list from DB
         } catch (err) {
-            console.error('Failed to generate report:', err);
-            alert('Database insertion failed. Please check network connectivity.');
+            logger.error('[ReportingPage] Failed to generate report:', err);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Report Generation Failed',
+                    message: 'Could not save the report. Please check your connection and try again.',
+                    type: 'error',
+                    attribution: 'REPORTING'
+                }
+            }));
         } finally {
             setIsPreviewing(false);
         }
@@ -359,10 +369,24 @@ export const ReportingPage: React.FC = () => {
                 return;
             }
 
-            alert(`Export as ${fmt} — backend integration pending for ${selectedTemplate.name}`);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Export Not Yet Available',
+                    message: `${fmt} export for "${selectedTemplate?.name}" is still being developed.`,
+                    type: 'info',
+                    attribution: 'REPORTING'
+                }
+            }));
         } catch (error) {
-            console.error('Export failed:', error);
-            alert('Failed to generate export document.');
+            logger.error('[ReportingPage] Export failed:', error);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Export Failed',
+                    message: 'Failed to generate the export document. Please try again.',
+                    type: 'error',
+                    attribution: 'REPORTING'
+                }
+            }));
         }
     };
 
@@ -518,8 +542,17 @@ export const ReportingPage: React.FC = () => {
                         </div>
                         <div className="rp-select-group">
                             <label className="rp-builder-label">Site</label>
-                            <select className="rp-select" title="Filter by Operational Site" disabled={!selectedId}>
-                                <option>All Sites</option>
+                            <select
+                                className="rp-select"
+                                title="Filter by Operational Site"
+                                value={selectedSiteId}
+                                onChange={e => { setSelectedSiteId(e.target.value); resetGenerate(); }}
+                                disabled={!selectedId}
+                            >
+                                <option value="">All Sites</option>
+                                {(currentUser?.siteIds || []).map((sId: string) => (
+                                    <option key={sId} value={sId}>{sId}</option>
+                                ))}
                             </select>
                         </div>
                     </div>

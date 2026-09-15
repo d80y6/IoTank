@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { logger } from '@/utils/logger';
 import './PasswordInput.css';
 
 interface PasswordInputProps {
@@ -77,7 +78,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     // Anomaly Detection (Basic cadence check stub - extensible)
     const handlePaste = (e: React.ClipboardEvent) => {
         if (value.length === 0 && e.clipboardData.getData('Text').length > 20) {
-            console.warn("Large paste detected - potential manager or dump");
+            logger.warn("Large paste detected - potential manager or dump");
             // Could trigger MFA logic here
         }
     };

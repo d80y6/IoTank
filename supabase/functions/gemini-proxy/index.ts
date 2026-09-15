@@ -2,19 +2,21 @@
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 import { enforceDurableRateLimit, getOptionalProxyScope, requireProxyScope } from '../_shared/auth.ts'
-import { CHAT_PROJECT_CONTEXT, buildIntelligencePrompt, sanitizeContextForAI } from '../_shared/prompts.ts'
+import { CHAT_PROJECT_CONTEXT, buildIntelligencePrompt, sanitizeContextForAI, buildDirectivePrompt } from '../_shared/prompts.ts'
 declare const Deno: any;
 
 const allowedEndpoints = new Set([
   'models/gemini-1.5-flash:generateContent',
   'models/gemini-1.5-flash-latest:generateContent',
   'models/gemini-1.5-pro:generateContent',
+  'models/gemini-1.5-pro-latest:generateContent',
+  'models/gemini-2.0-flash:generateContent',
+  'models/gemini-2.0-flash-exp:generateContent',
+  'models/gemini-2.0-flash-lite:generateContent',
 ]);
 
-// Chat (landing page): public allowed, tight anonymous quota
 const CHAT_MAX_ANON    = 5;
 const CHAT_MAX_AUTH    = 20;
-// Intelligence (TankIQ): authenticated users only
 const INTELLIGENCE_MAX = 15;
 
 Deno.serve(async (req) => {
@@ -28,7 +30,6 @@ Deno.serve(async (req) => {
     const { action, endpoint, context } = payload;
     let body = payload.body || {};
 
-    // HIGH-002: Auth split — 'intelligence' (TankIQ) requires real account; 'chat' is public
     let authz: any;
     if (action === 'intelligence') {
       authz = await requireProxyScope(req, corsHeaders);
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
               description: t.function.description,
               parameters: t.function.parameters
            }))
-        }] : undefined;
+         }] : undefined;
 
         const geminiContents = openaiMessages.map((m: any) => ({
            role: m.role === 'assistant' ? 'model' : 'user',
@@ -83,57 +84,80 @@ Deno.serve(async (req) => {
            generationConfig: body.generationConfig || { temperature: 0.7 }
         };
     } else if (action === 'intelligence') {
-       // MED-004: Sanitize context fields to strip adversarial prompt injection
        const safeSignals = (context?.signals || []).map((s: any) => sanitizeContextForAI(JSON.stringify(s)));
        const safeRisks   = (context?.risks   || []).map((r: any) => sanitizeContextForAI(JSON.stringify(r)));
        const safeNotices = (context?.notices || []).map((n: any) => sanitizeContextForAI(JSON.stringify(n)));
-       const systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices);
+       const safeInventory = (context?.inventory || []);
+       
+       let systemPrompt;
+       if (context?.signal) {
+         systemPrompt = buildDirectivePrompt(context.signal, safeInventory);
+       } else {
+         systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices, safeInventory);
+       }
        body.contents = [{ parts: [{ text: systemPrompt }] }];
-    } else {
-       return new Response(JSON.stringify({ error: 'Valid action (chat or intelligence) is required' }), {
-         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-       });
     }
 
-    const payloadString = JSON.stringify(body);
-    if (payloadString.length > 102400) {
-      return new Response(JSON.stringify({ error: 'Payload size exceeds 100KB safety limit' }), {
-        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiApiKey) throw new Error('Gemini API key not configured')
-
-    const targetEndpoint = endpoint || 'models/gemini-1.5-flash:generateContent';
+    const targetEndpoint = endpoint || 'models/gemini-2.0-flash:generateContent';
     if (!allowedEndpoints.has(targetEndpoint)) {
       return new Response(JSON.stringify({ error: 'Endpoint is not allowed' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/${targetEndpoint}?key=${geminiApiKey}`
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
+    // Key Rotation Logic (Randomized Start Index to balance load)
+    const apiKeys = [
+      Deno.env.get('GEMINI_API_KEY'),
+      Deno.env.get('GEMINI_API_KEY_2'),
+      Deno.env.get('GEMINI_API_KEY_3'),
+      Deno.env.get('GEMINI_API_KEY_4')
+    ].filter(Boolean);
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Gemini API error: ${error}`)
+    if (apiKeys.length === 0) throw new Error('No Gemini API keys configured');
+
+    const startIndex = Math.floor(Math.random() * apiKeys.length);
+    let lastError: any = null;
+
+    for (let i = 0; i < apiKeys.length; i++) {
+      const keyIndex = (startIndex + i) % apiKeys.length;
+      const key = apiKeys[keyIndex];
+
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/${targetEndpoint}?key=${key}`
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (response.status === 429) {
+          console.warn(`Gemini key rotation: 429 encountered for key index ${keyIndex}, trying next key...`);
+          lastError = new Error('Rate limit reached (429) on this key');
+          continue;
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Gemini API error: ${errorText}`);
+        }
+
+        const data = await response.json();
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        lastError = err;
+        console.error(`Gemini key attempt failed:`, err.message);
+      }
     }
 
-    const data = await response.json()
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    throw lastError || new Error('All Gemini keys failed');
 
   } catch (error: any) {
     console.error('Gemini proxy error:', error.message);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 })

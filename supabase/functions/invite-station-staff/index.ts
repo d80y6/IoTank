@@ -140,6 +140,32 @@ Deno.serve(async (req: Request) => {
         details: `Directly invited ${full_name} (${role}) to the team.`
     });
 
+    // 7. DISPATCH BRANDED INVITATION EMAIL
+    try {
+        const { data: station } = await supabaseAdmin.from('fuel_stations').select('station_name').eq('id', station_id).single();
+        
+        await fetch(`${supabaseUrl}/functions/v1/dispatch-critical-alerts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'direct_transactional_email',
+                to: email,
+                params: {
+                    type: 'INVITATION',
+                    recipientName: full_name,
+                    stationName: station?.station_name || 'Your Station',
+                    senderName: adminUser.email,
+                    loginUrl: 'https://the-iotank-project.web.app/reset-password'
+                }
+            })
+        });
+    } catch (emailErr) {
+        console.warn(`[invite-station-staff] Email dispatch failed:`, emailErr);
+    }
+
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Staff member invited and provisioned successfully.',

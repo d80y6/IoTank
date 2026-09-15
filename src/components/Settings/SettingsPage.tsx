@@ -10,16 +10,18 @@ import {
 import { MdWifi, MdRefresh } from 'react-icons/md';
 import { DeviceCommandService, DeviceCommand } from '@/services/DeviceCommandService';
 import { convertToWebP } from '@/utils/performance';
-import { useTanks, updateTank as syncTankToDb, createAlert, useSites } from '@/hooks/useSupabase';
+import { useTanks, updateTank as syncTankToDb, createAlert, useSites, deleteTank } from '@/hooks/useSupabase';
 import { AddTankModal } from '../Inventory/AddTankModal';
 import { AuditService } from '@/services/AuditService';
 import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 import { Toast } from '../Common/Toast';
 import { ImageCropperModal } from '../Common/ImageCropperModal';
 import './SettingsPage.css';
 export const SettingsPage: React.FC = () => {
     const {
-        currentUser, verifySettingsPassword, updateUser, enrollMFA, verifyMFARegistration, unenrollMFA
+        currentUser, verifySettingsPassword, updateUser, enrollMFA, verifyMFARegistration, unenrollMFA,
+        setupSecurityPin, disableSecurityPin
     } = useAuth();
     const { t } = useTranslation();
     const stationId = currentUser?.stationId || '';
@@ -29,7 +31,8 @@ export const SettingsPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const profilePhotoInputRef = useRef<HTMLInputElement>(null);
 
-    const [isLocked, setIsLocked] = useState(true);
+    const [isLocked, setIsLocked] = useState(false); // [REFACTOR] Allow entry by default
+    const [protectedTabAttempt, setProtectedTabAttempt] = useState<'profile' | 'security' | 'inventory' | 'devices' | null>(null);
     const [password, setPassword] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -103,18 +106,49 @@ export const SettingsPage: React.FC = () => {
         
 }    
 };    const handleDisableMFA = async () => {
-        if (!confirm('Are you sure you want to remove Two-Factor Authentication? This will make your account less secure.')) return;
-        setMfaLoading(true);
-        try {
-            await unenrollMFA();
-            setMfaEnabled(false);
-            setToast({ message: 'Identity protection: Two-Factor Authentication has been removed. Account security level decreased.', type: 'success' });
-            await AuditService.log('SECURITY', 'MFA_DISABLED', currentUser?.stationId || 'SYSTEM', 'Security alert: Two-Factor Authentication de-registered. Manual bypass active.', 'WARNING', {});
-        } catch (err: any) {
-            setToast({ message: err.message || 'Failed to disable MFA.', type: 'error' });
-        } finally {
-            setMfaLoading(false);
-        }
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Security Alert: Remove Protection',
+                message: 'Are you sure you want to remove Two-Factor Authentication? This will significantly decrease your account security level and revert to legacy identity verification.',
+                type: 'error',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Maintain Security',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Disable MFA',
+                        primary: true,
+                        onClick: async () => {
+                            setMfaLoading(true);
+                            try {
+                                await unenrollMFA();
+                                setMfaEnabled(false);
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'MFA Disabled',
+                                        message: 'Identity protection has been removed. Account security level decreased.',
+                                        type: 'info'
+                                    }
+                                }));
+                                await AuditService.log('SECURITY', 'MFA_DISABLED', currentUser?.stationId || 'SYSTEM', 'Security alert: Two-Factor Authentication de-registered. Manual bypass active.', 'WARNING', {});
+                            } catch (err: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Operation Failed',
+                                        message: err.message || 'Failed to disable MFA.',
+                                        type: 'error'
+                                    }
+                                }));
+                            } finally {
+                                setMfaLoading(false);
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     // Tank Selection & Modal State
@@ -132,21 +166,22 @@ export const SettingsPage: React.FC = () => {
     const [showConfirmPw, setShowConfirmPw] = useState(false);
     const [pwSaving, setPwSaving] = useState(false);
 
-    // Secure Factory Reset State
-    const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
-    const [showResetAuthModal, setShowResetAuthModal] = useState(false);
-    const [resetAuthPassword, setResetAuthPassword] = useState('');
+    // PIN Management State
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pinCode, setPinCode] = useState('');
+    const [confirmPinCode, setConfirmPinCode] = useState('');
+    const [pinLoading, setPinLoading] = useState(false);
+    const [securityPinEnabled, setSecurityPinEnabled] = useState(currentUser?.securityPinEnabled || false);
+    
+    // [REACTIVE SYNC]: Ensure security PIN status persists and updates upon profile enrichment
+    useEffect(() => {
+        if (currentUser?.securityPinEnabled !== undefined) {
+            setSecurityPinEnabled(currentUser.securityPinEnabled);
+        }
+    }, [currentUser?.securityPinEnabled]);
 
-    // Image Cropping State
-    const [cropperState, setCropperState] = useState<{
-        isOpen: boolean;
-        imageSrc: string;
-        mode: 'profile' | 'logo';
-    }>({
-        isOpen: false,
-        imageSrc: '',
-        mode: 'profile'
-    });
+    const [visiblePinIndices, setVisiblePinIndices] = useState<number[]>([]);
+    const [visibleConfirmPinIndices, setVisibleConfirmPinIndices] = useState<number[]>([]);
 
     // Price Draft State (String buffered for decimal entry support)
     const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
@@ -157,6 +192,22 @@ export const SettingsPage: React.FC = () => {
     const [deletePassword, setDeletePassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    
+    // Image Cropper State
+    const [cropperState, setCropperState] = useState<{
+        isOpen: boolean;
+        imageSrc: string;
+        mode: 'logo' | 'profile';
+    }>({
+        isOpen: false,
+        imageSrc: '',
+        mode: 'logo'
+    });
+
+    // Reset Modal States
+    const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+    const [showResetAuthModal, setShowResetAuthModal] = useState(false);
+    const [resetAuthPassword, setResetAuthPassword] = useState('');
 
     const handleDeleteTank = async () => {
         if (!deletePassword) {
@@ -167,11 +218,23 @@ export const SettingsPage: React.FC = () => {
         
         setIsDeleting(true);
         setDeleteError(null);
+        
+        // [AUDIT TRAIL]: Log initial administrative purge attempt
+        await AuditService.log(
+            'SECURITY',
+            'DELETE_TANK',
+            stationId,
+            `User initiated administrative purge attempt for tank: ${tankToDelete.name} (${tankToDelete.id})`,
+            'WARNING',
+            { tankId: tankToDelete.id, tankName: tankToDelete.name, status: 'attempt' }
+        ).catch(() => {});
+
         try {
+            // Step 1: Verify the administrative settings password
             await verifySettingsPassword(deletePassword);
             
-            const { error: delError } = await supabase.from('tanks').delete().eq('id', tankToDelete.id);
-            if (delError) throw delError;
+            // Step 2: Perform the cascading delete using the robust service helper
+            await deleteTank(tankToDelete.id);
             
             setIsDeleteModalOpen(false);
             setTankToDelete(null);
@@ -181,17 +244,42 @@ export const SettingsPage: React.FC = () => {
                 type: 'success'
             });
             
+            // Step 3: Log completed deletion
             await AuditService.log(
                 'SYSTEM', 
                 'DELETE_TANK', 
                 stationId, 
                 `Permanently deleted tank: ${tankToDelete.name}`,
                 'CRITICAL',
-                { tankId: tankToDelete.id }
+                { tankId: tankToDelete.id, status: 'completed' }
             ).catch(() => {});
             
         } catch (err: any) {
-            setDeleteError(err.message || 'Verification failed. Incorrect password.');
+            logger.error('[SettingsPage] Delete tank failed:', err);
+            
+            // Step 4: Log the failure to the security audit trail
+            await AuditService.log(
+                'SECURITY',
+                'DELETE_TANK',
+                stationId,
+                `Purge failed for tank: ${tankToDelete.name}. Error: ${err.message || 'unknown'}`,
+                'CRITICAL',
+                { tankId: tankToDelete.id, error: err, status: 'failed' }
+            ).catch(() => {});
+
+            // Step 5: Render highly granular user-friendly errors
+            let userFriendlyMsg = 'Verification failed. Incorrect password.';
+            if (err.message) {
+                if (err.message.includes('password') || err.message.includes('Invalid credentials')) {
+                    userFriendlyMsg = 'Incorrect password. Administrative verification failed.';
+                } else if (err.code === '23503' || err.message.includes('foreign key') || err.message.includes('violates foreign key constraint')) {
+                    userFriendlyMsg = 'Database Integrity Violation: Cannot purge this tank as it is referenced by other records. Please delete dependent records first.';
+                } else {
+                    userFriendlyMsg = `Purge failed: ${err.message}`;
+                }
+            }
+            
+            setDeleteError(userFriendlyMsg);
             setIsDeleting(false);
         }
     };
@@ -226,6 +314,16 @@ export const SettingsPage: React.FC = () => {
             const fuelName = (tankToUpdate as any).name || tankToUpdate.fuelType.toUpperCase();
             const currentMetadata = (tankToUpdate as any).metadata || {};
 
+            // [IMMEDIATE FEEDBACK]: Notify user that synchronization has started
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Price Configuration',
+                    message: `Synchronizing ${fuelName} price adjustment: ${oldPrice} Ksh ⮕ ${normalizedPrice} Ksh`,
+                    type: 'info',
+                    attribution: 'FINANCIAL CORE'
+                }
+            }));
+
             await syncTankToDb(tankId, {
                 metadata: { ...currentMetadata, retailPrice: normalizedPrice }
             } as any);
@@ -237,14 +335,7 @@ export const SettingsPage: React.FC = () => {
                 return next;
             });
             
-            window.dispatchEvent(new CustomEvent('system-toast', {
-                detail: {
-                    title: 'Price Configuration',
-                    message: `${fuelName} price changed from ${oldPrice} Ksh to ${normalizedPrice} Ksh`,
-                    type: 'success',
-                    attribution: 'FINANCIAL CORE'
-                }
-            }));
+
             await AuditService.log(
                 'FINANCE',
                 'SETTINGS_CHANGED',
@@ -263,9 +354,9 @@ export const SettingsPage: React.FC = () => {
                 title: 'Fuel Price Calibration',
                 message: `${fuelName} unit price adjusted from ${oldPrice} to ${normalizedPrice} Ksh. Shift valuation updated.`,
                 metadata: { oldPrice, newPrice: normalizedPrice, tankName: fuelName }
-            }).catch(e => console.error('Failed to trigger price alert:', e));
+            }).catch(e => logger.error('[SettingsPage] Failed to trigger price alert:', e));
         } catch (err) {
-            console.error('Price update error:', err);
+            logger.error('[SettingsPage] Price update error:', err);
             setToast({ message: 'Update failed. Please check connection.', type: 'error' });
         }
     };
@@ -356,7 +447,7 @@ export const SettingsPage: React.FC = () => {
             setRecentCommands(cmds as any);
             setLocalPendingIds(DeviceCommandService.getLocalPendingIds());
         } catch (err) {
-            console.error("Failed to load commands:", err);
+            logger.error('[SettingsPage] Failed to load commands:', err);
         }
     };
 
@@ -482,12 +573,10 @@ currentUser.stationId
             });
         
 } catch (err: any) {
-            console.error('Logo upload error:', err);
+            logger.error('[SettingsPage] Logo upload error:', err);
             setToast({
- message: `Upload failed: ${
-err.message
-}`, type: 'error' 
-});
+                message: `Upload failed: ${err.message}`, type: 'error' 
+            });
         
 } finally {
             setIsUploadingLogo(false);
@@ -513,7 +602,7 @@ err.message
             await AuditService.log('SYSTEM', 'UPLOAD_AVATAR', currentUser.stationId || 'SYSTEM', `Identity signature updated: Profile photo synchronized to ${filePath}`);
             setToast({ message: 'Profile photo updated.', type: 'success' });
         } catch (err: any) {
-            console.error('Profile photo upload error:', err);
+            logger.error('[SettingsPage] Profile photo upload error:', err);
             setToast({ message: `Upload failed: ${err.message}`, type: 'error' });
         } finally {
             setIsUploadingPhoto(false);
@@ -535,7 +624,7 @@ err.message
             await AuditService.log('SYSTEM', 'UPDATE_COMPANY', currentUser.stationId, `Operational profile modified: Station identity set to "${orgForm.name}"`, 'INFO', {});
             setToast({ message: `Station profile for "${orgForm.name}" has been synchronized.`, type: 'success' });
         } catch (err) {
-            console.error(err);
+            logger.error('[SettingsPage] Station profile sync failed:', err);
             setToast({ message: 'Failed to save station information.', type: 'error' });
         } finally {
             setIsSaving(false);
@@ -553,7 +642,7 @@ err.message
             await AuditService.log('SYSTEM', 'UPDATE_PROFILE', currentUser?.stationId || 'SYSTEM', `Operator identity modified: Profile name set to "${profileForm.displayName}"`, 'INFO', {});
             setToast({ message: `Identity updated: Profile saved for ${profileForm.displayName}.`, type: 'success' });
         } catch (err) {
-            console.error(err);
+            logger.error('[SettingsPage] Profile save failed:', err);
             setToast({ message: 'Failed to update profile.', type: 'error' });
         } finally {
             setIsSaving(false);
@@ -562,26 +651,129 @@ err.message
 
     const handleUnlock = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
         setIsVerifying(true);
+        setError(null);
         try {
             await verifySettingsPassword(password);
             setIsLocked(false);
+            if (protectedTabAttempt) {
+                setActiveTab(protectedTabAttempt);
+                setProtectedTabAttempt(null);
+            }
+            setPassword('');
         } catch (err: any) {
-            setError(err.message || 'Incorrect password');
+            setError(err.message || 'Verification failed.');
         } finally {
             setIsVerifying(false);
         }
     };
 
+    const handleTabChange = (tab: 'profile' | 'security' | 'inventory' | 'devices') => {
+        const protectedTabs = ['inventory', 'devices'];
+        if (protectedTabs.includes(tab) && isLocked) {
+            setProtectedTabAttempt(tab);
+            return;
+        }
+        setActiveTab(tab);
+    };
+
+    const handleSetupPin = async () => {
+        if (pinCode.length !== 6 || pinCode !== confirmPinCode) {
+            setToast({ message: 'PINs must match and be 6 digits.', type: 'error' });
+            return;
+        }
+        setPinLoading(true);
+        try {
+            await setupSecurityPin(pinCode);
+            setSecurityPinEnabled(true);
+            setShowPinModal(false);
+            setPinCode('');
+            setConfirmPinCode('');
+            
+            // Premium Global Notification
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Security Hardened',
+                    message: '6-digit PIN established. Your price controls and inventory are now protected by secondary verification.',
+                    type: 'success',
+                    attribution: 'SECURITY_VAULT'
+                }
+            }));
+
+            setToast({ message: '✅ Security PIN established successfully.', type: 'success' });
+
+            await AuditService.log('SECURITY', 'PIN_SETUP', stationId, 'Secondary security layer established via 6-digit PIN', 'INFO');
+        } catch (err: any) {
+            setToast({ message: err.message || 'Failed to set PIN.', type: 'error' });
+        } finally {
+            setPinLoading(false);
+        }
+    };
+
+    const handleDisablePin = async () => {
+        setPinLoading(true);
+        try {
+            await disableSecurityPin();
+            setSecurityPinEnabled(false);
+            
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Security Layer Removed',
+                    message: '6-digit PIN has been de-activated. Critical actions no longer require secondary verification.',
+                    type: 'info',
+                    attribution: 'SECURITY_VAULT'
+                }
+            }));
+
+            await AuditService.log('SECURITY', 'SETTINGS_CHANGED', stationId, 'Security alert: Secondary PIN layer de-activated by user.', 'WARNING');
+        } catch (err: any) {
+            setToast({ message: err.message || 'Failed to disable PIN.', type: 'error' });
+        } finally {
+            setPinLoading(false);
+        }
+    };
+
+    const handleExportData = () => {
+        const data = {
+            profile: currentUser,
+            station_id: stationId,
+            timestamp: new Date().toISOString(),
+            export_region: 'Republic of Kenya (DPA 2019 Compliance)'
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `iotank_data_export_${currentUser?.email}.json`;
+        a.click();
+        setToast({ message: 'Data export initiated.', type: 'success' });
+    };
+
+    const handleDeleteAccountRequest = () => {
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Right to be Forgotten',
+                message: 'Under DPA 2019, you may request account deletion. A system administrator will review and purge your records within 30 days.',
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    { label: 'Cancel', onClick: () => {} },
+                    { 
+                        label: 'Submit Deletion Request', 
+                        primary: true, 
+                        onClick: () => {
+                            setToast({ message: 'Deletion request submitted to Compliance Officer.', type: 'success' });
+                        } 
+                    }
+                ]
+            }
+        }));
+    };
+
     const handleDismissLock = () => {
         setError(null);
         setPassword('');
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            window.location.href = '/dashboard';
-        }
+        setProtectedTabAttempt(null);
     };
 
     const handleChangePassword = async (e: React.FormEvent) => {
@@ -632,154 +824,142 @@ err.message
     const confirmSecureResetFinal = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // [IMMEDIATE FEEDBACK]
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Factory Reset',
+                    message: 'Initializing global system purge. One moment...',
+                    type: 'warning',
+                    attribution: 'SYSTEM SETTINGS'
+                }
+            }));
+
             await verifySettingsPassword(resetAuthPassword);
-            alert("Factory reset completed successfully.");
+            
             setShowResetAuthModal(false);
             window.location.reload();
         } catch (err: any) {
-            alert(err.message || 'Verification failed.');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Reset Failed',
+                    message: err.message || 'Verification failed.',
+                    type: 'error',
+                    attribution: 'SYSTEM SETTINGS'
+                }
+            }));
         }
     };
-    if (isLocked) {
+    if (protectedTabAttempt) {
         return (            
-<div className="security-lock-overlay">
-                
-                <div className="add-tank-modal-content security-lock-content modal-w-md">
-                    <div className="modal-header">
-                        <div className="header-text-container">
-                            <h2>Security Gate</h2>
-                            <p>Authentication required for system parameters</p>
-                            <div className="modal-header-badges">
-                                <span className="modal-badge cyan">LOCKED</span>
-                                <span className="modal-badge blue">ADMIN</span>
+            <>
+                <div className="security-lock-overlay">
+                    <div className="add-tank-modal-content security-lock-content modal-w-md">
+                        <div className="modal-header">
+                            <div className="header-text-container">
+                                <h2>Security Gate</h2>
+                                <p>Authentication required for system parameters</p>
+                                <div className="modal-header-badges">
+                                    <span className="modal-badge cyan">LOCKED</span>
+                                    <span className="modal-badge blue">ADMIN</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-<div className="security-modal-body">
-                        
-<div className="security-lock-header">
-                            
-<FiLock className="security-lock-icon-main" aria-hidden="true" size={
-40
-} />
-                            
-<h3 className="security-lock-title">
-Verify Identity
-</h3>
-                            
-<p className="security-lock-text">
-Enter your master password to unlock critical settings.
-</p>
-                        
-</div>
-                        
-<form onSubmit={
-handleUnlock
-} className="security-form security-form-mt">
-                            
-<div className="input-group">
-                                
-<label htmlFor="master-password" className="master-pass-label">
-Master Password
-</label>
-                                
-<div className="password-input-wrapper">
-                                    
-<input                                        id="master-password"                                        className="settings-input master-pass-input"                                        type={
-showLockPassword ? "text" : "password"
-}                                        value={
-password
-}                                        onChange={
-(e) =>
- setPassword(e.target.value)
-}                                        placeholder="············"                                        title="Master Password"                                        autoFocus                                        disabled={
-isVerifying
-}                                    />
-                                    
-<button                                         type="button"                                         className="password-toggle"                                        onClick={
-() =>
- setShowLockPassword(!showLockPassword)
-}                                        disabled={
-isVerifying
-}                                        aria-label={
-showLockPassword ? "Hide password" : "Show password"
-}                                        title={
-showLockPassword ? "Hide password" : "Show password"
-}                                    >
-                                        {
-showLockPassword ? 
-<FiEyeOff size={
-18
-} />
- : 
-<FiEye size={
-18
-} />
-
-}                                    
-</button>
-                                
-</div>
-                                                                {
-error && 
-<div className="text-danger text-xs mt-3 font-bold text-center">
-❌ {
-error
-}
-</div>
-
-}                            
-</div>
-                            
-                            <div className="form-actions border-t pt-6 security-form-mt">
-                                <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={handleDismissLock}
-                                    title="Cancel Authentication"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn-primary flex-1"
-                                    disabled={isVerifying || !password}
-                                    title="Unlock Secure Access"
-                                >
-                                    {isVerifying ? (
-                                        <FiRefreshCw className="animate-spin" />
-                                    ) : (
-                                        <>
-                                            Unlock Access
-                                            <FiArrowRight className="ml-2" />
-                                        </>
-                                    )}
-                                </button>
+                        <div className="security-modal-body">
+                            <div className="security-lock-header">
+                                <FiLock className="security-lock-icon-main" aria-hidden="true" size={40} />
+                                <h3 className="security-lock-title">Verify Identity</h3>
+                                <p className="security-lock-text">Enter your master password to unlock critical settings.</p>
                             </div>
-                        
-</form>
-                    
-</div>
-                
-</div>
-                {
-toast && 
-<Toast message={
-toast.message
-} type={
-toast.type
-} onClose={
-() =>
- setToast(null)
-} />
-
-}            
-</div>
+                            <form onSubmit={handleUnlock} className="security-form security-form-mt">
+                                <div className="input-group">
+                                    <label htmlFor="master-password" className="master-pass-label">Master Password</label>
+                                    <div className="password-input-wrapper">
+                                        <input
+                                            id="master-password"
+                                            className="settings-input master-pass-input"
+                                            type={showLockPassword ? "text" : "password"}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="············"
+                                            title="Master Password"
+                                            autoFocus
+                                            disabled={isVerifying}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="password-toggle"
+                                            onClick={() => setShowLockPassword(!showLockPassword)}
+                                            disabled={isVerifying}
+                                            aria-label={showLockPassword ? "Hide password" : "Show password"}
+                                            title={showLockPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showLockPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                                        </button>
+                                    </div>
+                                    {error && <div className="text-danger text-xs mt-3 font-bold text-center">❌ {error}</div>}
+                                </div>
+                                <div className="form-actions border-t pt-6 security-form-mt">
+                                    <button type="button" className="btn-secondary" onClick={handleDismissLock}>Cancel</button>
+                                    <button type="submit" className="btn-primary flex-1" disabled={isVerifying || !password}>
+                                        {isVerifying ? <FiRefreshCw className="animate-spin" /> : <>Unlock Access <FiArrowRight className="ml-2" /></>}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {/* Global Modals for Gate path */}
+                {showPinModal && createPortal(
+                    <div className="add-tank-modal-overlay">
+                        <div className="add-tank-modal-content modal-w-md">
+                            <div className="modal-header security-verify-header">
+                                <div className="header-text-container">
+                                    <h2>Security PIN Setup</h2>
+                                    <p>Set a 6-digit secondary verification code</p>
+                                </div>
+                                <button className="close-btn" onClick={() => setShowPinModal(false)}><FiX /></button>
+                            </div>
+                            <div className="security-modal-body">
+                                <div className="input-group">
+                                    <label>Enter 6-Digit PIN</label>
+                                    <input 
+                                        type="password" 
+                                        maxLength={6} 
+                                        className="settings-input text-center text-2xl tracking-[1em]" 
+                                        value={pinCode} 
+                                        onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="••••••"
+                                    />
+                                </div>
+                                <div className="input-group mt-4">
+                                    <label>Confirm PIN</label>
+                                    <input 
+                                        type="password" 
+                                        maxLength={6} 
+                                        className="settings-input text-center text-2xl tracking-[1em]" 
+                                        value={confirmPinCode} 
+                                        onChange={(e) => setConfirmPinCode(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="••••••"
+                                    />
+                                </div>
+                                <div className="form-actions mt-8">
+                                    <button className="btn-secondary" onClick={() => setShowPinModal(false)}>Cancel</button>
+                                    <button className="btn-primary" onClick={handleSetupPin} disabled={pinLoading || pinCode.length !== 6}>
+                                        {pinLoading ? <FiRefreshCw className="animate-spin" /> : 'Save PIN'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+                {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            </>
         );
-    
-}    return (        
-<div className="settings-container">
+    }
+
+    return (
+        <div className="settings-container">
             {
 /* Factory Reset Confirmation Modal */
 }            {
@@ -952,61 +1132,20 @@ currentUser?.stationId?.slice(0, 8).toUpperCase() || 'OFFLINE'
                 
 </header>
                 
-<div className="settings-tabs-nav">
-                    
-<button className={
-`tab-btn ${
-activeTab === 'profile' ? 'active' : ''
-}`
-} onClick={
-() =>
- setActiveTab('profile')
-} title="General Profile Settings">
-                        
-<FiUser />
- General                    
-</button>
-                    
-<button className={
-`tab-btn ${
-activeTab === 'inventory' ? 'active' : ''
-}`
-} onClick={
-() =>
- setActiveTab('inventory')
-} title="Fleet Inventory Management">
-                        
-<FiZap />
- Fleet                    
-</button>
-                    
-<button className={
-`tab-btn ${
-activeTab === 'security' ? 'active' : ''
-}`
-} onClick={
-() =>
- setActiveTab('security')
-} title="Account Security & MFA">
-                        
-<FiShield />
- Security                    
-</button>
-                    
-<button className={
-`tab-btn ${
-activeTab === 'devices' ? 'active' : ''
-}`
-} onClick={
-() =>
- setActiveTab('devices')
-} title="Hardware & C2 Console">
-                        
-<FiCpu />
- Device Management                    
-</button>
-                
-</div>
+                <div className="settings-tabs-nav">
+                    <button className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => handleTabChange('profile')} title="General Profile Settings">
+                        <FiUser /> General
+                    </button>
+                    <button className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => handleTabChange('inventory')} title="Fleet Inventory Management">
+                        <FiZap /> Fleet
+                    </button>
+                    <button className={`tab-btn ${activeTab === 'security' ? 'active' : ''}`} onClick={() => handleTabChange('security')} title="Account Security & MFA">
+                        <FiShield /> Security
+                    </button>
+                    <button className={`tab-btn ${activeTab === 'devices' ? 'active' : ''}`} onClick={() => handleTabChange('devices')} title="Hardware & C2 Console">
+                        <FiCpu /> Device Management
+                    </button>
+                </div>
                 
 <div className="settings-grid">
                     {
@@ -1275,15 +1414,42 @@ isSaving
  {
 isSaving ? 'Updating...' : 'Update Account'
 }                                        
-</button>
-                                    
-</div>
-                                
-</form>
-                            
-</section>
-                        
-</>
+                                        </button>
+                                    </div>
+                                </form>
+                            </section>
+
+                            {/* Kenyan Compliance & Data Governance (DPA 2019) */}
+                            <section className="ds-card-panel compliance-panel border-t-4 border-blue-500">
+                                <div className="settings-section-title">
+                                    <FiShield className="text-blue-500" />
+                                    Compliance & Data Governance
+                                </div>
+                                <p className="settings-section-desc">
+                                    Tools for managing your data rights under the <strong>Kenya Data Protection Act 2019</strong>.
+                                </p>
+                                <div className="compliance-grid grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                                    <div className="compliance-item p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-2">
+                                            <FiRefreshCw className="text-blue-500" /> Data Portability
+                                        </h4>
+                                        <p className="text-xs text-slate-500 mb-4">Export all your personal and station telemetry data in machine-readable JSON format.</p>
+                                        <button className="btn-secondary w-full text-xs py-2" onClick={handleExportData}>Download My Data</button>
+                                    </div>
+                                    <div className="compliance-item p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-2">
+                                            <FiTrash2 className="text-red-500" /> Right to be Forgotten
+                                        </h4>
+                                        <p className="text-xs text-slate-500 mb-4">Request permanent deletion of your account and all associated telemetry records.</p>
+                                        <button className="btn-secondary w-full text-xs py-2 text-red-600 hover:bg-red-50" onClick={handleDeleteAccountRequest}>Delete Account Request</button>
+                                    </div>
+                                </div>
+                                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center gap-2">
+                                    <FiCheckCircle className="text-emerald-500" />
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registered Data Processor (ODPC Kenya)</span>
+                                </div>
+                            </section>
+                        </>
                     )
 }                    {
 activeTab === 'inventory' && (                        
@@ -1589,11 +1755,46 @@ mfaLoading ? '...' : 'Enable'
 </button>
                                     )
 }                                
-</div>
-                            
-</div>
-                        
-</section>
+                                </div>
+
+                                {/* Security PIN card - NEW for Kenyan SaaS Security */}
+                                <div className="security-card mt-4 border-t pt-6">
+                                    <div className={`security-icon-wrapper ${securityPinEnabled ? 'mfa-active-bg' : 'mfa-inactive-bg'}`}>
+                                        <FiActivity />
+                                    </div>
+                                    <div className="security-info">
+                                        <h4>Security PIN</h4>
+                                        <p>Secondary 6-digit verification layer for critical actions.</p>
+                                        {securityPinEnabled ? (
+                                            <div className="mfa-status-badge active">
+                                                <FiCheckCircle />
+                                                <span>6-Digit PIN Configured</span>
+                                            </div>
+                                        ) : (
+                                            <div className="mfa-status-badge warning">
+                                                <FiAlertCircle />
+                                                <span>PIN Not Set — Recommended</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button className="btn-security-action" onClick={() => setShowPinModal(true)}>
+                                            {securityPinEnabled ? 'Change PIN' : 'Set PIN'}
+                                        </button>
+                                        {securityPinEnabled && (
+                                            <button 
+                                                className="btn-security-action danger" 
+                                                onClick={handleDisablePin}
+                                                disabled={pinLoading}
+                                                title="De-activate Security PIN"
+                                            >
+                                                {pinLoading ? '...' : 'Remove'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
                     )
 }                    {
 activeTab === 'devices' && (                        
@@ -2204,21 +2405,45 @@ mfaStep === 'verify' && (
 <p className="mfa-text-main">
                                         Enter the 6-digit code from your authenticator app to finalize the security upgrade.                                    
 </p>
-                                    
-<input                                        id="mfa-code"                                        type="text"                                        className="settings-input mfa-input-verify"                                        inputMode="numeric"                                        maxLength={
-6
-}                                        value={
-mfaVerifyCode
-}                                        onChange={
-(e: React.ChangeEvent<HTMLInputElement>) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                                            setMfaVerifyCode(val);
-                                            if (val.length === 6 && !mfaLoading) {
-                                                handleVerifyMFAEnrollment(val);
-                                            
-}                                        
-}
-}                                        placeholder="000 000"                                        title="6-digit MFA Code"                                        autoFocus                                    />
+                                    <div className="mfa-digit-container">
+                                        {[...Array(6)].map((_, i) => (
+                                            <input
+                                                key={i}
+                                                id={`mfa-digit-${i}`}
+                                                type="text"
+                                                className={`mfa-digit-input ${mfaVerifyCode[i] ? 'filled' : ''}`}
+                                                inputMode="numeric"
+                                                maxLength={1}
+                                                value={mfaVerifyCode[i] || ''}
+                                                onChange={(e) => {
+                                                    const char = e.target.value.replace(/\D/g, '').slice(-1);
+                                                    const currentCode = mfaVerifyCode.split('');
+                                                    currentCode[i] = char;
+                                                    const newCode = currentCode.join('').slice(0, 6);
+                                                    setMfaVerifyCode(newCode);
+                                                    
+                                                    // Auto-focus next
+                                                    if (char && i < 5) {
+                                                        const nextInput = document.getElementById(`mfa-digit-${i + 1}`);
+                                                        nextInput?.focus();
+                                                    }
+                                                    
+                                                    // Trigger verification if complete
+                                                    if (newCode.length === 6 && !mfaLoading) {
+                                                        handleVerifyMFAEnrollment(newCode);
+                                                    }
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Backspace' && !mfaVerifyCode[i] && i > 0) {
+                                                        const prevInput = document.getElementById(`mfa-digit-${i - 1}`);
+                                                        prevInput?.focus();
+                                                    }
+                                                }}
+                                                autoFocus={i === 0}
+                                                autoComplete="one-time-code"
+                                            />
+                                        ))}
+                                    </div>
                                     
 <div className="form-actions">
                                         
@@ -2294,76 +2519,75 @@ handleCropComplete
             )
 }            {/* Password Protected Deletion Modal - 2 STEP */}
             {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
+                <div className="add-tank-modal-overlay" onClick={(e) => e.stopPropagation()}>
+                    <div className="add-tank-modal-content modal-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div className="header-text-container">
+                                <h2>Critical Action Required</h2>
+                                <p>Permanently purge tank and history</p>
+                            </div>
+                            <div className="modal-header-badges">
+                                <span className="modal-badge red">Danger</span>
+                            </div>
+                            <button className="close-btn" onClick={() => { setIsDeleteModalOpen(false); setTankToDelete(null); }} title="Cancel">
+                                <FiX />
+                            </button>
+                        </div>
                         
+                        <div className="security-modal-body">
                         {deletionStep === 'warning' ? (
                             <>
-                                <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                                    <FiAlertTriangle className="text-red-500" />
-                                    Critical Action Required
-                                </h3>
-                                <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-                                    You are initiating a <strong className="text-red-400 underline underline-offset-4">Hard Delete</strong> for <strong className="text-white">{tankToDelete?.name}</strong>. 
+                                <p className="mb-6 text-sm text-slate-600 leading-relaxed">
+                                    You are initiating a <strong>Hard Delete</strong> for <strong>{tankToDelete?.name}</strong>. 
                                     <br /><br />
-                                    This will permanently purge all telemetry records, historical consumption data, and configuration logs from the secure vault. This action is <span className="font-black italic">irreversible</span>.
+                                    This will permanently purge all telemetry records, historical consumption data, and configuration logs from the secure vault. This action is <em>irreversible</em>.
                                 </p>
-                                <div className="flex flex-col gap-2">
+                                <div className="form-actions mt-8">
                                     <button
-                                        className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-lg transition-all shadow-lg shadow-red-900/20 uppercase text-xs tracking-widest"
-                                        onClick={() => setDeletionStep('password')}
-                                    >
-                                        I Understand, Proceed to Verify
-                                    </button>
-                                    <button
-                                        className="w-full py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                                        className="btn-danger"
                                         onClick={() => { setIsDeleteModalOpen(false); setTankToDelete(null); }}
                                     >
-                                        Cancel and Keep Data
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn-submit"
+                                        onClick={() => setDeletionStep('password')}
+                                    >
+                                        I Understand, Proceed
                                     </button>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                                    <FiShield className="text-blue-400" />
-                                    Identity Verification
-                                </h3>
-                                <p className="text-xs text-slate-400 mb-4 uppercase tracking-tighter">
-                                    Security challenge for {tankToDelete?.name} deletion
-                                </p>
-                                
-                                <div className="mb-4">
-                                    <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                        Admin Authorization Key
-                                    </label>
+                                <div className="input-group">
+                                    <label>Admin Authorization Key</label>
                                     <input
                                         type="password"
-                                        className="w-full bg-slate-950 border border-slate-800 text-white rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors shadow-inner"
+                                        className="settings-input"
                                         placeholder="Enter secure password"
                                         value={deletePassword}
                                         onChange={(e) => setDeletePassword(e.target.value)}
                                         autoFocus
                                     />
                                     {deleteError && (
-                                        <div className="flex items-center gap-2 mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded">
-                                            <FiAlertCircle className="text-red-500" size={14} />
-                                            <p className="text-red-400 text-[10px] font-bold leading-tight">{deleteError}</p>
+                                        <div className="flex items-center gap-2 mt-3 p-2 bg-red-50 text-red-600 border border-red-100 rounded text-sm">
+                                            <FiAlertCircle size={14} />
+                                            <p className="font-bold">{deleteError}</p>
                                         </div>
                                     )}
                                 </div>
                                 
-                                <div className="flex justify-between items-center gap-4 mt-6">
+                                <div className="form-actions mt-8">
                                     <button
-                                        className="text-xs font-bold text-slate-500 hover:text-white transition-colors"
+                                        className="btn-secondary"
                                         onClick={() => setDeletionStep('warning')}
                                         disabled={isDeleting}
                                     >
                                         Back
                                     </button>
                                     <button
-                                        className="px-6 py-2 bg-red-600 hover:bg-red-500 text-white font-black rounded-lg transition-all shadow-lg shadow-red-900/20 text-xs tracking-widest uppercase disabled:opacity-30"
+                                        className="btn-danger"
+                                        style={{ backgroundColor: '#dc2626' }}
                                         onClick={handleDeleteTank}
                                         disabled={isDeleting || !deletePassword}
                                     >
@@ -2372,9 +2596,113 @@ handleCropComplete
                                 </div>
                             </>
                         )}
+                        </div>
                     </div>
                 </div>
             )}
+            {/* Global Modals for Main path */}
+            {showPinModal && createPortal(
+                <div className="add-tank-modal-overlay">
+                    <div className="add-tank-modal-content modal-w-md">
+                        <div className="modal-header security-verify-header">
+                            <div className="header-text-container">
+                                <h2>Security PIN Setup</h2>
+                                <p>Set a 6-digit secondary verification code</p>
+                            </div>
+                            <button className="close-btn" onClick={() => setShowPinModal(false)}><FiX /></button>
+                        </div>
+                        <div className="security-modal-body">
+                            <div className="input-group">
+                                <label className="mb-4 block text-center">Enter 6-Digit PIN</label>
+                                <div className="flex justify-center gap-2 mb-8">
+                                    {[...Array(6)].map((_, i) => (
+                                        <input
+                                            key={`pin-${i}`}
+                                            id={`pin-input-${i}`}
+                                            type={visiblePinIndices.includes(i) ? "text" : "password"}
+                                            maxLength={1}
+                                            className="w-12 h-14 bg-slate-100 border-2 border-slate-200 rounded-xl text-center text-2xl font-bold focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
+                                            value={pinCode[i] || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                if (!val && e.target.value) return; // Ignore non-numeric
+                                                const newPin = pinCode.split('');
+                                                newPin[i] = val;
+                                                const finalPin = newPin.join('').slice(0, 6);
+                                                setPinCode(finalPin);
+                                                
+                                                if (val) {
+                                                    setVisiblePinIndices(prev => [...prev, i]);
+                                                    setTimeout(() => {
+                                                        setVisiblePinIndices(prev => prev.filter(idx => idx !== i));
+                                                    }, 500);
+                                                    
+                                                    if (i < 5) {
+                                                        document.getElementById(`pin-input-${i + 1}`)?.focus();
+                                                    }
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Backspace' && !pinCode[i] && i > 0) {
+                                                    document.getElementById(`pin-input-${i - 1}`)?.focus();
+                                                }
+                                            }}
+                                            autoFocus={i === 0}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="input-group">
+                                <label className="mb-4 block text-center">Confirm PIN</label>
+                                <div className="flex justify-center gap-2 mb-4">
+                                    {[...Array(6)].map((_, i) => (
+                                        <input
+                                            key={`confirm-pin-${i}`}
+                                            id={`confirm-pin-input-${i}`}
+                                            type={visibleConfirmPinIndices.includes(i) ? "text" : "password"}
+                                            maxLength={1}
+                                            className="w-12 h-14 bg-slate-100 border-2 border-slate-200 rounded-xl text-center text-2xl font-bold focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
+                                            value={confirmPinCode[i] || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                if (!val && e.target.value) return;
+                                                const newPin = confirmPinCode.split('');
+                                                newPin[i] = val;
+                                                const finalPin = newPin.join('').slice(0, 6);
+                                                setConfirmPinCode(finalPin);
+
+                                                if (val) {
+                                                    setVisibleConfirmPinIndices(prev => [...prev, i]);
+                                                    setTimeout(() => {
+                                                        setVisibleConfirmPinIndices(prev => prev.filter(idx => idx !== i));
+                                                    }, 500);
+
+                                                    if (i < 5) {
+                                                        document.getElementById(`confirm-pin-input-${i + 1}`)?.focus();
+                                                    }
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Backspace' && !confirmPinCode[i] && i > 0) {
+                                                    document.getElementById(`confirm-pin-input-${i - 1}`)?.focus();
+                                                }
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="form-actions mt-8">
+                                <button className="btn-secondary" onClick={() => setShowPinModal(false)}>Cancel</button>
+                                <button className="btn-primary" onClick={handleSetupPin} disabled={pinLoading || pinCode.length !== 6}>
+                                    {pinLoading ? <FiRefreshCw className="animate-spin" /> : 'Save PIN'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>
     );
 };

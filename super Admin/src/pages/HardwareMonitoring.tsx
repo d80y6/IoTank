@@ -57,11 +57,12 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
             .on(
                 'postgres_changes', 
                 { event: '*', schema: 'public', table: 'devices' }, 
-                () => {
-                    console.log('[HardwareRealtime] Synchronizing telemetry...');
-                    // In a high-performance scenario, we'd update specific rows, 
-                    // but for 12-20 nodes, a fresh fetch is ultra-reliable.
-                    fetchData();
+                (payload) => {
+                    if (payload.new && (payload.new as any).station_id) {
+                        // In a high-performance scenario, we'd update specific rows, 
+                        // but for 12-20 nodes, a fresh fetch is ultra-reliable.
+                        fetchData();
+                    }
                 }
             )
             .subscribe();
@@ -73,7 +74,13 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        alert(`ID copied to operational clipboard: ${text}`);
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'ID Copied',
+                message: `Identity token #${text.substring(0, 8)}... copied to operational clipboard.`,
+                type: 'info'
+            }
+        }));
     };
 
     const handleDeviceClick = (device: Device) => {
@@ -83,29 +90,58 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
 
     const handleExecuteCommand = async (command: string, label: string, targetType: 'fleet' | 'device' = 'fleet') => {
         const confirmMsg = targetType === 'fleet' 
-            ? `Are you sure you want to broadcast ${label} to the ENTIRE fleet?`
-            : `Send ${label} to device ${selectedDevice?.device_id}?`;
+            ? `Are you sure you want to broadcast ${label} to the ENTIRE fleet? This may cause temporary platform-wide downtime.`
+            : `Send ${label} command to node ${selectedDevice?.device_id}?`;
         
-        if (!window.confirm(confirmMsg)) return;
-
-        setCommandLoading(command);
-        try {
-            if (targetType === 'fleet') {
-                // For fleet commands, we usually iterate or use a special RPC
-                for (const device of devices) {
-                    if (device.status === 'online') {
-                        await hardwareService.sendCommand(device.id, device.device_id, command);
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Operation',
+                message: confirmMsg,
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Abort',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Execute Command',
+                        primary: true,
+                        onClick: async () => {
+                            setCommandLoading(command);
+                            try {
+                                if (targetType === 'fleet') {
+                                    for (const device of devices) {
+                                        if (device.status === 'online') {
+                                            await hardwareService.sendCommand(device.id, device.device_id, command);
+                                        }
+                                    }
+                                } else if (selectedDevice) {
+                                    await hardwareService.sendCommand(selectedDevice.id, selectedDevice.device_id, command);
+                                }
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Command Dispatched',
+                                        message: `${label} sequence has been successfully transmitted to the target ${targetType}.`,
+                                        type: 'success'
+                                    }
+                                }));
+                            } catch (error: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Command Error',
+                                        message: error.message || 'Transmission failure detected in the hardware link.',
+                                        type: 'error'
+                                    }
+                                }));
+                            } finally {
+                                setCommandLoading(null);
+                            }
+                        }
                     }
-                }
-            } else if (selectedDevice) {
-                await hardwareService.sendCommand(selectedDevice.id, selectedDevice.device_id, command);
+                ]
             }
-            alert(`${label} command dispatched successfully.`);
-        } catch (error: any) {
-            alert(`Command Failed: ${error.message}`);
-        } finally {
-            setCommandLoading(null);
-        }
+        }));
     };
 
     const renderCircularGauge = (value: number, label: string, color: string) => {

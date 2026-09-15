@@ -49,3 +49,6 @@ sync_log*.txt
 push_debug.log
 *.sync_log
 debug_*.txt
+
+# Firmware local secrets (copy secrets.example.h -> secrets.h and fill values)
+firmware/secrets.h

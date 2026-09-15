@@ -1,4 +1,5 @@
 import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 
 export interface PhotoUploadResult {
     success: boolean;
@@ -111,7 +112,7 @@ export class ProfilePhotoService {
 
             return { success: true, url: downloadURL };
         } catch (error: any) {
-            console.error(`Asset upload failed for ${storagePath}:`, error);
+            logger.error(`[ProfilePhotoService] Asset upload failed for ${storagePath}:`, error);
             return { success: false, error: error.message || 'Failed to upload asset.' };
         }
     }

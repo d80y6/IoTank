@@ -4,6 +4,7 @@ import { TankReading } from '@/types';
 
 interface SensorHealthSectionProps {
     latestReading: TankReading | null;
+    onCalibrate?: () => void;
 }
 
 interface MetricCardProps {
@@ -67,7 +68,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, unit, badge, badg
     );
 };
 
-export const SensorHealthSection: React.FC<SensorHealthSectionProps> = ({ latestReading }) => {
+export const SensorHealthSection: React.FC<SensorHealthSectionProps> = ({ latestReading, onCalibrate }) => {
     const health = latestReading?.metadata;
     const drift = health?.sensorDrift ?? 0.4;
     const signal = health?.echoSignalStrength ?? 92;
@@ -86,9 +87,18 @@ export const SensorHealthSection: React.FC<SensorHealthSectionProps> = ({ latest
                         <div className="sh-card-subtitle">Real-time telemetry verification</div>
                     </div>
                 </div>
-                <div className="sh-live-pill">
-                    <span className="sh-live-dot"></span>
-                    Active Monitoring
+                <div className="flex items-center gap-3">
+                    <button 
+                        className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors border border-slate-200 flex items-center gap-2"
+                        onClick={onCalibrate}
+                    >
+                        <FiZap size={10} className="text-amber-500" />
+                        Run Calibration
+                    </button>
+                    <div className="sh-live-pill">
+                        <span className="sh-live-dot"></span>
+                        Active
+                    </div>
                 </div>
             </div>
 
@@ -122,12 +132,12 @@ export const SensorHealthSection: React.FC<SensorHealthSectionProps> = ({ latest
                 />
                 <MetricCard
                     label="Telemetry Integrity"
-                    value="99.9"
+                    value={signal}
                     unit="%"
-                    badge="Last 30 days"
+                    badge="LIVE SIGNAL"
                     badgeColor="blue"
                     icon={<FiShield size={13} />}
-                    bar={99.9}
+                    bar={signal}
                     barColor="linear-gradient(90deg,#7c3aed,#a855f7)"
                 />
             </div>

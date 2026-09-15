@@ -1,5 +1,6 @@
 import { Tank } from '@/types';
 import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'iotank_tank_config';
 
@@ -14,7 +15,7 @@ export const ConfigPersistence = {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
             return updated;
         } catch (error) {
-            console.error('LocalStorage write failed:', error);
+            logger.error('[ConfigPersistence] LocalStorage write failed:', error);
             return null;
         }
     },
@@ -27,13 +28,13 @@ export const ConfigPersistence = {
             const data = localStorage.getItem(STORAGE_KEY);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('LocalStorage read failed:', error);
+            logger.error('[ConfigPersistence] LocalStorage read failed:', error);
             return null;
         }
     },
 
     /**
-     * Synchronizes local configuration with Firestore
+     * Synchronizes local configuration with Supabase
      */
     syncToCloud: async (stationId: string, tankId: string, config: Partial<Tank>) => {
         try {
@@ -49,13 +50,13 @@ export const ConfigPersistence = {
             if (error) throw error;
             return true;
         } catch (error) {
-            console.error('Firestore sync failed:', error);
+            logger.error('[ConfigPersistence] Supabase sync failed:', error);
             return false;
         }
     },
 
     /**
-     * Fetches from cloud and updates local cache
+     * Fetches from Supabase and updates local cache
      */
     refreshFromCloud: async (stationId: string, tankId: string) => {
         try {
@@ -71,9 +72,9 @@ export const ConfigPersistence = {
             const tankData = data as unknown as Tank;
             ConfigPersistence.saveToLocal(tankData);
             return tankData;
-            return null;
+            // NOTE: The line below was unreachable — removed (C-01)
         } catch (error) {
-            console.error('Refresh from cloud failed:', error);
+            logger.error('[ConfigPersistence] Refresh from Supabase failed:', error);
             return null;
         }
     }

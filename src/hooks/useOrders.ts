@@ -1,18 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
-
-export interface FuelOrder {
-    id: string;
-    supplier: string;
-    product: string;
-    quantity: number;
-    expectedDate: string;
-    status: string;
-    priority: string;
-    actorEmail: string;
-    createdAt: string;
-    notes?: string;
-}
+import { FuelOrder } from '@/types';
+import { logger } from '@/utils/logger';
 
 export function useOrders(stationId: string) {
     const [orders, setOrders] = useState<FuelOrder[]>([]);
@@ -35,6 +24,7 @@ export function useOrders(stationId: string) {
 
             const mappedOrders: FuelOrder[] = (data || []).map(log => ({
                 id: log.id,
+                orderRef: log.metadata?.order_ref || log.id.slice(0, 8),
                 supplier: log.metadata?.supplier || 'Unknown',
                 product: log.metadata?.product || 'Fuel',
                 quantity: Number(log.metadata?.quantity || 0),
@@ -49,7 +39,7 @@ export function useOrders(stationId: string) {
             setOrders(mappedOrders);
             setError(null);
         } catch (err: any) {
-            console.error('Error fetching orders:', err);
+            logger.error('[useOrders] Error fetching orders:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -61,6 +51,8 @@ export function useOrders(stationId: string) {
 
         fetchOrders();
 
+        if (import.meta.env.VITE_DISABLE_REALTIME === 'true') return;
+
         const channel = supabase
             .channel(`orders-realtime-${stationId}`)
             .on(
@@ -68,7 +60,8 @@ export function useOrders(stationId: string) {
                 { 
                     event: 'INSERT', 
                     schema: 'public', 
-                    table: 'unified_events'
+                    table: 'unified_events',
+                    filter: `station_id=eq.${stationId}`   // ← Scoped at DB level, not just client-side
                 },
                 (payload) => {
                     // Check if the event matches our station and category

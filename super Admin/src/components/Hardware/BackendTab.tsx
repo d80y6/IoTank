@@ -77,12 +77,24 @@ export const BackendTab: React.FC = () => {
         setSyncing(true);
         try {
             await lookupTableService.upsertEntries(lookupData);
-            alert('Lookup tables synchronized successfully!');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Sync Successful',
+                    message: `Synchronized ${lookupData.length} correction entries to the global lookup database.`,
+                    type: 'success'
+                }
+            }));
             setIsEditing(false);
             fetchEntries();
         } catch (error) {
             console.error('Sync failed:', error);
-            alert('Failed to sync data to database.');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Sync Failed',
+                    message: 'Failed to commit correction data to the database. Verify schema integrity.',
+                    type: 'error'
+                }
+            }));
         } finally {
             setSyncing(false);
         }
@@ -94,6 +106,48 @@ export const BackendTab: React.FC = () => {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, selectedTankType.substring(0, 30));
         XLSX.writeFile(workbook, `LookupTable_${selectedTankType}.xlsx`);
+    };
+
+    const handlePurge = () => {
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Data Purge',
+                message: 'Are you sure you want to permanently clear all global lookup tables? This will affect volume calculations for all nodes.',
+                type: 'error',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Abort',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Purge Database',
+                        primary: true,
+                        onClick: async () => {
+                            try {
+                                await lookupTableService.clearAll();
+                                await fetchEntries();
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Data Purged',
+                                        message: 'The global lookup directory has been wiped.',
+                                        type: 'info'
+                                    }
+                                }));
+                            } catch (err: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Purge Failed',
+                                        message: err.message,
+                                        type: 'error'
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     const tankTypes = Array.from(new Set(lookupData.map(d => d.tank_type)));
@@ -157,11 +211,7 @@ export const BackendTab: React.FC = () => {
                             </div>
                             <div className="flex gap-4">
                                 <button className="icon-btn" title="Export Current Table" onClick={handleExport}><FiDownload /></button>
-                                <button className="icon-btn text-danger" title="Purge Data" onClick={() => {
-                                    if(confirm('Are you sure you want to clear all lookup data?')) {
-                                        lookupTableService.clearAll().then(fetchEntries);
-                                    }
-                                }}><FiTrash2 /></button>
+                                <button className="icon-btn text-danger" title="Purge Data" onClick={handlePurge}><FiTrash2 /></button>
                             </div>
                         </div>
 

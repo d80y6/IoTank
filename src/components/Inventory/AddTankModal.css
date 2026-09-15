@@ -161,7 +161,7 @@
 }
 
 .close-btn:hover {
-    transform: scale(1.05) translateY(-1px);
+    transform: scale(1.08) rotate(90deg) translateY(-1px);
     box-shadow: 
         inset 0 4px 6px -1px rgba(255, 255, 255, 0.6),
         inset 0 -3px 6px -1px rgba(153, 27, 27, 0.7),
@@ -488,77 +488,85 @@
 
 /* ---------- Security Gate ---------- */
 .add-tank-modal-content.auth-mode {
-    max-width: 440px;
+    max-width: 420px;
 }
 
-.password-gate {
+.provisioning-lock-screen {
+    padding: 32px 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 32px 24px;
-    animation: atm-fade 0.4s ease-out;
+    gap: 20px;
 }
 
-.gate-icon-container {
-    width: 60px; height: 60px;
-    background: linear-gradient(135deg, #e0f0ff, #bfdbfe);
+.lock-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    background: rgba(0, 114, 255, 0.1);
     border-radius: 18px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 18px;
-}
-
-.gate-icon { font-size: 1.8rem; color: #0072ff; }
-
-.password-gate h3 { font-size: 1.15rem; font-weight: 800; margin-bottom: 6px; color: #0f172a; }
-.password-gate p  { font-size: 0.85rem; color: #64748b; margin-bottom: 24px; max-width: 300px; line-height: 1.5; }
-
-.gate-form {
-    width: 100%;
-    max-width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.gate-form input {
-    width: 100%;
-    padding: 12px 16px;
-    border-radius: 12px;
-    border: 2px solid #e2e8f0;
-    background: #ffffff;
-    font-size: 0.95rem;
-    text-align: center;
-    letter-spacing: 0.08em;
-    color: #0f172a;
-    transition: all 0.2s;
-}
-
-.gate-form input:focus {
-    outline: none;
-    border-color: #00b8e6;
-    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
-    background: white;
-}
-
-.gate-form button {
-    width: 100%;
-    padding: 13px;
-    border-radius: 12px;
-    border: none;
-    background: linear-gradient(135deg, #00d4ff 0%, #0072ff 100%);
-    color: white;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
-    box-shadow: 0 8px 18px -4px rgba(0, 114, 255, 0.35);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #0072ff;
+    font-size: 28px;
+}
+
+.cpu-pulse {
+    animation: cpu-pulse 2s infinite ease-in-out;
+}
+
+@keyframes cpu-pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.8; }
+}
+
+.lock-text-content h3 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+
+.lock-text-content p {
+    font-size: 0.9rem;
+    color: #64748b;
+    line-height: 1.5;
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+.lock-form {
+    width: 100%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.unlock-btn {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    color: white;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.2s;
 }
 
-.gate-form button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(0, 114, 255, 0.45); }
+.unlock-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.unlock-btn:active {
+    transform: scale(0.98);
+}
 
 .gate-footer { margin-top: 16px; }
 .btn-secondary {

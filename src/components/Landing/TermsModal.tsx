@@ -106,12 +106,38 @@ const termsSections = [
                 </div>
             </>
         )
+    },
+    {
+        title: "Part C — Acceptable Use Policy (AUP) & Professional Conduct",
+        content: (
+            <>
+                <div className="terms-notice">
+                    <strong>master directive:</strong> the iotank platform is a high-precision industrial tool. the following policy defines the ethical and operational boundaries for all registered users. violation of the aup will result in immediate "blackballing" from the platform and potential reporting to cybercrime units.
+                </div>
+
+                <span className="terms-section-title">section xiv: ethical usage & telemetry integrity</span>
+                <p><strong>14.1 Data Falsification:</strong> You are strictly prohibited from attempting to inject, spoof, or manipulate telemetry packets to show false fuel levels. This includes using hardware emulators or modifying sensor payloads. Any detection of "Synthetic Level Injection" will be treated as industrial fraud.</p>
+                <p><strong>14.2 Systematic Abuse:</strong> Automated scraping, botting, or "stress-testing" our production API without prior written authorization is a violation of the AUP. We utilize <strong>AI-driven behavior analysis</strong> to detect non-human interaction patterns.</p>
+                <p><strong>14.3 Account Sovereignty:</strong> You may not share your professional credentials with third-party consultants or competitors. Every user must have a unique identity bound to their corporate email. "Shadow Accounts" created to bypass station-count limits will be purged without recovery.</p>
+
+                <span className="terms-section-title">section xv: hardware & network safety</span>
+                <p><strong>15.1 Physical Tampering:</strong> Modifying the IoTank Gateway firmware or attempting to bypass the encrypted secure-boot sequence is strictly prohibited. Hardware found with "JTAG" or "UART" tampering will be permanently blacklisted from our Cloud nodes.</p>
+                <p><strong>15.2 Interference with Neighbors:</strong> You may not use IoTank sensor arrays to interfere with or intercept telemetry from neighboring fuel stations or third-party IoT networks. Industrial espionage via our platform is a crime.</p>
+
+                <div className="terms-footer-seal">
+                    <p>© 2026 Joe Engineering Company | IoTank Systems Kenya</p>
+                    <p>Verified Compliant with DPA 2019 & Energy Act 2019</p>
+                </div>
+            </>
+        )
     }
 ];
 
 
 const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose, onComplete, initialStep = 0, readOnly = false }) => {
-    const [currentStep, setCurrentStep] = useState(initialStep);
+    // Clamp initialStep to valid range
+    const safeInitialStep = Math.min(Math.max(0, initialStep), termsSections.length - 1);
+    const [currentStep, setCurrentStep] = useState(safeInitialStep);
     const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -158,7 +184,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose, onComplete, in
 
     if (!isOpen) return null;
 
-    const currentSection = termsSections[currentStep];
+    const currentSection = termsSections[currentStep] || termsSections[0];
     const isLastStep = currentStep === termsSections.length - 1;
 
     return (

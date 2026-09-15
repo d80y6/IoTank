@@ -8,6 +8,7 @@ import brandMark from '../assets/iotank-logo-v3.png';
 import './Layout/MainLayout.css';
 import { supabase } from '../config/supabase';
 import NotificationPanel from './NotificationPanel';
+import { GlobalToast } from './Common/GlobalToast';
 
 interface LayoutProps {
     children: ReactNode;
@@ -123,6 +124,7 @@ const Layout = ({ children }: LayoutProps) => {
                     aria-hidden="true"
                 />
             )}
+            <GlobalToast />
         </div>
     );
 };

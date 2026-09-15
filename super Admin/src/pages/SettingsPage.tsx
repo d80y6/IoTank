@@ -13,11 +13,12 @@ import {
     FiSmartphone, FiKey
 } from 'react-icons/fi';
 import Layout from '../components/Layout';
+import { ApiKeyManager } from '../components/Settings/ApiKeyManager';
 import './SettingsPage.css';
 
 const SettingsPage: React.FC = () => {
     const { systemUser } = useAuth();
-    const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'activity'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'activity' | 'api'>('profile');
     const [isSaving, setIsSaving] = useState(false);
     const [fullName, setFullName] = useState(systemUser?.full_name || '');
     const [phone, setPhone] = useState('');
@@ -38,10 +39,22 @@ const SettingsPage: React.FC = () => {
                 .eq('auth_user_id', systemUser?.auth_user_id);
             
             if (error) throw error;
-            alert('Profile updated successfully!');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Profile Updated',
+                    message: 'Platform identity and credentials have been synchronized successfully.',
+                    type: 'success'
+                }
+            }));
         } catch (error) {
             console.error('Error updating profile:', error);
-            alert('Failed to update profile.');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Update Failed',
+                    message: 'Failed to synchronize profile changes with the administrative directory.',
+                    type: 'error'
+                }
+            }));
         } finally {
             setIsSaving(false);
         }
@@ -66,9 +79,33 @@ const SettingsPage: React.FC = () => {
     }, [activeTab, systemUser?.auth_user_id]);
 
     const handleTerminateSessions = async () => {
-        if (window.confirm('Are you sure you want to terminate all other active sessions?')) {
-            alert('Security command dispatched. All other sessions have been flagged for termination.');
-        }
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Security Command',
+                message: 'Are you sure you want to terminate all other active administrative sessions for this node?',
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Abort',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Terminate Sessions',
+                        primary: true,
+                        onClick: () => {
+                            window.dispatchEvent(new CustomEvent('system-toast', {
+                                detail: {
+                                    title: 'Security Dispatched',
+                                    message: 'Global session termination command has been broadcasted.',
+                                    type: 'success'
+                                }
+                            }));
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
 
@@ -103,6 +140,13 @@ const SettingsPage: React.FC = () => {
                             <div className="cluster-header">Audit Trace</div>
                             <button className={`nav-item ${activeTab === 'activity' ? 'active' : ''}`} onClick={() => setActiveTab('activity')}>
                                 <FiActivity /> Node Activity
+                            </button>
+                        </div>
+
+                        <div className="nav-cluster">
+                            <div className="cluster-header">Financial Gateway</div>
+                            <button className={`nav-item ${activeTab === 'api' ? 'active' : ''}`} onClick={() => setActiveTab('api')}>
+                                <FiKey /> API Configuration
                             </button>
                         </div>
                     </aside>
@@ -254,6 +298,11 @@ const SettingsPage: React.FC = () => {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {activeTab === 'api' && (
+                            <div className="settings-section">
+                                <ApiKeyManager />
                             </div>
                         )}
                     </main>

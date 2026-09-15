@@ -82,14 +82,14 @@ ALTER TABLE market_signals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Clients can view own market signals" ON market_signals
   FOR SELECT TO authenticated
   USING (
-    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid()::text)
+    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid())
     OR client_id IS NULL  -- Global signals not tied to a specific client
   );
 
 CREATE POLICY "Clients can insert market signals" ON market_signals
   FOR INSERT TO authenticated
   WITH CHECK (
-    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid()::text)
+    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid())
     OR client_id IS NULL
   );
 

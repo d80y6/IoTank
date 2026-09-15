@@ -172,6 +172,20 @@
     background: #10B981;
 }
 
+.lmn-error-msg {
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: -8px;
+    margin-bottom: 12px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .lmn-privacy {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.3);

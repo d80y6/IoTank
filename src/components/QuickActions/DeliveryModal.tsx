@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useTanks, useLatestReading } from '@/hooks/useSupabase';
+import { useTanks, useLatestReading, resolveAlert, updateTank } from '@/hooks/useSupabase';
 import { useAuth } from '@/hooks/useAuth';
 import { AuditService } from '@/services/AuditService';
 import { supabase } from '@/config/supabase';
+import { validateUUID } from '@/utils/sanitization';
 import { FiX, FiInfo, FiDroplet, FiCheckCircle, FiFileText, FiActivity, FiUploadCloud, FiChevronDown } from 'react-icons/fi';
 import '../Inventory/AddTankModal.css'; // Inheriting the premium layout and purple palette
 import './QuickActions.css';
 import { NotificationService } from '@/services/NotificationService';
+import { EmailDispatchService } from '@/services/EmailDispatchService';
+import { SignaturePad } from '../Common/SignaturePad';
+import { useModals } from '@/contexts/ModalContext';
+import { logger } from '@/utils/logger';
+
 
 interface DeliveryModalProps {
     isOpen: boolean;
@@ -19,6 +25,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
     const { currentUser } = useAuth();
     const stationId = currentUser?.stationId || '';
     const { tanks } = useTanks(stationId);
+    const { activeModal, modalData } = useModals();
 
     const [isHibernating, setIsHibernating] = useState(false);
     const [formData, setFormData] = useState({
@@ -36,12 +43,16 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
         waterContaminationType: 'height' as 'percentage' | 'height',
         waterContaminationValue: '',
         density: '',
-        existingTemp: ''
+        existingTemp: '',
+        deliveryPrice: '',
+        deliveryPriceType: 'total' as 'per_litre' | 'total'
     });
     const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
     const [uploadingInvoice, setUploadingInvoice] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [step, setStep] = useState<1 | 2>(1);
+    const [signature, setSignature] = useState('');
+
 
     const { reading: latestReading } = useLatestReading(stationId, formData.tankId);
 
@@ -51,11 +62,26 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                 ...prev,
                 timestamp: new Date().toISOString().slice(0, 16)
             }));
+
+            if (activeModal === 'refill_verification' && modalData) {
+                const metadata = modalData.metadata || {};
+                const alertStartTime = metadata.startTime || modalData.created_at;
+
+                setFormData(prev => ({
+                    ...prev,
+                    tankId: modalData.tank_id || prev.tankId,
+                    existingVolume: String(metadata.startVolume || ''),
+                    totalVolume: String(metadata.endVolume || ''),
+                    expectedVolume: String(metadata.deliveredVolume || ''),
+                    varianceReason: 'System automated detection',
+                    timestamp: alertStartTime ? new Date(alertStartTime).toISOString().slice(0, 16) : prev.timestamp
+                }));
+            }
         } else {
             // Reset to step 1 when closed
             setStep(1);
         }
-    }, [isOpen]);
+    }, [isOpen, activeModal, modalData]);
 
     // Auto-fetch existing temperature
     useEffect(() => {
@@ -64,9 +90,9 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
         }
     }, [latestReading, formData.tankId]);
 
-    // Temp Gradient Calculation
-    const tempGradient = (formData.temperature && formData.existingTemp)
-        ? (Number(formData.temperature) - Number(formData.existingTemp)).toFixed(2)
+    // Temp Gradient Calculation (Against EPRA 15°C Standard)
+    const tempGradient = formData.temperature 
+        ? (Number(formData.temperature) - 15).toFixed(2)
         : '0.00';
 
     if (!isOpen) return null;
@@ -75,6 +101,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
         if (e) e.preventDefault();
         if (!currentUser?.stationId) {
             NotificationService.show('Submission Failed', { body: 'Organization context missing.' });
+            return;
+        }
+
+        if (!validateUUID(formData.tankId)) {
+            NotificationService.show('Invalid Tank', { body: 'Selected tank is not valid for cloud synchronization.' });
             return;
         }
 
@@ -101,6 +132,14 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                 setUploadingInvoice(false);
             }
 
+            // Calculate final price per litre based on selection
+            const enteredPriceVal = Number(formData.deliveryPrice) || 0;
+            const finalPricePerLitre = formData.deliveryPriceType === 'total'
+                ? (Number(formData.expectedVolume) > 0 ? (enteredPriceVal / Number(formData.expectedVolume)) : 0)
+                : enteredPriceVal;
+
+            const actualVolumeMeasured = Number(formData.totalVolume) - Number(formData.existingVolume);
+
             const payload = {
                 station_id: currentUser.stationId,
                 tank_id: formData.tankId,
@@ -113,8 +152,9 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                 bol_photo_url: invoiceUrl,
                 tank_before_volume: Number(formData.existingVolume),
                 tank_after_volume: Number(formData.totalVolume),
-                actual_received_volume: Number(formData.expectedVolume), 
+                actual_received_volume: actualVolumeMeasured, 
                 actual_temperature: formData.temperature ? Number(formData.temperature) : null,
+                verification_status: 'verified_ok',
                 metadata: {
                     variance: variance,
                     variance_percentage: variancePcnt,
@@ -126,12 +166,28 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                     },
                     density_api: formData.density,
                     temp_gradient: tempGradient,
-                    existing_temp_at_delivery: formData.existingTemp
+                    existing_temp_at_delivery: formData.existingTemp,
+                    witness_signature: signature || null,
+                    witness_name: currentUser.displayName || currentUser.email,
+                    delivery_price: finalPricePerLitre,
+                    delivery_price_type: formData.deliveryPriceType,
+                    entered_delivery_price: enteredPriceVal
                 }
             };
 
             const { data: deliveryData, error } = await supabase.from('deliveries').insert([payload]).select().single();
             if (error) throw error;
+
+            // Sync delivery price to tank metadata dynamically
+            if (selectedTank) {
+                const currentMetadata = selectedTank.metadata || {};
+                await updateTank(formData.tankId, {
+                    metadata: {
+                        ...currentMetadata,
+                        deliveryPrice: finalPricePerLitre.toFixed(2)
+                    }
+                } as any);
+            }
 
             // 1. Success Notification & Toast (Local)
             NotificationService.show('Delivery Successfully Recorded', {
@@ -145,6 +201,13 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
 
             // 2. Persistent Systems (Run in background or caught separately)
             try {
+                // [AUTO-RESOLUTION]: If this modal was opened via an automated refill alert, resolve it now
+                if (activeModal === 'refill_verification' && modalData?.id) {
+                    resolveAlert(modalData.id, currentUser.authUserId).catch(err => {
+                        logger.warn('[DeliveryModal] Failed to auto-resolve refill alert:', err);
+                    });
+                }
+
                 // Generate Formal Report
                 if (deliveryData) {
                     const reportPayload = {
@@ -187,13 +250,27 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                         capturedBy: currentUser?.email 
                     }
                 );
+
+                // Dispatch Automated Verification Email
+                EmailDispatchService.sendSecurityAlert({
+                    to: currentUser.email,
+                    type: 'REFILL',
+                    siteName: 'IoTank Platform',
+                    details: {
+                        timestamp: new Date().toISOString(),
+                        description: `Delivery Verification Confirmed: ${formData.expectedVolume}L of ${selectedTank?.fuelType || 'Fuel'} from ${formData.supplier} added to Tank ${selectedTank?.name}. Waybill: ${formData.invoiceNumber}. Variance Check: ${variance}L. Thermal Gradient: ${tempGradient}°C.`,
+                        operator: currentUser.displayName || currentUser.email,
+                        varianceValue: variance
+                    }
+                }).catch(err => logger.warn('[DeliveryModal] Failed to dispatch delivery email:', err));
+
             } catch (auxErr) {
-                console.warn('[DeliveryModal] Background reporting delay:', auxErr);
+                logger.warn('[DeliveryModal] Background reporting delay:', auxErr);
             }
 
             onClose();
         } catch (err: any) {
-             console.error('[DeliveryModal] Verification Error:', err);
+             logger.error('[DeliveryModal] Verification Error:', err);
              NotificationService.show('Verification Failed', { body: err.message || 'System error. Please check your connection.' });
         } finally {
             setSubmitting(false);
@@ -231,6 +308,38 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
         showVariance = true;
         variance = total - expectedFinal;
         variancePcnt = (variance / expectedFinal) * 100;
+    }
+
+    // ── Thermal Variance Explanation (DISPLAY ONLY — no values are altered) ──
+    // The ESP32 sensor measures actual physical volume in the tank at the
+    // ambient delivery temperature. The BOL figure is typically stated at 15°C
+    // (the standard reference temperature). When delivered fuel is warmer than
+    // 15°C it occupies more volume; the tanker measured a warm volume, but by
+    // the time it enters the cooler tank it contracts. This explains a large
+    // portion of any apparent "shortage" without implying theft or error.
+    //
+    // Expansion coefficients (ASTM D1250 / EPRA standard):
+    //   Diesel / HFO : ~0.00085 per °C
+    //   Petrol / PMS  : ~0.00100 per °C
+    const fuelType = (selectedTank?.fuelType || '').toLowerCase();
+    const EXPANSION_COEFF = fuelType.includes('petrol') || fuelType.includes('pms') || fuelType.includes('gasoline')
+        ? 0.00100  // Petrol
+        : 0.00085; // Diesel / default
+    const REF_TEMP = 15; // °C  (industry standard reference temperature)
+
+    const deliveryTemp = formData.temperature ? Number(formData.temperature) : null;
+    let thermallyExplainedLiters: number | null = null;
+    let thermalExplanation = '';
+    if (deliveryTemp !== null && expected > 0 && variance < 0) {
+        // Thermal shrinkage: volume the BOL fuel "lost" when cooled from
+        // deliveryTemp → REF_TEMP after entering the tank.
+        const tempDelta = deliveryTemp - REF_TEMP;
+        thermallyExplainedLiters = expected * EXPANSION_COEFF * tempDelta;
+        const remaining = variance - (-Math.abs(thermallyExplainedLiters));
+        if (thermallyExplainedLiters > 0) {
+            const pctExplained = Math.min(100, (thermallyExplainedLiters / Math.abs(variance)) * 100);
+            thermalExplanation = `At ${deliveryTemp}°C delivery temp, thermal contraction accounts for ~${thermallyExplainedLiters.toFixed(0)}L (${pctExplained.toFixed(0)}% of variance). Unexplained residual: ${remaining.toFixed(0)}L.`;
+        }
     }
 
     return createPortal(
@@ -295,6 +404,34 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                                     <div className="form-group">
                                         <label>Expected Volume (from BOL) (L)</label>
                                         <input required type="number" placeholder="10000" value={formData.expectedVolume} onChange={e => setFormData({ ...formData, expectedVolume: e.target.value })} />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Price of Stock Received</label>
+                                        <div className="flex relative">
+                                            <input
+                                                required
+                                                type="number"
+                                                step="0.01"
+                                                className="flex-1 rounded-r-none border-r-0"
+                                                placeholder={formData.deliveryPriceType === 'total' ? "e.g. 1750000" : "e.g. 175.50"}
+                                                value={formData.deliveryPrice}
+                                                onChange={e => setFormData({ ...formData, deliveryPrice: e.target.value })}
+                                            />
+                                            <select
+                                                title="Price Input Type"
+                                                aria-label="Price Input Type"
+                                                className="w-28 rounded-l-none bg-slate-50 border-l border-slate-200 appearance-none pr-8 text-xs font-semibold text-slate-600"
+                                                value={formData.deliveryPriceType}
+                                                onChange={e => setFormData({ ...formData, deliveryPriceType: e.target.value as any })}
+                                            >
+                                                <option value="per_litre">Ksh/Litre</option>
+                                                <option value="total">Stock Value</option>
+                                            </select>
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                <FiChevronDown size={14} />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -424,7 +561,14 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                                                 const file = e.target.files?.[0];
                                                 if (file) {
                                                     if (file.size > 5 * 1024 * 1024) {
-                                                        alert('File size limit exceeded (Max 5MB)');
+                                                        window.dispatchEvent(new CustomEvent('system-toast', {
+                                                            detail: {
+                                                                title: 'File Too Large',
+                                                                message: 'File size limit exceeded (Max 5MB)',
+                                                                type: 'error',
+                                                                attribution: 'UPLOAD MANAGER'
+                                                            }
+                                                        }));
                                                         return;
                                                     }
                                                     setInvoiceFile(file);
@@ -513,6 +657,21 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                                         {Math.abs(Number(tempGradient)) <= 5 ? 'Status: OK' : 'Status: High Gradient'}
                                     </div>
                                 </div>
+
+                                {/* Thermal Variance Explanation — display only, no values changed */}
+                                {thermallyExplainedLiters !== null && thermallyExplainedLiters > 0 && variance < 0 && (
+                                    <div className="tm-disclosure-chip" style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', border: '1.5px solid #93c5fd' }}>
+                                        <span className="tm-chip-label" style={{ color: '#1d4ed8', fontWeight: 700 }}>
+                                            🌡️ Thermal Variance Analysis
+                                        </span>
+                                        <span className="tm-chip-value" style={{ color: '#1e40af', fontSize: '0.8rem', fontWeight: 500, lineHeight: 1.5 }}>
+                                            {thermalExplanation}
+                                        </span>
+                                        <div className="tm-chip-status" style={{ background: '#dbeafe', color: '#1d4ed8', borderColor: '#93c5fd' }}>
+                                            ℹ️ Thermal Explanation — No system value altered
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-group max-w-md mx-auto mt-6">
@@ -525,6 +684,14 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                                     onChange={e => setFormData({ ...formData, varianceReason: e.target.value })}
                                 />
                             </div>
+
+                            <div className="form-group max-w-md mx-auto mt-6">
+                                <SignaturePad 
+                                    onSave={setSignature} 
+                                    onClear={() => setSignature('')} 
+                                />
+                            </div>
+
 
                             <div className="tm-verification-card max-w-[448px] mx-auto my-[10px] mt-[20px]">
                                 <FiCheckCircle size={18} />

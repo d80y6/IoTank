@@ -3,10 +3,17 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/webp" href="/logo.webp" />
-  <link rel="apple-touch-icon" href="/icons/icon-192x192.webp" />
-  <!-- Dynamic Title Injection via src/main.tsx overrides this -->
-  <title>IoTank</title>
+  <link rel="icon" type="image/png" href="/logo.png?v=2" />
+  <link rel="apple-touch-icon" href="/logo.png?v=2" />
+  <!-- SEO Infrastructure -->
+  <title>IoTank | AI Fuel Monitoring System & Petrol Station Analytics Kenya</title>
+  <meta name="description" content="IoTank is Kenya's leading AI-powered fuel monitoring system. Real-time underground tank monitoring, leak detection, EPRA-compliant reporting, and procurement analytics." />
+  <meta name="keywords" content="IoTank, fuel monitoring system Kenya, IoTank fuel monitoring, fuel tank monitoring Kenya, EPRA compliance software, fuel theft detection Kenya, AI fuel procurement, petrol station inventory management, underground tank monitoring, industrial IoT Kenya" />
+  <meta name="author" content="Joe Engineering Ltd" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://the-iotank-project.web.app/" />
+  <meta name="theme-color" content="#00D4FF" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
   <!-- Speed & Connectivity Optimizations -->
@@ -31,20 +38,25 @@
   <!-- Force injection of the authentic Google reCAPTCHA v3 badge for our UI animation -->
   <script src="https://www.google.com/recaptcha/api.js?render=6LfgSHgsAAAAAHlWl9ZRVO1IvJGsEkyj8_lYVF2i"></script>
 
-  <!-- Enhanced Security Headers -->
-
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="IoTank | AI Fuel Monitoring System for Petrol Stations in Kenya" />
-  <meta property="og:description"
-    content="Kenya's AI-powered fuel monitoring for petrol stations. Real-time tank monitoring & EPRA-compliant reporting." />
-  <meta property="og:image" content="/logo.png" />
+  <meta property="og:description" content="Kenya's AI-powered fuel monitoring for petrol stations. Real-time tank monitoring & EPRA-compliant reporting." />
+  <meta property="og:image" content="/logo.png?v=2" />
+  <meta property="og:url" content="https://the-iotank-project.web.app/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="IoTank | AI Fuel Monitoring Kenya" />
+  <meta name="twitter:description" content="AI-powered fuel monitoring for petrol stations in Kenya. Real-time precision." />
+  <meta name="twitter:image" content="/logo.png?v=2" />
 
 
 </head>
 
 <body class="preload">
   <div id="root"></div>
+  <script src="https://js.paystack.co/v1/inline.js"></script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

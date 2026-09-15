@@ -29,9 +29,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             setLoadingTimeout(false);
         }
     }, [loading]);
-
-    const isFailingAuth = (requiredRole && !hasRole(requiredRole)) || (requiredLevel !== undefined && !canSee(requiredLevel));
-    const shouldShowLoader = loading || (currentUser?.isProvisional && isFailingAuth);
+    
+    // [ENRICHMENT GUARD]: Show loader if either authentication is still loading
+    // OR if the user is present but identity enrichment (provisional status) is still in progress.
+    const shouldShowLoader = loading || currentUser?.isProvisional;
 
     if (shouldShowLoader) {
         return (
@@ -86,7 +87,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
 
     if (!currentUser) {
-        // Redirect to login, save attempted location
+        // [AUTH HARMONY]: If loading is false but we have no user, we redirect.
+        // However, we MUST ensure the AuthContext isn't about to set a user.
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 

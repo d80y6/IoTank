@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
+import { Tank, GeminiInsight } from '@/types';
 import { useGeminiInsights } from '@/hooks/useGeminiInsights';
 import { useTanks, useHistoricalReadings } from '@/hooks/useSupabase';
 import { useConsumptionAnalytics } from '@/hooks/useConsumptionAnalytics';
@@ -13,18 +13,24 @@ interface PredictivePanelProps {
     tankId?: string;
 }
 
+interface ExplainerInsight extends GeminiInsight {
+    description: string;
+    sources: string[];
+    reasoning: string[];
+}
+
 export const PredictivePanel: React.FC<PredictivePanelProps> = ({ stationId, tankId }) => {
     const { insights, loading: insightsLoading, refetch } = useGeminiInsights(stationId, tankId);
     const { tanks } = useTanks(stationId);
 
     // Find the specific tank if tankId is provided
-    const tank = tankId ? tanks.find((t: import('@/types').Tank) => t.id === tankId) : null;
+    const tank = tankId ? tanks.find((t: Tank) => t.id === tankId) : null;
 
-    // Fetch readings for specific tank or empty if no tank
-    const { readings, loading: readingsLoading } = useHistoricalReadings(stationId, tankId || '', {
+    // Fetch readings for specific tank or skip entirely if no tank
+    const { readings, loading: readingsLoading } = useHistoricalReadings(stationId, tankId ?? '', {
         start: Date.now() - 24 * 60 * 60 * 1000,
         end: Date.now()
-    });
+    }, undefined, undefined, !!tankId);
 
     // Only run analytics if tank exists. We must invoke the hook unconditionally though.
     const emptyAnalytics = {
@@ -37,14 +43,14 @@ export const PredictivePanel: React.FC<PredictivePanelProps> = ({ stationId, tan
     };
     
     // We pass empty array/null objects but always call the hook in exact order
-    const realAnalytics = useConsumptionAnalytics(tank as any, readings);
+    const realAnalytics = useConsumptionAnalytics(tank, readings);
     const analytics = tank ? realAnalytics : emptyAnalytics;
 
     const loading = insightsLoading || (tankId ? readingsLoading : false);
 
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
-    const [explainInsight, setExplainInsight] = useState<any | null>(null);
+    const [explainInsight, setExplainInsight] = useState<ExplainerInsight | null>(null);
 
     const handleAction = async (id: string, action: 'implement' | 'dismiss') => {
         setProcessingIds(prev => new Set(prev).add(id));
@@ -58,7 +64,14 @@ export const PredictivePanel: React.FC<PredictivePanelProps> = ({ stationId, tan
             return next;
         });
         if (action === 'implement') {
-            alert(`Strategic action has been queued for implementation.`);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Action Queued',
+                    message: 'Strategic action has been queued for implementation.',
+                    type: 'success',
+                    attribution: 'AI ENGINE'
+                }
+            }));
         }
     };
 
@@ -145,6 +158,7 @@ export const PredictivePanel: React.FC<PredictivePanelProps> = ({ stationId, tan
                                     className="text-xs text-secondary hover:text-white flex flex-col gap-1 w-full text-left"
                                     onClick={() => setExplainInsight({
                                         ...insight,
+                                        description: insight.summary,
                                         sources: ['Market API', 'Historical Velocity', 'KPA Regulatory Feed'],
                                         reasoning: [
                                             'Analyzed 30-day consumption velocity trend.',

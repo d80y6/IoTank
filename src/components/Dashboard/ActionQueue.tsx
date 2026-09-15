@@ -4,8 +4,10 @@ import { FiAlertCircle, FiClock, FiZap, FiInfo, FiCheckCircle } from 'react-icon
 import { useTelemetryQueue, TelemetryEvent } from '@/contexts/TelemetryQueueContext';
 import { useShiftStatus } from '@/hooks/useShiftStatus';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveAlert } from '@/hooks/useSupabase';
 import { Toast } from '../Common/Toast';
 import { useModals } from '@/contexts/ModalContext';
+import { logger } from '@/utils/logger';
 import './ActionQueue.css';
 import '../Common/DesignSystemCards.css';
 
@@ -82,7 +84,21 @@ export const ActionQueue: React.FC = () => {
             return;
         }
 
-        clearEvent(item.id);
+        if (item.alertId) {
+            resolveAlert(item.alertId, currentUser?.displayName || 'USER_ACTION')
+                .then(() => {
+                    clearEvent(item.id);
+                })
+                .catch(err => {
+                    logger.error('[ActionQueue] Failed to resolve alert:', err);
+                    setToast({
+                        message: 'Sync Error: Could not resolve alert on server.',
+                        type: 'error'
+                    });
+                });
+        } else {
+            clearEvent(item.id);
+        }
     };
 
     const getIcon = (type: TelemetryEvent['type']) => {
@@ -124,11 +140,21 @@ export const ActionQueue: React.FC = () => {
             {/* ── Scrollable Items ── */}
             <div className="action-queue-items-container custom-scrollbar">
                 {displayEvents.length === 0 ? (
-                    <div className="action-queue-empty-state">
-                        <div className="action-queue-empty-icon-box">
-                            <FiCheckCircle size={22} className="action-queue-empty-icon" />
+                    <div className="action-queue-empty-state-modern animate-fade-in">
+                        <div className="empty-state-visual-container">
+                            <div className="empty-state-glow" />
+                            <div className="empty-state-icon-shell">
+                                <FiCheckCircle size={32} className="text-emerald-500" />
+                            </div>
                         </div>
-                        <span className="action-queue-empty-text">All Clear</span>
+                        <h4 className="empty-state-heading">Integrity Optimal</h4>
+                        <p className="empty-state-subheading">
+                            The Operational Directive Engine is clear. No high-priority alerts require attention.
+                        </p>
+                        <div className="empty-state-footer-bits">
+                            <span className="bit-dot animate-ping" />
+                            <span className="bit-text">Real-time scan in progress</span>
+                        </div>
                     </div>
                 ) : (
                     displayEvents.map((item) => {
@@ -137,6 +163,7 @@ export const ActionQueue: React.FC = () => {
                                 key={item.id}
                                 onClick={() => handleItemClick(item)}
                                 className="action-queue-item"
+                                data-type={item.type}
                             >
                                 {/* Type pill + icon */}
                                 <div className="action-queue-type-pill">

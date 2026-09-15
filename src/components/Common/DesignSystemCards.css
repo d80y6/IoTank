@@ -37,10 +37,14 @@
 }
 
 .ds-card-panel:hover {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: 
+        0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+        0 10px 10px -5px rgba(0, 0, 0, 0.04),
+        0 0 0 1px rgba(79, 70, 229, 0.1);
     transform: translateY(-4px);
-    border-color: var(--color-accent-primary);
+    border-color: #4f46e5;
 }
+
 
 /* ---------------------------------------------------------
    Type 1: Feature Card (Stay Informed Style)
@@ -320,7 +324,17 @@
     flex-direction: column;
     margin-bottom: 16px;
     height: 380px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.ds-premium-card:hover {
+    border-color: #4f46e5;
+    box-shadow: 
+        0 12px 32px -8px rgba(30,27,75,0.15),
+        0 0 0 1px rgba(79, 70, 229, 0.15);
+    transform: translateY(-2px);
+}
+
 
 .ds-premium-header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);

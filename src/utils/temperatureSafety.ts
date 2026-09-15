@@ -19,35 +19,35 @@ export interface TemperatureThresholds {
 export const DEFAULT_TEMPERATURE_THRESHOLDS: Record<string, TemperatureThresholds> = {
     gasoline: {
         optimal: { min: 10, max: 20 },      // Ideal storage: 10-20°C
-        safe: { min: -40, max: 30 },         // Safe range: -40 to 30°C
+        safe: { min: -20, max: 25 },         // Warning buffer: -20 to 25°C (before hitting -40/30 critical)
         criticalHigh: 30,                    // Rapid vaporization above 30°C
-        criticalLow: -40,                    // Chemically stable until -40°C
-        flashPoint: -43,                     // Flash point: -43°C (always above this in storage)
+        criticalLow: -40,                    // Chemically unstable below -40°C
+        flashPoint: -43,                     // Flash point: -43°C
     },
     diesel: {
         optimal: { min: 10, max: 20 },      // Ideal storage: 10-20°C
-        safe: { min: 0, max: 30 },           // Safe range: 0 to 30°C
+        safe: { min: 5, max: 25 },           // Warning buffer: 5 to 25°C (before hitting 0/30 critical)
         criticalHigh: 30,                    // Oxidation and microbial growth above 30°C
-        criticalLow: 0,                      // Gelling begins near 0°C
+        criticalLow: 0,                      // Gelling begins at 0°C
         flashPoint: 52,                      // Flash point: 52°C (hazardous above this)
     },
     kerosene: {
         optimal: { min: 10, max: 20 },
-        safe: { min: -10, max: 30 },
+        safe: { min: -5, max: 25 },          // Warning buffer: -5 to 25°C (before hitting -10/30 critical)
         criticalHigh: 30,
         criticalLow: -10,
         flashPoint: 38,
     },
     'jet-fuel': {
         optimal: { min: 10, max: 20 },
-        safe: { min: -40, max: 30 },
+        safe: { min: -20, max: 25 },         // Warning buffer: -20 to 25°C (before hitting -40/30 critical)
         criticalHigh: 30,
         criticalLow: -40,
         flashPoint: 38,
     },
     biodiesel: {
         optimal: { min: 10, max: 20 },
-        safe: { min: 5, max: 30 },
+        safe: { min: 8, max: 25 },           // Warning buffer: 8 to 25°C (before hitting 5/30 critical)
         criticalHigh: 30,
         criticalLow: 5,
         flashPoint: 130,
@@ -75,7 +75,7 @@ export function getTemperatureSafetyStatus(
     fuelType: string,
     customThresholds?: Record<string, TemperatureThresholds>
 ): TemperatureSafetyInfo {
-    const normalizedFuelType = fuelType.toLowerCase();
+    const normalizedFuelType = (fuelType || '').toLowerCase();
 
     // Determine which thresholds to use: Custom -> Default -> Fallback (Diesel)
     let thresholds = DEFAULT_TEMPERATURE_THRESHOLDS[normalizedFuelType as keyof typeof DEFAULT_TEMPERATURE_THRESHOLDS];

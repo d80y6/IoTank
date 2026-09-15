@@ -59,6 +59,23 @@ Deno.serve(async (req) => {
     if (!full_name || !email || !station_name) {
       throw new Error('Missing required identity fields');
     }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 2.5 CHECK IF EMAIL EXISTS
+    const [{ data: profileExists }, { data: sysUserExists }, { data: pendingExists }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('id').eq('email', normalizedEmail).maybeSingle(),
+      supabaseAdmin.from('system_users').select('id').eq('email', normalizedEmail).maybeSingle(),
+      supabaseAdmin.from('pending_registrations').select('id').eq('email', normalizedEmail).maybeSingle()
+    ]);
+
+    if (profileExists || sysUserExists) {
+      throw new Error('Email already exists in the system');
+    }
+    
+    if (pendingExists) {
+      throw new Error('A pending request for this email already exists');
+    }
 
     // 3. SECURE INSERTION (Using Service Role to bypass table RLS restricting public INSERT)
     const { data: registration, error: dbError } = await supabaseAdmin

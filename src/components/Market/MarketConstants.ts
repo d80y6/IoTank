@@ -27,11 +27,3 @@ export const ACTIVE_FEEDS = [
     { name: 'Reuters — Commodities', type: 'News / Global', status: 'Live', lastSync: '< 15m', region: 'Global', ttl: '15 min' },
     { name: 'OilPrice.com', type: 'Commodity / Global', status: 'Live', lastSync: '< 15m', region: 'Global', ttl: '15 min' },
 ];
-
-export const IMPLICATION_META: Record<string, { color: string; bg: string; label: string }> = {
-    'Price': { color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20', label: 'Price Impact' },
-    'Supply': { color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20', label: 'Supply Chain' },
-    'Compliance': { color: 'text-cyan-500', bg: 'bg-cyan-500/10 border-cyan-500/20', label: 'Compliance' },
-    'Logistics': { color: 'text-blue-500', bg: 'bg-blue-500/10 border-blue-500/20', label: 'Logistics' },
-    'General': { color: 'text-slate-500', bg: 'bg-slate-500/10 border-slate-500/20', label: 'General Intel' },
-};

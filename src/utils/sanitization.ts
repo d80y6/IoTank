@@ -80,6 +80,19 @@ export function validateEmail(email: string): boolean {
 }
 
 /**
+ * Validates a UUID string
+ * @param uuid - UUID string to validate
+ * @returns true if valid UUID format
+ */
+export function validateUUID(uuid: string): boolean {
+    if (typeof uuid !== 'string') {
+        return false;
+    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+}
+
+/**
  * Sanitizes a URL to prevent javascript: and data: URIs
  * @param url - URL string to sanitize
  * @returns Sanitized URL or empty string if invalid

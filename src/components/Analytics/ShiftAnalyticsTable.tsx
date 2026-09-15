@@ -158,7 +158,7 @@ export const ShiftAnalyticsTable: React.FC = () => {
                                         <div className="td-number">
                                             {isOpening ? '—' : `${closingVol.toLocaleString()} L`}
                                         </div>
-                                        {!isOpening && <span className="td-number-sub">At close</span>}
+                                        {!isOpening && <span className="td-number-sub">Standardized (VCF)</span>}
                                     </td>
 
                                     {/* Revenue */}

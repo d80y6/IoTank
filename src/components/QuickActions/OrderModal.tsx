@@ -8,6 +8,7 @@ import '../Inventory/AddTankModal.css';
 import './QuickActions.css';
 
 import { NotificationService } from '@/services/NotificationService';
+import { logger } from '@/utils/logger';
 
 interface OrderModalProps {
     isOpen: boolean;
@@ -23,10 +24,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSucce
     const [isHibernating, setIsHibernating] = useState(false);
     const [formData, setFormData] = useState({
         tankId: '',
+        orderRef: `ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
         supplier: '',
         product: '',
         quantity: '',
         expectedDate: new Date().toISOString().slice(0, 10),
+        priority: 'Normal',
+        status: 'Pending',
         notes: ''
     });
     const [submitting, setSubmitting] = useState(false);
@@ -35,6 +39,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSucce
         if (isOpen) {
             setFormData(prev => ({
                 ...prev,
+                orderRef: `ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
                 expectedDate: new Date().toISOString().slice(0, 10)
             }));
         }
@@ -56,20 +61,22 @@ export const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSucce
             const productType = formData.product || selectedTank?.fuelType || 'Unspecified Product';
             
             const payload = {
-                tank_id: formData.tankId,
+                order_ref: formData.orderRef,
                 supplier: formData.supplier,
                 product: productType,
                 quantity: Number(formData.quantity),
                 expected_date: formData.expectedDate,
+                priority: formData.priority,
+                status: formData.status,
                 notes: formData.notes
             };
 
             // 1. Fire and monitor the log (The primary record for orders)
             await AuditService.log(
-                'FINANCE',
+                'ORDER',
                 'ORDER_REQUESTED',
                 stationId,
-                `Strategic Order Broadcast: ${formData.quantity}L of ${productType} requested from ${formData.supplier}. Expected delivery: ${formData.expectedDate}`,
+                `Strategic Order Broadcast: ${formData.quantity}L of ${productType} requested from ${formData.supplier} (Ref: ${formData.orderRef}).`,
                 'INFO',
                 payload
             );
@@ -89,7 +96,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSucce
 
             onClose();
         } catch (err: any) {
-             console.error('[OrderModal] Submission crash:', err);
+             logger.error('[OrderModal] Submission crash:', err);
              NotificationService.show('Order Recording Failed', { body: err.message || 'Check terminal connection.' });
         } finally {
             setSubmitting(false);
@@ -143,19 +150,43 @@ export const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onSucce
                                     </select>
                                 </div>
 
+                                 <div className="form-group">
+                                    <label>Order Reference</label>
+                                    <input required placeholder="ORD-XXXXXX" value={formData.orderRef} onChange={e => setFormData({ ...formData, orderRef: e.target.value.toUpperCase() })} />
+                                </div>
+
                                 <div className="form-group">
                                     <label>Supplier</label>
                                     <input required placeholder="e.g. Shell / Vivo Energy" value={formData.supplier} onChange={e => setFormData({ ...formData, supplier: e.target.value })} />
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Product Type</label>
+                                    <label>Product Type (Fuel Grade)</label>
                                     <input required placeholder="e.g. Premium Diesel" value={formData.product} onChange={e => setFormData({ ...formData, product: e.target.value })} />
                                 </div>
 
                                 <div className="form-group">
                                     <label>Order Quantity (L)</label>
                                     <input required type="number" placeholder="10000" value={formData.quantity} onChange={e => setFormData({ ...formData, quantity: e.target.value })} />
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Priority</label>
+                                    <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
+                                        <option value="Normal">Normal</option>
+                                        <option value="High">High</option>
+                                        <option value="Critical">Critical</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Order Status</label>
+                                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Confirmed">Confirmed</option>
+                                        <option value="Dispatched">Dispatched</option>
+                                        <option value="In Transit">In Transit</option>
+                                    </select>
                                 </div>
 
                                 <div className="form-group">

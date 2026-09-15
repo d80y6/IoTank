@@ -46,36 +46,46 @@ export const analyticsService = {
         const { data, error } = await supabase.rpc('get_admin_dashboard_stats');
         if (error) throw error;
         
+        // Fetch total fuel from fuel_stations
+        const { data: stations } = await supabase.from('fuel_stations').select('current_debt, total_paid');
+        const totalFuel = stations?.length ? stations.length * 50000 : 0; // Simplified estimation for now
+        
+        // Fetch real reading count
+        const { count: readingsCount } = await supabase.from('sensor_readings').select('*', { count: 'exact', head: true });
+
         return {
             totalTanks: data.health.totalTanks,
-            totalFuel: 1250000, 
-            readings30d: 1450000,
-            apiCalls30d: 85000,
-            smsSent30d: 12400,
+            totalFuel: totalFuel || 0, 
+            readings30d: readingsCount || 0,
+            apiCalls30d: 0,
+            smsSent30d: 0,
             alertsTriggered30d: data.support.pendingAdjustments * 10,
-            featureAdoption: {
-                '3D Digital Twin': 65,
-                'Procurement AI': 42,
-                'API Integration': 28,
-                'Mobile App': 88,
-                'Webhook Alerts': 15
-            }
+            featureAdoption: {}
         };
     },
 
     async getFinancialReports() {
-        return [
-            { id: '1', name: 'Monthly Revenue - Feb 2026', type: 'Revenue', date: '2026-03-01' },
-            { id: '2', name: 'KRA Tax Compliance - Q1', type: 'Tax', date: '2026-03-20' },
-            { id: '3', name: 'Debt Aging Analysis', type: 'Debt', date: '2026-03-22' }
-        ];
+        const { data, error } = await supabase
+            .from('financial_reports')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error || !data || data.length === 0) {
+            return [];
+        }
+        return data;
     },
 
     async getScheduledReports(): Promise<ScheduledReport[]> {
-        return [
-            { id: '1', type: 'Operational Summary', frequency: 'daily', last_run: '2026-03-21', recipients: ['admin@iotank.co.ke'], status: 'active' },
-            { id: '2', type: 'Revenue Growth', frequency: 'weekly', last_run: '2026-03-17', recipients: ['ceo@iotank.co.ke', 'cfo@iotank.co.ke'], status: 'active' }
-        ];
+        const { data, error } = await supabase
+            .from('scheduled_reports')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error || !data || data.length === 0) {
+            return [];
+        }
+        return data as any;
     },
 
     async getMonthlyGrowthStats(): Promise<number[]> {

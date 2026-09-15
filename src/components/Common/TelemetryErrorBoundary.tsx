@@ -4,6 +4,7 @@
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { logger } from '@/utils/logger';
 
 interface Props {
   children: ReactNode;
@@ -29,7 +30,7 @@ export class TelemetryErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for analysis
-    console.error('🚨 Telemetry Processing Error Detected:', {
+    logger.error('🚨 Telemetry Processing Error Detected:', {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
@@ -99,10 +100,10 @@ export function useTelemetryErrorHandling<T>(
   try {
     return calculation();
   } catch (error) {
-    console.error(`🚨 Telemetry Error in ${context}:`, error);
+    logger.error(`🚨 Telemetry Error in ${context}:`, error);
     
     // Log detailed error information
-    console.error('Telemetry Error Details:', {
+    logger.error('Telemetry Error Details:', {
       context,
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -124,7 +125,7 @@ export function safeTelemetryCalculation<T>(
   try {
     return calculation();
   } catch (error) {
-    console.error(`🚨 Safe Telemetry Calculation Failed [${context}]:`, {
+    logger.error(`🚨 Safe Telemetry Calculation Failed [${context}]:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
       fallback: typeof fallback === 'object' ? 'Object provided' : fallback,
       timestamp: new Date().toISOString()

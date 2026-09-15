@@ -118,23 +118,19 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                     </td>
                                 </tr>
                             ) : (
-                                <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+                                <>
+                                    {rowVirtualizer.getVirtualItems().length > 0 && (
+                                        <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} />
+                                    )}
                                     {rowVirtualizer.getVirtualItems().map(virtualRow => {
                                         const log = auditLogs[virtualRow.index];
                                         const isExpanded = expandedLog === log.id;
                                         return (
                                             <React.Fragment key={log.id}>
                                                 <tr 
-                                                    style={{ 
-                                                        position: 'absolute', 
-                                                        top: 0, 
-                                                        left: 0, 
-                                                        width: '100%', 
-                                                        height: `${virtualRow.size}px`, 
-                                                        transform: `translateY(${virtualRow.start}px)` 
-                                                    }}
                                                     className={`cursor-pointer group ${isExpanded ? 'bg-slate-50' : ''}`} 
                                                     onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                                                    style={{ height: `${virtualRow.size}px` }}
                                                 >
                                                     <td className="font-mono text-[10px] opacity-50">{new Date(log.timestamp).toLocaleString([], { hour12: false })}</td>
                                                     <td>
@@ -159,7 +155,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                                     </td>
                                                 </tr>
                                                 {isExpanded && (
-                                                    <tr style={{ position: 'absolute', top: `${virtualRow.start + virtualRow.size}px`, left: 0, width: '100%' }}>
+                                                    <tr className="detail-row">
                                                         <td colSpan={7} className="p-0">
                                                             <div className="detail-expansion-panel animate-fade-in">
                                                                 <div className="grid grid-cols-2 gap-8">
@@ -195,7 +191,10 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                             </React.Fragment>
                                         );
                                     })}
-                                </div>
+                                    {rowVirtualizer.getVirtualItems().length > 0 && (
+                                        <tr style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} />
+                                    )}
+                                </>
                             )}
                         </tbody>
                     </table>

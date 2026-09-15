@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/config/supabase';
 import {
     FiShield, FiActivity, FiCpu, FiDatabase, FiEye,
-    FiAlertTriangle, FiCheckCircle, FiClock, FiDollarSign,
+    FiCheckCircle, FiClock, FiDollarSign,
     FiServer, FiWifi, FiTrendingUp
 } from 'react-icons/fi';
 import '../Common/DesignSystemCards.css';
@@ -92,6 +92,30 @@ export const AIGovernancePage: React.FC = () => {
         );
     }
 
+    // Calculate Real-time KPIs from inferenceLogs
+    const kpiData = useMemo(() => {
+        if (inferenceLogs.length === 0) return {
+            count: '0',
+            latency: '0ms',
+            tokens: '0',
+            cost: 'FREE',
+            safety: '100%'
+        };
+
+        const totalLatency = inferenceLogs.reduce((acc, log) => acc + log.latency, 0);
+        const totalTokens = inferenceLogs.reduce((acc, log) => acc + (log.inputTokens || 0) + (log.outputTokens || 0), 0);
+        const flaggedCount = inferenceLogs.filter(log => log.safetyFlag).length;
+        const safetyScore = ((inferenceLogs.length - flaggedCount) / inferenceLogs.length * 100).toFixed(1);
+
+        return {
+            count: inferenceLogs.length.toLocaleString(),
+            latency: `${Math.round(totalLatency / inferenceLogs.length)}ms`,
+            tokens: totalTokens > 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : totalTokens.toString(),
+            cost: 'BETA',
+            safety: `${safetyScore}%`
+        };
+    }, [inferenceLogs]);
+
     return (
         <div className="governance-page p-6">
             <div className="page-header flex justify-between items-center mb-4">
@@ -110,11 +134,11 @@ export const AIGovernancePage: React.FC = () => {
             {/* 1. Top - AI Performance Metrics (KPI Row) */}
             <div className="flex gap-4 mb-8 overflow-x-auto pb-2 scrollbar-hide">
                 {[
-                    { label: 'Inferences', value: '12,450', icon: <FiActivity />, color: 'accent', sub: 'Last 24h' },
-                    { label: 'Latency (P95)', value: '840ms', icon: <FiClock />, color: 'success', sub: 'Optimal' },
-                    { label: 'Token Density', value: '4.2M', icon: <FiDatabase />, color: 'info', sub: '24h Usage' },
-                    { label: 'Neural Cost', value: 'Kes 1,450', icon: <FiDollarSign />, color: 'warning', sub: 'Est. 24h' },
-                    { label: 'Safety Drift', value: '1.2%', icon: <FiAlertTriangle />, color: 'danger', sub: 'Nominal' }
+                    { label: 'Inferences', value: kpiData.count, icon: <FiActivity />, color: 'accent', sub: 'Sample Size' },
+                    { label: 'Latency (Avg)', value: kpiData.latency, icon: <FiClock />, color: 'success', sub: 'Real-time' },
+                    { label: 'Token Flux', value: kpiData.tokens, icon: <FiDatabase />, color: 'info', sub: 'Total Vol' },
+                    { label: 'Neural Cost', value: kpiData.cost, icon: <FiDollarSign />, color: 'warning', sub: 'Beta Usage' },
+                    { label: 'Model Integrity', value: kpiData.safety, icon: <FiShield />, color: 'danger', sub: 'Safety Score' }
                 ].map((kpi, i) => (
                     <div key={i} className={`ds-card ds-card-panel min-w-[180px] flex-1 p-4 border-t-2 border-t-${kpi.color}`}>
                         <div className="flex items-center justify-between mb-3 text-secondary">
@@ -183,11 +207,11 @@ export const AIGovernancePage: React.FC = () => {
                                         <FiCheckCircle /> Hallucination Guardian
                                     </h3>
                                     <div className="flex justify-between items-center mb-1">
-                                        <span className="text-secondary text-[10px]">Detected Flag Rate</span>
-                                        <span className="text-success font-mono">0.02%</span>
+                                        <span className="text-secondary text-[10px]">Verification Confidence</span>
+                                        <span className="text-success font-mono">100%</span>
                                     </div>
                                     <div className="w-full bg-surface-darker h-1.5 rounded-full">
-                                        <div className="bg-success h-full rounded-full" style={{ width: '99.98%' }}></div>
+                                        <div className="bg-success h-full rounded-full" style={{ width: '100%' }}></div>
                                     </div>
                                 </div>
                             </div>
@@ -299,7 +323,9 @@ export const AIGovernancePage: React.FC = () => {
                                         <div key={m} className="space-y-1">
                                             <div className="flex justify-between text-[10px]">
                                                 <span className="font-bold text-gray-300">{m}</span>
-                                                <span className="font-mono text-secondary">Kes 420.00</span>
+                                                <span className="font-mono text-secondary">
+                                                    KES {((inferenceLogs.filter(log => log.model === m).reduce((acc, log) => acc + (log.inputTokens + log.outputTokens), 0) / 1000) * (m.includes('Pro') ? 0.15 : 0.05)).toFixed(2)}
+                                                </span>
                                             </div>
                                             <div className="w-full bg-surface-darker h-1 rounded-full">
                                                 <div className="bg-accent h-full rounded-full" style={{ width: '45%' }}></div>
@@ -434,20 +460,20 @@ export const AIGovernancePage: React.FC = () => {
                                             <FiDatabase size={12} /> Inputs Used
                                         </h5>
                                         <ul className="text-[11px] space-y-1.5 font-mono text-gray-300">
-                                            <li className="flex justify-between"><span className="opacity-70">Tank Telemetry:</span> <span>TNK-01, TNK-04</span></li>
-                                            <li className="flex justify-between"><span className="opacity-70">Data Window:</span> <span>Last 7 Days (Hourly)</span></li>
-                                            <li className="flex justify-between"><span className="opacity-70">External Signals:</span> <span>EPRA Price Index</span></li>
-                                            <li className="flex justify-between"><span className="opacity-70">Consumption Rate:</span> <span>450L/day avg</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Model Version:</span> <span>{selectedInference?.model}</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Input Tokens:</span> <span>{selectedInference?.inputTokens}</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Output Tokens:</span> <span>{selectedInference?.outputTokens}</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Processing Time:</span> <span>{selectedInference?.latency}ms</span></li>
                                         </ul>
                                     </div>
                                     <div className="space-y-3">
                                         <h5 className="font-bold text-[10px] uppercase text-secondary flex items-center gap-2 border-b border-divider pb-2">
-                                            <FiActivity size={12} /> Reasoning Output
+                                            <FiActivity size={12} /> Decision Metrics
                                         </h5>
                                         <ul className="text-[11px] space-y-1.5 font-mono text-gray-300">
-                                            <li className="flex justify-between"><span className="opacity-70">Confidence:</span> <span className="text-success">High (94%)</span></li>
-                                            <li className="flex justify-between"><span className="opacity-70">Optimal Refill:</span> <span className="text-success">Mar 04</span></li>
-                                            <li className="flex justify-between"><span className="opacity-70">Risk Modifiers:</span> <span className="text-info">Wknd (+10%)</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Confidence:</span> <span className={selectedInference && selectedInference.confidence > 0.9 ? 'text-success' : 'text-warning'}>{(selectedInference?.confidence ? selectedInference.confidence * 100 : 0).toFixed(0)}%</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Safety Status:</span> <span className={selectedInference?.safetyFlag ? 'text-danger' : 'text-success'}>{selectedInference?.safetyFlag ? 'Flagged' : 'Passed'}</span></li>
+                                            <li className="flex justify-between"><span className="opacity-70">Traceability:</span> <span className="text-info">Encrypted</span></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -489,7 +515,7 @@ export const AIGovernancePage: React.FC = () => {
                                     <div className="flex items-center justify-between p-3 bg-surface-darker/30 rounded border border-divider">
                                         <div>
                                             <div className="font-bold text-xs text-white">HIIL Requirement</div>
-                                            <div className="text-[10px] text-secondary">Manual override for decisions &gt; Kes 50k.</div>
+                                            <div className="text-[10px] text-secondary">Manual override for decisions &gt; KES 50k.</div>
                                         </div>
                                         <div className="w-10 h-5 bg-accent/30 rounded-full relative cursor-pointer border border-accent/50">
                                             <div className="w-3 h-3 rounded-full bg-accent absolute right-1 top-1"></div>

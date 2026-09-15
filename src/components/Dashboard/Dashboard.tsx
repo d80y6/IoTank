@@ -4,6 +4,7 @@ import { Tank } from '@/types';
 import { useTanks, useAlerts, useAllLatestReadings, useSites } from '@/hooks/useSupabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { useDeliveries } from '@/hooks/useDeliveries';
 
 import { TankGrid } from './TankGrid';
 import { MarketLens } from './MarketLens';
@@ -13,9 +14,10 @@ import { ActionQueue } from './ActionQueue';
 import { TelemetryErrorBoundary } from '../Common/TelemetryErrorBoundary';
 import { useTelemetryQueue } from '@/contexts/TelemetryQueueContext';
 import { SystemIntegrityCard } from './SystemIntegrityCard';
+import { EPRALivePriceCard } from './EPRALivePriceCard';
 
 import { ExecutiveOverview } from './ExecutiveOverview';
-import { PageHeader } from '../Common/PageHeader';
+
 import { AddTankModal } from '../Inventory/AddTankModal';
 import { SkeletonDashboard } from '../Common/SkeletonLoader';
 import { LazyComponent } from '../Common/LazyComponent';
@@ -40,6 +42,7 @@ export const Dashboard: React.FC = () => {
     const { error: summaryError, refetch: refetchSummary } = useDashboardData();
 
     const { alerts } = useAlerts(stationId, false);
+    const { deliveries } = useDeliveries(stationId);
     const { sites } = useSites(stationId);
     const [showAddModal, setShowAddModal] = useState(false);
     const hasPushedError = React.useRef(false);
@@ -107,18 +110,33 @@ export const Dashboard: React.FC = () => {
         <div className="dashboard-container">
 
 
-            <PageHeader
-                title="Dashboard"
-                description="Live tank levels, alerts, and station performance at a glance."
+            <header className="dashboard-premium-header">
+                <div className="header-left">
+                    <div className="title-row">
+                        <h1 className="premium-title">Dashboard</h1>
+                        <div className="live-status-pill">
+                            <div className="pulse-dot" />
+                            <span>LIVE TERMINAL</span>
+                        </div>
+                    </div>
+                    <p className="premium-subtitle">
+                        Real-time intelligence across <strong>{displayTanks.length} nodes</strong>. Monitoring terminal health and forensic audit summaries.
+                    </p>
+                </div>
+            </header>
+
+            <ExecutiveOverview 
+                tanks={displayTanks} 
+                readings={readings} 
+                stationId={stationId} 
+                alerts={alerts} 
+                deliveries={deliveries}
             />
 
             <div className="dashboard-grid">
                 {/* Main HUD Area */}
                 <section className="tanks-section">
-                    
-                    <ExecutiveOverview tanks={displayTanks} readings={readings} stationId={stationId} />
-                    
-                    <div className={displayTanks.length === 1 ? 'single-tank-view mt-8' : 'mt-8'}>
+                    <div className={displayTanks.length === 1 ? 'single-tank-view' : ''}>
                         <TelemetryErrorBoundary
                             fallback={
                                 <div className="p-8 bg-red-50 border border-red-100 rounded-xl text-center">
@@ -179,7 +197,12 @@ export const Dashboard: React.FC = () => {
 
                     <LazyComponent minHeight="300px">
                         <TelemetryErrorBoundary>
-                            <SystemIntegrityCard stationId={stationId} />
+                            <SystemIntegrityCard 
+                                stationId={stationId} 
+                                tanks={displayTanks} 
+                                alerts={alerts} 
+                            />
+                            <EPRALivePriceCard stationId={stationId} />
                         </TelemetryErrorBoundary>
                     </LazyComponent>
                 </aside>

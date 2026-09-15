@@ -38,7 +38,14 @@ export const ReconciliationWizard: React.FC<ReconciliationWizardProps> = ({ tank
             });
             setStep(3); // Success step
         } catch (error) {
-            alert('Error persisting reconciliation. Please try again.');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Reconciliation Failed',
+                    message: 'Error persisting reconciliation. Please try again.',
+                    type: 'error',
+                    attribution: 'RECONCILIATION ENGINE'
+                }
+            }));
         } finally {
             setIsSubmitting(false);
         }

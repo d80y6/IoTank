@@ -36,7 +36,7 @@ class RateLimiter {
     const entry = this.attempts.get(identifier);
 
     if (!entry) {
-      return { allowed: true, remainingAttempts: this.maxAttempts - 1, resetTime: null };
+      return { allowed: true, remainingAttempts: this.maxAttempts, resetTime: null };
     }
 
     // Reset window if expired
@@ -82,8 +82,8 @@ class RateLimiter {
     entry.count++;
     entry.lastAttempt = now;
 
-    // If max attempts reached, extend reset time to block duration
-    if (entry.count >= this.maxAttempts) {
+    // If max attempts just reached, set block duration ONCE — do not extend on repeated attempts
+    if (entry.count === this.maxAttempts) {
       entry.resetTime = now + this.blockDurationMs;
     }
   }
@@ -115,10 +115,18 @@ class RateLimiter {
 export const authRateLimiter = new RateLimiter(5, 15 * 60 * 1000, 30 * 60 * 1000); // 5 attempts per 15min, block for 30min
 export const passwordResetRateLimiter = new RateLimiter(3, 60 * 60 * 1000, 60 * 60 * 1000); // 3 attempts per hour, block for 1hour
 
-// Auto-cleanup every 5 minutes
-setInterval(() => {
-  authRateLimiter.cleanup();
-  passwordResetRateLimiter.cleanup();
-}, 5 * 60 * 1000);
+// L-03 FIX: Guard against duplicate intervals on Vite HMR hot-reloads.
+// Without this, each HMR cycle re-executes this module-level side effect,
+// accumulating N cleanup intervals where N = number of reloads.
+declare global {
+    interface Window { __iotank_rate_limiter_cleanup?: boolean; }
+}
+if (typeof window !== 'undefined' && !window.__iotank_rate_limiter_cleanup) {
+    window.__iotank_rate_limiter_cleanup = true;
+    setInterval(() => {
+        authRateLimiter.cleanup();
+        passwordResetRateLimiter.cleanup();
+    }, 5 * 60 * 1000);
+}
 
 export default RateLimiter;

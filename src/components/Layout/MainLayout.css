@@ -265,20 +265,11 @@
 
 
 @media (max-width: 1024px) {
-    .footer-main {
-        flex-direction: column;
-        text-align: center;
-        gap: var(--spacing-lg);
+    .mission-control-footer {
+        padding: 12px 20px !important;
     }
-
-    .footer-nav {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: var(--spacing-md);
-    }
-
-    .footer-social {
-        justify-content: center;
+    .footer-center {
+        display: none !important; /* Hide center links on tablet to prevent overlap */
     }
 }
 
@@ -292,10 +283,10 @@
     z-index: var(--z-modal-backdrop);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Responsive - Aligned with 9-Tier Strategy */
+@media (max-width: 600px) { /* Tier 4 and below */
     .content-wrapper {
-        margin-left: 0 !important;
+        padding-left: 0 !important;
         width: 100%;
     }
 
@@ -303,20 +294,31 @@
         padding: var(--spacing-base);
         padding-top: calc(var(--navbar-height) + env(safe-area-inset-top, 0));
     }
+
+    .mission-control-footer {
+        flex-direction: column;
+        height: auto !important;
+        padding: 16px !important;
+        gap: 12px;
+    }
+    
+    .footer-left, .footer-right {
+        justify-content: center !important;
+        width: 100%;
+    }
 }
 
-@media (max-width: 480px) {
+@media (min-width: 601px) and (max-width: 1024px) { /* Tier 5-6 (Tablets) */
+    .content-wrapper {
+        padding-left: var(--sidebar-collapsed-width);
+    }
+}
+
+@media (max-width: 360px) { /* Tier 1 (Small Smartphones) */
     .main-content {
         padding: var(--spacing-sm);
     }
-
-    .footer-content {
-        flex-direction: column;
-        gap: var(--spacing-md);
-        text-align: center;
-    }
-
-    .portal-footer {
-        padding: var(--spacing-lg) var(--spacing-base) !important;
+    .footer-brand-logo {
+        height: 24px !important;
     }
 }

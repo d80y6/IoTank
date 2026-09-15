@@ -10,7 +10,7 @@ interface ShiftCloseCardProps {
 }
 
 export const ShiftCloseCard: React.FC<ShiftCloseCardProps> = ({ tank }) => {
-    const { status, openedAt, uptime } = useShiftStatus();
+    const { status, openedAt, uptime, isLoading } = useShiftStatus();
     const { openModal } = useModals();
 
     const formatTime = (ts: number | null) => {
@@ -23,6 +23,23 @@ export const ShiftCloseCard: React.FC<ShiftCloseCardProps> = ({ tank }) => {
         if (!ts) return '';
         return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
     };
+
+    if (isLoading) {
+        return (
+            <div className="shift-card-clean loading-pulse">
+                <div className="shift-card-header">
+                    <div className="shift-card-title-group">
+                        <div className="shift-status-dot pulse" />
+                        <div className="skeleton-title" />
+                    </div>
+                </div>
+                <div className="shift-stats-row">
+                    <div className="skeleton-stat" />
+                    <div className="skeleton-stat" />
+                </div>
+            </div>
+        );
+    }
 
     if (!tank && status === 'closed') {
         return (
@@ -58,16 +75,16 @@ export const ShiftCloseCard: React.FC<ShiftCloseCardProps> = ({ tank }) => {
             {/* Stats row */}
             <div className="shift-stats-row">
                 <div className="shift-stat">
-                    <p className="shift-stat-label">Started</p>
-                    <p className="shift-stat-value">{isOpen ? formatTime(openedAt) : '—'}</p>
-                    {isOpen && openedAt && (
+                    <p className="shift-stat-label">{isOpen ? 'Started' : 'Last Open'}</p>
+                    <p className="shift-stat-value">{openedAt ? formatTime(openedAt) : '—'}</p>
+                    {openedAt && (
                         <p className="shift-stat-sub">{formatDate(openedAt)}</p>
                     )}
                 </div>
                 <div className="shift-stat shift-stat-right">
-                    <p className="shift-stat-label">Duration</p>
+                    <p className="shift-stat-label">{isOpen ? 'Duration' : 'Idle Time'}</p>
                     <p className={`shift-stat-value mono ${isOpen ? 'text-green' : 'text-gray'}`}>
-                        {isOpen ? uptime : '—'}
+                        {uptime || '—'}
                     </p>
                 </div>
             </div>

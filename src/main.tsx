@@ -1,4 +1,3 @@
-import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import '@/config/i18n';
@@ -7,12 +6,27 @@ import { registerSW } from 'virtual:pwa-register';
 // Register PWA Service Worker
 const updateSW = registerSW({
     onNeedRefresh() {
-        if (confirm('New version available. Refresh now?')) {
-            updateSW(true);
-        }
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Platform Update',
+                message: 'A new version of IoTank Kernel is available. Synchronize now?',
+                type: 'info',
+                persistent: true,
+                action: {
+                    label: 'Sync Now',
+                    onClick: () => updateSW(true)
+                }
+            }
+        }));
     },
     onOfflineReady() {
-        // IoTank Fuel Hub is ready for offline operation.
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'System Ready',
+                message: 'IoTank is now cached and available for offline monitoring.',
+                type: 'success'
+            }
+        }));
     },
 });
 
@@ -54,7 +68,5 @@ setTimeout(() => {
 }, 100);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
+    <App />
 );

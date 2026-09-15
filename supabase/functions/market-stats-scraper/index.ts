@@ -27,12 +27,13 @@ serve(async (req) => {
       if (priceMatch && priceMatch[1]) {
         const price = parseFloat(priceMatch[1].replace(',', ''));
         await supabase.from('market_prices').upsert({
-          fuel_type: 'BRENT',
+          fuel_type: 'BRENT', // Intelligence only, not for station pricing
           price_per_liter: price,
           currency: 'USD',
           source: 'marketwatch',
           effective_date: new Date().toISOString()
         }, { onConflict: 'fuel_type' });
+
         results.push({ type: 'BRENT', value: price });
       } else {
         throw new Error('Brent price heuristic failed');
@@ -59,12 +60,13 @@ serve(async (req) => {
       if (gbpMatch && gbpMatch[1]) {
         const rate = parseFloat(gbpMatch[1].replace(',', ''));
         await supabase.from('market_prices').upsert({
-          fuel_type: 'GBP_KSH',
+          fuel_type: 'GBP_KSH', // Intelligence only, not for station pricing
           price_per_liter: rate,
           currency: 'KSH',
           source: 'cbk',
           effective_date: new Date().toISOString()
         }, { onConflict: 'fuel_type' });
+
         results.push({ type: 'GBP_KSH', value: rate });
       } else {
         throw new Error('FX rate heuristic failed');

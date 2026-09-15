@@ -188,7 +188,31 @@ Deno.serve(async (req) => {
 
     console.log(`[PROVISIONING_COMPLETE] Successfully provisioned: ${registrationId}`);
 
-    return new Response(JSON.stringify({ 
+    // STEP 3: TRANSACTIONAL WELCOME EMAIL
+    try {
+        console.log(`[PROVISIONING_EMAIL] Dispatching welcome email to ${reg.email}`);
+        await fetch(`${supabaseUrl}/functions/v1/dispatch-critical-alerts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                cmd: 'direct_transactional_email',
+                to: reg.email,
+                params: {
+                    type: 'TRIAL_WELCOME',
+                    recipientName: reg.contact_person || 'Station Admin',
+                    stationName: reg.station_name,
+                    trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                    loginUrl: 'https://the-iotank-project.web.app/login'
+                }
+            })
+        });
+    } catch (emailErr) {
+        console.warn(`[PROVISIONING_EMAIL_WARN] Failed to dispatch welcome email:`, emailErr);
+    }
+    return new Response(JSON.stringify({
         success: true, 
         message: 'Client provisioned and linked successfully.',
         data: rpcResult,

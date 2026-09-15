@@ -108,7 +108,7 @@
     color: white;
 }
 
-.close-btn:hover { transform: scale(1.05); }
+.close-btn:hover { transform: scale(1.08) rotate(90deg); }
 
 /* ---------- Scrollable Body ---------- */
 .modal-body-scroll {
@@ -327,3 +327,63 @@
     .atm-grid-2 { grid-template-columns: 1fr; }
     .registration-modal-content { max-height: 100vh; border-radius: 0; }
 }
+
+/* reCAPTCHA loading error overlay & modal style */
+.recaptcha-error-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 15, 30, 0.75);
+    backdrop-filter: blur(14px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1010; /* above registration modal */
+    animation: atm-fade 0.25s ease-out;
+}
+
+.recaptcha-error-modal-content {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 
+        0 20px 25px -5px rgba(0, 0, 0, 0.2), 
+        0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    animation: atm-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-icon-header.warning {
+    width: 64px;
+    height: 64px;
+    background: #fffbeb;
+    color: #d97706;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    border: 2px solid #fde68a;
+}
+
+.recaptcha-error-modal-content h3 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 12px;
+}
+
+.recaptcha-error-modal-content p {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.recaptcha-error-modal-content .action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+

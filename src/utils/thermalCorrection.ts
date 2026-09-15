@@ -9,10 +9,11 @@ export const REF_TEMP_C = 15.5;
 
 // Thermal Expansion Coefficients (approximate per °C)
 export const EXPANSION_COEFFICIENTS = {
-    'Diesel': 0.00084, // Standard Diesel (Avg density 0.835)
-    'Gasoline': 0.00095,
-    'Water': 0.00021, // For calibration/testing
-    'Oil': 0.00070
+    'diesel': 0.00084, // Standard Diesel (Avg density 0.835)
+    'petrol': 0.00095, // Gasoline/Petrol
+    'kerosene': 0.00070,
+    'jet_fuel': 0.00070, // Aviation Turbine Fuel
+    'water': 0.00021, // For calibration/testing
 };
 
 export type FuelType = keyof typeof EXPANSION_COEFFICIENTS;
@@ -24,9 +25,21 @@ export type FuelType = keyof typeof EXPANSION_COEFFICIENTS;
 export function calculateExpectedVolume(
     standardVolume: number,
     currentTempC: number,
-    fuelType: FuelType = 'Diesel'
+    fuelType: FuelType = 'diesel'
 ): number {
-    const alpha = EXPANSION_COEFFICIENTS[fuelType] || EXPANSION_COEFFICIENTS['Diesel'];
+    // Resolve common fuel type aliases to canonical coefficient keys
+    const FUEL_ALIASES: Record<string, FuelType> = {
+        'pms':       'petrol',
+        'super':     'petrol',
+        'gasoline':  'petrol',
+        'ago':       'diesel',
+        'biodiesel': 'diesel',
+        'jet-fuel':  'jet_fuel',  // hyphenated UI form → underscore key
+        'jet fuel':  'jet_fuel',
+    };
+    const canonicalType: FuelType = FUEL_ALIASES[(fuelType || '').toLowerCase() as string] ?? fuelType;
+
+    const alpha = EXPANSION_COEFFICIENTS[canonicalType] || EXPANSION_COEFFICIENTS['diesel'];
     const deltaT = currentTempC - REF_TEMP_C;
     const factor = 1 + (alpha * deltaT);
     return Number((standardVolume * factor).toFixed(2));
@@ -40,7 +53,7 @@ export function analyzeVariance(
     invoiceVolume: number, // The amount paid for (Standardized to 15.5°C)
     sensorIncrease: number, // The raw volume increase measured by sensor
     temperature: number,
-    fuelType: FuelType = 'Diesel',
+    fuelType: FuelType = 'diesel',
     toleranceLiters: number = 15
 ) {
     // 1. Calculate what the Invoice Volume SHOULD look like at this temperature

@@ -1,0 +1,2372 @@
+[
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own billing",
+    "table": "client_billing",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can update own billing",
+    "table": "client_billing",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own sites",
+    "table": "sites",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own tanks",
+    "table": "tanks",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own readings",
+    "table": "sensor_readings",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own alerts",
+    "table": "alerts",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own deliveries",
+    "table": "deliveries",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own usage",
+    "table": "usage_logs",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Users can see own recommendations",
+    "table": "ai_recommendations",
+    "using": "\n        client_id IN (SELECT id FROM client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000001_rls_policies.sql",
+    "name": "Everyone can see market prices",
+    "table": "market_prices",
+    "using": "true"
+  },
+  {
+    "file": "20260317000004_fuel_transactions.sql",
+    "name": "Users can view their organization's fuel transactions",
+    "table": "fuel_transactions",
+    "using": "client_id IN (SELECT id FROM client_billing WHERE firebase_uid = (auth.jwt("
+  },
+  {
+    "file": "20260317000004_fuel_transactions.sql",
+    "name": "Public fuel_transactions access",
+    "table": "fuel_transactions",
+    "using": "true"
+  },
+  {
+    "file": "20260317000005_market_bookmarks.sql",
+    "name": "Users can view their organization's bookmarks",
+    "table": "market_bookmarks",
+    "using": "client_id IN (SELECT id FROM client_billing WHERE firebase_uid = (auth.jwt("
+  },
+  {
+    "file": "20260317000005_market_bookmarks.sql",
+    "name": "Users can manage their organization's bookmarks",
+    "table": "market_bookmarks",
+    "using": "client_id IN (SELECT id FROM client_billing WHERE firebase_uid = (auth.jwt("
+  },
+  {
+    "file": "20260317000005_market_bookmarks.sql",
+    "name": "Public market_bookmarks access",
+    "table": "market_bookmarks",
+    "using": "true"
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own billing record",
+    "table": "client_billing",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can update own contact info",
+    "table": "client_billing",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Admins can create billing records",
+    "table": "client_billing",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Service role full access to billing",
+    "table": "client_billing",
+    "using": "current_setting('request.jwt.claims', true"
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own sites",
+    "table": "sites",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can create own sites",
+    "table": "sites",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can delete own sites",
+    "table": "sites",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Admins have full access to sites",
+    "table": "sites",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own transactions",
+    "table": "transactions",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Admins have full access to transactions",
+    "table": "transactions",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Service role full access to transactions",
+    "table": "transactions",
+    "using": "current_setting('request.jwt.claims', true"
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own usage logs",
+    "table": "usage_logs",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "System can insert usage logs",
+    "table": "usage_logs",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own tanks",
+    "table": "tanks",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can create own tanks",
+    "table": "tanks",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can delete own tanks",
+    "table": "tanks",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Admins have full access to tanks",
+    "table": "tanks",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own sensor readings",
+    "table": "sensor_readings",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM tanks\n    WHERE tanks.id = sensor_readings.tank_id AND tanks.firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "System can insert sensor readings",
+    "table": "sensor_readings",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own alerts",
+    "table": "alerts",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can update own alerts",
+    "table": "alerts",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "System can insert alerts",
+    "table": "alerts",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own deliveries",
+    "table": "deliveries",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can create own deliveries",
+    "table": "deliveries",
+    "using": "public.firebase_uid("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Admins have full access to deliveries",
+    "table": "deliveries",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Anyone can view market prices",
+    "table": "market_prices",
+    "using": "true"
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Only admins can modify market prices",
+    "table": "market_prices",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can view own AI recommendations",
+    "table": "ai_recommendations",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Users can update own recommendation actions",
+    "table": "ai_recommendations",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "System can insert AI recommendations",
+    "table": "ai_recommendations",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260317000007_security_layer.sql",
+    "name": "Only admins can view admin logs",
+    "table": "admin_logs",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "Super Admins can manage all users",
+    "table": "system_users",
+    "using": "is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "System users can read their own profile",
+    "table": "system_users",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "Super Admins can view all logs",
+    "table": "admin_logs",
+    "using": "is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "Admin Helpers can view audit logs",
+    "table": "admin_logs",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "System can insert audit logs",
+    "table": "admin_logs",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "System users can update client billing",
+    "table": "client_billing",
+    "using": "is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "System users can read all tanks",
+    "table": "tanks",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "System users can update tanks",
+    "table": "tanks",
+    "using": "is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "System users can read all transactions",
+    "table": "transactions",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000000_superadmin_setup.sql",
+    "name": "Anyone can submit a registration request",
+    "table": "public.pending_registrations",
+    "using": "is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can view own audit logs",
+    "table": "audit_logs",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can insert their own audit logs",
+    "table": "audit_logs",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can view own file uploads",
+    "table": "file_uploads",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can insert file uploads",
+    "table": "file_uploads",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can view own analysis history",
+    "table": "analysis_history",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can insert own analysis history",
+    "table": "analysis_history",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can insert market signals",
+    "table": "market_signals",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can view own regulatory notices",
+    "table": "regulatory_notices",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can insert regulatory notices",
+    "table": "regulatory_notices",
+    "using": "\n    client_id IN (SELECT id FROM client_billing WHERE firebase_uid = auth.uid("
+  },
+  {
+    "file": "20260318000002_fix_missing_rls_policies.sql",
+    "name": "Clients can insert raw market data",
+    "table": "raw_market_data",
+    "using": "is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000003_fix_security_warnings.sql",
+    "name": "Clients can view own fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260318000003_fix_security_warnings.sql",
+    "name": "Clients can insert own fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260318000003_fix_security_warnings.sql",
+    "name": "Users can manage shifts in their organization",
+    "table": "public.shift_closures",
+    "using": "\n    client_id IN (\n      SELECT client_id FROM public.profiles WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260318000003_fix_security_warnings.sql",
+    "name": "Users can manage their own preferences",
+    "table": "public.user_preferences",
+    "using": "\n    user_id IN (\n      SELECT id FROM public.profiles WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260318000004_role_and_onboarding.sql",
+    "name": "Anyone can submit a registration request",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260318000004_role_and_onboarding.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "Clients can view own fuel transactions",
+    "table": "fuel_transactions",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "Clients can insert own fuel transactions",
+    "table": "fuel_transactions",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "Super Admins can view all logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "Admin Helpers can view audit logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System can insert audit logs",
+    "table": "public.admin_logs",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System users can update client billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System users can read all tanks",
+    "table": "public.tanks",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System users can update tanks",
+    "table": "public.tanks",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System users can read all transactions",
+    "table": "public.transactions",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System admins can view all audit logs",
+    "table": "public.audit_logs",
+    "using": "public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System admins can read all market signals",
+    "table": "public.market_signals",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System admins can read all raw market data",
+    "table": "public.raw_market_data",
+    "using": "public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260318000005_fix_security_warnings_v2.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can view own audit logs",
+    "table": "public.audit_logs",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can insert their own audit logs",
+    "table": "public.audit_logs",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can insert file uploads",
+    "table": "public.file_uploads",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can view own analysis history",
+    "table": "public.analysis_history",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can insert own analysis history",
+    "table": "public.analysis_history",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can insert regulatory notices",
+    "table": "public.regulatory_notices",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can insert raw market data",
+    "table": "public.raw_market_data",
+    "using": "public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "System admins can manage regulatory notices",
+    "table": "public.regulatory_notices",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "System admins can view all file uploads",
+    "table": "public.file_uploads",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "System admins can view all analysis history",
+    "table": "public.analysis_history",
+    "using": "public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "System admins can read all market signals",
+    "table": "public.market_signals",
+    "using": "public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260319000000_security_hotfix.sql",
+    "name": "Clients can view own market signals",
+    "table": "public.market_signals",
+    "using": "\n    client_id IN (SELECT id FROM public.client_billing WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization tanks",
+    "table": "public.tanks",
+    "using": "\n    (\n      client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization sensor readings",
+    "table": "public.sensor_readings",
+    "using": "\n    tank_id IN (\n      SELECT id FROM public.tanks \n      WHERE client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization alerts",
+    "table": "public.alerts",
+    "using": "\n    (\n      client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization deliveries",
+    "table": "public.deliveries",
+    "using": "\n    tank_id IN (SELECT id FROM public.tanks WHERE client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Owners can view organization transactions",
+    "table": "public.transactions",
+    "using": "\n    (client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Owners can view organization billing",
+    "table": "public.client_billing",
+    "using": "\n    (id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization sites",
+    "table": "public.sites",
+    "using": "\n    (\n      client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can manage organization shifts",
+    "table": "public.shift_closures",
+    "using": "\n    (\n      client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization usage logs",
+    "table": "public.usage_logs",
+    "using": "\n    (client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000005_implement_org_rbac.sql",
+    "name": "Users can view organization fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "\n    (\n      client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260319000006_fix_billing_rls.sql",
+    "name": "System admins can insert billing records",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260319000006_fix_billing_rls.sql",
+    "name": "System admins can delete billing records",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260319000006_fix_billing_rls.sql",
+    "name": "System admins can insert profiles",
+    "table": "public.profiles",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260319000007_fix_profile_rbac_visibility.sql",
+    "name": "Users can view own profile",
+    "table": "public.profiles",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000007_fix_profile_rbac_visibility.sql",
+    "name": "Users can update own profile",
+    "table": "public.profiles",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260319000007_fix_profile_rbac_visibility.sql",
+    "name": "System admins can view all profiles",
+    "table": "public.profiles",
+    "using": "public.get_auth_level("
+  },
+  {
+    "file": "20260321000001_fix_pending_registrations_rls.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260321000001_fix_pending_registrations_rls.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "public.is_system_admin(1"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System users can view audit logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin(2"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System can insert audit logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins view all readings",
+    "table": "public.sensor_readings",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins view all alerts",
+    "table": "public.alerts",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins view all transactions",
+    "table": "public.transactions",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins view all billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins view all sites",
+    "table": "public.sites",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins view all fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000002_restore_admin_visibility.sql",
+    "name": "System admins manage shifts",
+    "table": "public.shift_closures",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260321000005_master_rls_fix.sql",
+    "name": "Anyone can submit a registration request",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260321000005_master_rls_fix.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260321000005_master_rls_fix.sql",
+    "name": "Users can insert their own profile",
+    "table": "public.profiles",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000005_master_rls_fix.sql",
+    "name": "System admins can view all billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000005_master_rls_fix.sql",
+    "name": "System admins can insert billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000005_master_rls_fix.sql",
+    "name": "System admins can insert sites",
+    "table": "public.sites",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000006_fix_system_users_visibility.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260321000006_fix_system_users_visibility.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260321000006_fix_system_users_visibility.sql",
+    "name": "Service role can manage system users",
+    "table": "public.system_users",
+    "using": "true"
+  },
+  {
+    "file": "20260323095503_invitation_system.sql",
+    "name": "Inviters can view their own requests",
+    "table": "public.invitation_requests",
+    "using": "invited_by_uid = auth.uid("
+  },
+  {
+    "file": "20260323095504_fix_auth_hang_recursion.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260323095504_fix_auth_hang_recursion.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "\n  -- Use the SECURITY DEFINER check which we've hardened above.\n  public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260323095504_fix_auth_hang_recursion.sql",
+    "name": "Service role can manage system users",
+    "table": "public.system_users",
+    "using": "true"
+  },
+  {
+    "file": "20260323095506_support_system.sql",
+    "name": "Clients can manage their own tickets",
+    "table": "public.support_tickets",
+    "using": "client_id IN (\n    SELECT client_id FROM public.profiles WHERE firebase_uid = public.firebase_uid("
+  },
+  {
+    "file": "20260323095506_support_system.sql",
+    "name": "System admins can manage all tickets",
+    "table": "public.support_tickets",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Public read for support metadata",
+    "table": "public.support_categories",
+    "using": "true"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Public read for canned responses",
+    "table": "public.canned_responses",
+    "using": "true"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Public read for knowledge base",
+    "table": "public.knowledge_base",
+    "using": "is_published = true"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Admins manage support metadata",
+    "table": "public.support_categories",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Admins manage canned responses",
+    "table": "public.canned_responses",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Admins manage knowledge base",
+    "table": "public.knowledge_base",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Clients view own devices",
+    "table": "public.devices",
+    "using": "client_id IN (SELECT client_id FROM public.profiles WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260324121000_support_and_hardware_extensions.sql",
+    "name": "Admins manage all devices",
+    "table": "public.devices",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "System users can read their own identity",
+    "table": "public.system_users",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Users can read their own profile",
+    "table": "public.profiles",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Users can update their own profile",
+    "table": "public.profiles",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Tenant isolation",
+    "table": "public.%I",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Telemetry tenant access",
+    "table": "public.telemetry_history",
+    "using": "\n  device_id IN (SELECT id FROM public.devices WHERE client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Device tenant access",
+    "table": "public.devices",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Users manage own preferences",
+    "table": "public.user_preferences",
+    "using": "user_id IN (SELECT id FROM public.profiles WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260324160000_final_security_hardening.sql",
+    "name": "Super admins only logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin(1"
+  },
+  {
+    "file": "20260324180000_enhance_audit_logs.sql",
+    "name": "Tenant isolation",
+    "table": "public.audit_logs",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260324190000_fix_registration_visibility.sql",
+    "name": "Public can submit registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260324190000_fix_registration_visibility.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260324190000_fix_registration_visibility.sql",
+    "name": "Users can link their own identity",
+    "table": "public.system_users",
+    "using": "email = auth.jwt("
+  },
+  {
+    "file": "20260324210000_fix_client_billing_rls.sql",
+    "name": "System admins can insert billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260324210000_fix_client_billing_rls.sql",
+    "name": "System admins can view all billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260324210000_fix_client_billing_rls.sql",
+    "name": "System admins can insert sites",
+    "table": "public.sites",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260324210000_fix_client_billing_rls.sql",
+    "name": "System admins can view all sites",
+    "table": "public.sites",
+    "using": "public.is_system_admin(4"
+  },
+  {
+    "file": "20260325000000_security_remediation.sql",
+    "name": "Users can update their own profile",
+    "table": "public.profiles",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260325000000_security_remediation.sql",
+    "name": "Users can read their own profile",
+    "table": "public.profiles",
+    "using": "\n  supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260325164000_fix_invitations_and_auth_level.sql",
+    "name": "Inviters can view their own requests",
+    "table": "public.invitation_requests",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260325164000_fix_invitations_and_auth_level.sql",
+    "name": "Station Owners can submit invite requests",
+    "table": "public.invitation_requests",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260326000000_audit_remediation.sql",
+    "name": "Inviters can view their own requests",
+    "table": "public.invitation_requests",
+    "using": "\n    client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260326000000_audit_remediation.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260326113000_add_security_telemetry_events.sql",
+    "name": "System admins can read security telemetry events",
+    "table": "public.security_telemetry_events",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260327180000_fix_db_lints.sql",
+    "name": "service role manages edge rate limits",
+    "table": "public.edge_rate_limits",
+    "using": "true"
+  },
+  {
+    "file": "20260327180000_fix_db_lints.sql",
+    "name": "service role manages fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "true"
+  },
+  {
+    "file": "20260327180000_fix_db_lints.sql",
+    "name": "org members view fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260327180000_fix_db_lints.sql",
+    "name": "service role manages market bookmarks",
+    "table": "public.market_bookmarks",
+    "using": "true"
+  },
+  {
+    "file": "20260327180000_fix_db_lints.sql",
+    "name": "org members manage market bookmarks",
+    "table": "public.market_bookmarks",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260328140000_supabase_only_firebase_legacy_cleanup.sql",
+    "name": "Org members can view own sites",
+    "table": "public.sites",
+    "using": "client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260330000000_volume_lookup_tables.sql",
+    "name": "Super Admin manage lookup tables",
+    "table": "public.volume_lookup_tables",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260330000000_volume_lookup_tables.sql",
+    "name": "Authenticated read for lookup tables",
+    "table": "public.volume_lookup_tables",
+    "using": "true"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Super Admins can view all logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Admin Helpers can view audit logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System can insert audit logs",
+    "table": "public.admin_logs",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System users can update client billing",
+    "table": "public.client_billing",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System users can read all tanks",
+    "table": "public.tanks",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System users can update tanks",
+    "table": "public.tanks",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Anyone can submit a registration request",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System users can read all transactions",
+    "table": "public.transactions",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Clients can view own sensor readings",
+    "table": "public.sensor_readings",
+    "using": "\n    EXISTS (\n      SELECT 1 FROM public.tanks t\n      WHERE t.id::uuid = tank_id::uuid\n      AND t.supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Clients can view own alerts",
+    "table": "public.alerts",
+    "using": "\n    supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Clients can update own alerts",
+    "table": "public.alerts",
+    "using": "supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Clients can view own fuel transactions",
+    "table": "public.fuel_transactions",
+    "using": "supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "Clients can view own deliveries",
+    "table": "public.deliveries",
+    "using": "supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System admins can read all market signals",
+    "table": "public.market_signals",
+    "using": "public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260401000003_security_hardening.sql",
+    "name": "System admins can view all audit logs",
+    "table": "public.audit_logs",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260401000004_add_profile_photo_columns.sql",
+    "name": "Public Access",
+    "table": "storage.objects",
+    "using": "bucket_id = 'profile-photos'"
+  },
+  {
+    "file": "20260401000004_add_profile_photo_columns.sql",
+    "name": "Users can manage own profile photo",
+    "table": "storage.objects",
+    "using": "\n--   bucket_id = 'profile-photos' AND \n--   (storage.foldername(name"
+  },
+  {
+    "file": "20260402020000_harden_system_users_rls.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "\n    supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260402060000_fix_missing_tables_and_columns.sql",
+    "name": "Authenticated users can read supply risks",
+    "table": "public.supply_risks",
+    "using": "true"
+  },
+  {
+    "file": "20260402060000_fix_missing_tables_and_columns.sql",
+    "name": "Authenticated users can read market news",
+    "table": "public.market_news",
+    "using": "true"
+  },
+  {
+    "file": "20260402060000_fix_missing_tables_and_columns.sql",
+    "name": "Users can view their own event logs",
+    "table": "public.event_logs",
+    "using": "client_id IN (SELECT client_id FROM public.profiles WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260402070000_harden_rls_for_identity_fallback.sql",
+    "name": "Users can see their own profile",
+    "table": "public.profiles",
+    "using": "\r\n        supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260402070000_harden_rls_for_identity_fallback.sql",
+    "name": "Users can link their own profile",
+    "table": "public.profiles",
+    "using": "\r\n        (supabase_uid IS NULL AND LOWER(email"
+  },
+  {
+    "file": "20260402070000_harden_rls_for_identity_fallback.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "\r\n        supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260402070000_harden_rls_for_identity_fallback.sql",
+    "name": "System users can link their own record",
+    "table": "public.system_users",
+    "using": "\r\n        (supabase_uid IS NULL AND LOWER(email"
+  },
+  {
+    "file": "20260402090000_harden_rls_and_repair_emails.sql",
+    "name": "Users can see their own profile",
+    "table": "public.profiles",
+    "using": "\r\n        supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260402090000_harden_rls_and_repair_emails.sql",
+    "name": "Users can link their own profile",
+    "table": "public.profiles",
+    "using": "\r\n        (supabase_uid IS NULL AND LOWER(TRIM(email"
+  },
+  {
+    "file": "20260402090000_harden_rls_and_repair_emails.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "\r\n        supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260402090000_harden_rls_and_repair_emails.sql",
+    "name": "System users can link their own record",
+    "table": "public.system_users",
+    "using": "\r\n        (supabase_uid IS NULL AND LOWER(TRIM(email"
+  },
+  {
+    "file": "20260402100002_comprehensive_audit_logging.sql",
+    "name": "System admins view all auth events",
+    "table": "public.auth_events",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260402100002_comprehensive_audit_logging.sql",
+    "name": "Users can view their own auth events",
+    "table": "public.auth_events",
+    "using": "user_id = auth.uid("
+  },
+  {
+    "file": "20260402100002_comprehensive_audit_logging.sql",
+    "name": "System admins view all data access logs",
+    "table": "public.data_access_logs",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260402100002_comprehensive_audit_logging.sql",
+    "name": "Users view their data access in their organization",
+    "table": "public.data_access_logs",
+    "using": "\r\n            actor_user_id = auth.uid("
+  },
+  {
+    "file": "20260402100002_comprehensive_audit_logging.sql",
+    "name": "System admins view all registration events",
+    "table": "public.registration_events",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260403000001_fix_user_deletion_rls.sql",
+    "name": "Super admins can delete user profiles",
+    "table": "public.profiles",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260403000001_fix_user_deletion_rls.sql",
+    "name": "Super admins can delete system users",
+    "table": "public.system_users",
+    "using": "public.is_system_admin('super_admin'"
+  },
+  {
+    "file": "20260403100000_cascade_sites.sql",
+    "name": "System users can read all client billing",
+    "table": "public.client_billing",
+    "using": "\n    public.is_system_admin('analyst'"
+  },
+  {
+    "file": "20260403120000_audit_standardization.sql",
+    "name": "Users can see own tanks",
+    "table": "tanks",
+    "using": "\r\n    supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260403120000_audit_standardization.sql",
+    "name": "Users can view own billing record",
+    "table": "client_billing",
+    "using": "\r\n    supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260403120000_audit_standardization.sql",
+    "name": "Users can view own sites",
+    "table": "sites",
+    "using": "\r\n    client_id IN (SELECT id FROM client_billing WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260403120000_audit_standardization.sql",
+    "name": "Users can see own usage logs",
+    "table": "public.usage_logs",
+    "using": "\r\n        client_id IN (SELECT id FROM client_billing WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260403130000_fix_logo_upload_rls.sql",
+    "name": "Users can update own billing record",
+    "table": "public.client_billing",
+    "using": "\n    supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260403130000_fix_logo_upload_rls.sql",
+    "name": "Authenticated users can upload logos",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'profile-photos' AND\n    (storage.foldername(name"
+  },
+  {
+    "file": "20260403130000_fix_logo_upload_rls.sql",
+    "name": "Authenticated users can delete own logos",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'profile-photos' AND\n    (storage.foldername(name"
+  },
+  {
+    "file": "20260403130000_fix_logo_upload_rls.sql",
+    "name": "Public read for profile photos",
+    "table": "storage.objects",
+    "using": "bucket_id = 'profile-photos'"
+  },
+  {
+    "file": "20260403174500_add_photo_url_to_system_users.sql",
+    "name": "System users can update their own profile",
+    "table": "public.system_users",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260403180000_harden_company_profile_rls.sql",
+    "name": "Authorized admins can update organization billing",
+    "table": "public.client_billing",
+    "using": "\n    (id = public.get_user_client_id("
+  },
+  {
+    "file": "20260403190000_team_member_requests.sql",
+    "name": "client_can_view_own_requests",
+    "table": "public.team_member_requests",
+    "using": "\n        client_id = (\n            SELECT client_id FROM public.profiles\n            WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260403190000_team_member_requests.sql",
+    "name": "client_can_insert_own_requests",
+    "table": "public.team_member_requests",
+    "using": "\n        EXISTS (\n            SELECT 1 FROM public.system_users\n            WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260403190000_team_member_requests.sql",
+    "name": "system_user_can_update_requests",
+    "table": "public.team_member_requests",
+    "using": "\n        EXISTS (\n            SELECT 1 FROM public.system_users\n            WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can view own tanks",
+    "table": "public.tanks",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can create own tanks",
+    "table": "public.tanks",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can delete own tanks",
+    "table": "public.tanks",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can view own sites",
+    "table": "public.sites",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can create own sites",
+    "table": "public.sites",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can delete own sites",
+    "table": "public.sites",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can view own alerts",
+    "table": "public.alerts",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can update own alerts",
+    "table": "public.alerts",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260404000001_migrate_rls_to_supabase_native.sql",
+    "name": "Users can view own sensor readings",
+    "table": "public.sensor_readings",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM tanks\n    WHERE tanks.id = sensor_readings.tank_id \n    AND (tanks.client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Users can manage their own file uploads",
+    "table": "public.file_uploads",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Users can view analysis for their files",
+    "table": "public.analysis_history",
+    "using": "\n    EXISTS (\n        SELECT 1 FROM public.file_uploads\n        WHERE public.file_uploads.id = public.analysis_history.file_id\n        AND (public.file_uploads.client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Users can manage shifts in their organization",
+    "table": "public.shift_closures",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Users can view own tickets",
+    "table": "public.support_tickets",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Users can create tickets",
+    "table": "public.support_tickets",
+    "using": "\n    EXISTS (\n        SELECT 1 FROM public.devices\n        WHERE public.devices.id = public.telemetry_history.device_id\n        AND (public.devices.client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Users can view own security events",
+    "table": "public.security_telemetry_events",
+    "using": "client_id = get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Admins can view market data",
+    "table": "public.raw_market_data",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260405000000_hardening_rls_and_security.sql",
+    "name": "Admins can view regulatory notices",
+    "table": "public.regulatory_notices",
+    "using": "is_admin("
+  },
+  {
+    "file": "20260405000003_global_firebase_purge_final.sql",
+    "name": "Users can manage their own deliveries",
+    "table": "public.deliveries",
+    "using": "supabase_uid::UUID = auth.uid("
+  },
+  {
+    "file": "20260405000003_global_firebase_purge_final.sql",
+    "name": "Users can manage their own tanks",
+    "table": "public.tanks",
+    "using": "supabase_uid::UUID = auth.uid("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "System users can read their own profile",
+    "table": "public.system_users",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "System users can update their own profile",
+    "table": "public.system_users",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "Super Admins can manage all users",
+    "table": "public.system_users",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "Users can read their own profile",
+    "table": "public.profiles",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "Users can update their own profile",
+    "table": "public.profiles",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "system_user_can_view_all_requests",
+    "table": "public.team_member_requests",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "users_can_view_own_requests",
+    "table": "public.team_member_requests",
+    "using": "email = auth.jwt("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "Clients view own devices",
+    "table": "public.devices",
+    "using": "client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "Tenant isolation for deliveries",
+    "table": "public.deliveries",
+    "using": "client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000004_identity_harmonization_fix.sql",
+    "name": "Tenant isolation for tanks",
+    "table": "public.tanks",
+    "using": "client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000005_close_security_gaps.sql",
+    "name": "Tenant isolation for reports",
+    "table": "public.reports",
+    "using": "client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000005_close_security_gaps.sql",
+    "name": "Tenant isolation for event_logs",
+    "table": "public.event_logs",
+    "using": "client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000005_close_security_gaps.sql",
+    "name": "Tenant isolation for usage_logs",
+    "table": "public.usage_logs",
+    "using": "client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260405000005_close_security_gaps.sql",
+    "name": "Users manage own preferences",
+    "table": "public.user_preferences",
+    "using": "user_id IN (SELECT id FROM public.profiles WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260405000008_restore_rls_integrity.sql",
+    "name": "client_can_insert_own_requests",
+    "table": "public.team_member_requests",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405000008_restore_rls_integrity.sql",
+    "name": "system_user_can_delete_requests",
+    "table": "public.team_member_requests",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405000008_restore_rls_integrity.sql",
+    "name": "System admins can manage devices",
+    "table": "public.devices",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405000008_restore_rls_integrity.sql",
+    "name": "System admins can manage sites",
+    "table": "public.sites",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405000008_restore_rls_integrity.sql",
+    "name": "System admins can manage client_billing",
+    "table": "public.client_billing",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260405100021_delivery_reporting_overhaul.sql",
+    "name": "Users can view reports for their organization",
+    "table": "public.reports",
+    "using": "client_id = (SELECT client_id FROM profiles WHERE supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260406170000_comprehensive_stability_and_security_fix.sql",
+    "name": "Tenant isolation for sensor_readings",
+    "table": "public.sensor_readings",
+    "using": "\r\n    client_id = public.get_client_id_from_auth("
+  },
+  {
+    "file": "20260406170000_comprehensive_stability_and_security_fix.sql",
+    "name": "Service role can insert sensor readings",
+    "table": "public.sensor_readings",
+    "using": "public.is_admin("
+  },
+  {
+    "file": "20260406200000_master_security_audit_remediation.sql",
+    "name": "Authenticated users can upload logos",
+    "table": "storage.objects",
+    "using": "\r\n    bucket_id = 'profile-photos' AND\r\n    (storage.foldername(name"
+  },
+  {
+    "file": "20260406200000_master_security_audit_remediation.sql",
+    "name": "Authenticated users can delete own logos",
+    "table": "storage.objects",
+    "using": "\r\n    bucket_id = 'profile-photos' AND\r\n    (storage.foldername(name"
+  },
+  {
+    "file": "20260406200000_master_security_audit_remediation.sql",
+    "name": "Clients can view own audit logs",
+    "table": "public.audit_logs",
+    "using": "\r\n    client_id = public.get_user_client_id("
+  },
+  {
+    "file": "20260406220000_harden_profiles_and_tenant_isolation.sql",
+    "name": "Users can update own profile restricted",
+    "table": "public.profiles",
+    "using": "supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260406220000_harden_profiles_and_tenant_isolation.sql",
+    "name": "Users can see own tanks",
+    "table": "public.tanks",
+    "using": "\n    client_id = (SELECT client_id FROM public.profiles WHERE supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260406220000_harden_profiles_and_tenant_isolation.sql",
+    "name": "Clients can view own sensor readings",
+    "table": "public.sensor_readings",
+    "using": "\n    EXISTS (\n      SELECT 1 FROM public.tanks t\n      JOIN public.profiles p ON p.client_id = t.client_id\n      WHERE t.id = tank_id\n      AND p.supabase_uid::uuid = auth.uid("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can view own tanks",
+    "table": "public.tanks",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can create own tanks",
+    "table": "public.tanks",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can delete own tanks",
+    "table": "public.tanks",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can view own sites",
+    "table": "public.sites",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can create own sites",
+    "table": "public.sites",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM tanks\n    WHERE tanks.id = sensor_readings.tank_id \n    AND (tanks.station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can see own station info",
+    "table": "public.fuel_stations",
+    "using": "id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can read their own profile",
+    "table": "public.profiles",
+    "using": "supabase_uid = auth.uid("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Tenant isolation for deliveries",
+    "table": "public.deliveries",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can view own alerts",
+    "table": "public.alerts",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Users can manage shifts in their station",
+    "table": "public.shift_closures",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408200000_rename_and_purge_legacy.sql",
+    "name": "Tenant isolation for event_logs",
+    "table": "public.event_logs",
+    "using": "station_id = get_station_id_from_auth("
+  },
+  {
+    "file": "20260408210000_hardware_jwt_support.sql",
+    "name": "Hardware devices can insert readings",
+    "table": "public.sensor_readings",
+    "using": "\n  (auth.jwt("
+  },
+  {
+    "file": "20260409000300_global_function_refactor.sql",
+    "name": "Authorized admins can update organization billing",
+    "table": "public.fuel_stations",
+    "using": "\n    (id = public.get_station_id_from_auth("
+  },
+  {
+    "file": "20260409000300_global_function_refactor.sql",
+    "name": "Clients can view own audit logs",
+    "table": "public.audit_logs",
+    "using": "\n    station_id = public.get_station_id_from_auth("
+  },
+  {
+    "file": "20260409000300_global_function_refactor.sql",
+    "name": "Tenant isolation",
+    "table": "public.%I",
+    "using": "station_id = public.get_station_id_from_auth("
+  },
+  {
+    "file": "20260409000400_access_request_visibility_fix.sql",
+    "name": "Users can insert own team requests",
+    "table": "public.team_member_requests",
+    "using": "\n    station_id = public.get_station_id_from_auth("
+  },
+  {
+    "file": "20260409000400_access_request_visibility_fix.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260409000500_cascade_and_function_fixes.sql",
+    "name": "Users can read their own profile",
+    "table": "public.profiles",
+    "using": "auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260409000700_security_advisor_cleanup.sql",
+    "name": "Users can insert own team requests",
+    "table": "public.team_member_requests",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM public.system_users \n    WHERE system_users.auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260409000700_security_advisor_cleanup.sql",
+    "name": "Users can insert telemetry",
+    "table": "public.security_telemetry_events",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM public.system_users \n    WHERE system_users.auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260409000900_global_legacy_refactor.sql",
+    "name": "Users can update own profile restricted",
+    "table": "public.profiles",
+    "using": "auth_user_id::uuid = auth.uid("
+  },
+  {
+    "file": "20260409000900_global_legacy_refactor.sql",
+    "name": "Users can see own tanks",
+    "table": "public.tanks",
+    "using": "\n    station_id = (SELECT station_id FROM public.profiles WHERE auth_user_id::uuid = auth.uid("
+  },
+  {
+    "file": "20260409000900_global_legacy_refactor.sql",
+    "name": "Clients can view own sensor readings",
+    "table": "public.sensor_readings",
+    "using": "\n    EXISTS (\n      SELECT 1 FROM public.tanks t\n      JOIN public.profiles p ON p.station_id = t.station_id\n      WHERE t.id = tank_id\n      AND p.auth_user_id::uuid = auth.uid("
+  },
+  {
+    "file": "20260409001400_finalize_admin_logs_schema.sql",
+    "name": "System admins can view all admin logs",
+    "table": "public.admin_logs",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Authorized admins can update organization billing",
+    "table": "public.fuel_stations",
+    "using": "((id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Clients can view own audit logs",
+    "table": "public.audit_logs",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.tanks",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.transactions",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.alerts",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.deliveries",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.fuel_transactions",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.reports",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Tenant isolation",
+    "table": "public.team_member_requests",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Users can view own team requests",
+    "table": "public.team_member_requests",
+    "using": "(station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "is_system_admin('support_staff'::text"
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Users can view own sites",
+    "table": "public.sites",
+    "using": "station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Users can create own sites",
+    "table": "public.sites",
+    "using": "station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409001800_resolve_ambiguity_definitive.sql",
+    "name": "Users can delete own sites",
+    "table": "public.sites",
+    "using": "station_id = get_user_station_id("
+  },
+  {
+    "file": "20260409002000_fix_storage_policies.sql",
+    "name": "Public profiles are viewable by everyone",
+    "table": "storage.objects",
+    "using": "bucket_id = 'profile-photos'"
+  },
+  {
+    "file": "20260409002000_fix_storage_policies.sql",
+    "name": "Users can manage their own avatar",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'profile-photos' \n    AND (storage.foldername(name"
+  },
+  {
+    "file": "20260409002000_fix_storage_policies.sql",
+    "name": "Users can manage their station branding",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'profile-photos' \n    AND (storage.foldername(name"
+  },
+  {
+    "file": "20260409002000_fix_storage_policies.sql",
+    "name": "System users can manage all branding",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'profile-photos'\n    AND EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260409002500_telemetry_ingestion_harmony.sql",
+    "name": "Hardware devices can insert readings",
+    "table": "public.sensor_readings",
+    "using": "\n    EXISTS (\n        SELECT 1 FROM public.tanks t\n        WHERE t.id = sensor_readings.tank_id \n        AND (t.station_id = (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260411000000_performance_and_news.sql",
+    "name": "Everyone can view active news",
+    "table": "public.market_news",
+    "using": "expires_at IS NULL OR expires_at > NOW("
+  },
+  {
+    "file": "20260411000000_performance_and_news.sql",
+    "name": "Admins can manage news",
+    "table": "public.market_news",
+    "using": "public.get_auth_level("
+  },
+  {
+    "file": "20260411000002_device_commands.sql",
+    "name": "Users can view their station commands",
+    "table": "public.device_commands",
+    "using": "\n    EXISTS (\n        SELECT 1 FROM public.profiles\n        WHERE profiles.auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260411000002_device_commands.sql",
+    "name": "Users can insert station commands",
+    "table": "public.device_commands",
+    "using": "\n    (auth.jwt("
+  },
+  {
+    "file": "20260411000002_device_commands.sql",
+    "name": "Devices can update their command status",
+    "table": "public.device_commands",
+    "using": "\n    (auth.jwt("
+  },
+  {
+    "file": "20260411000005_remediation_phase_1.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'::text"
+  },
+  {
+    "file": "20260411000005_remediation_phase_1.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'::text"
+  },
+  {
+    "file": "20260411000005_remediation_phase_1.sql",
+    "name": "System admins can delete pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'::text"
+  },
+  {
+    "file": "20260411000005_remediation_phase_1.sql",
+    "name": "Anyone can request registration",
+    "table": "public.pending_registrations",
+    "using": "auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260411000005_remediation_phase_1.sql",
+    "name": "Users can update own profile",
+    "table": "public.profiles",
+    "using": "auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260412000000_unified_security_remediation.sql",
+    "name": "Station members can view unified events",
+    "table": "public.unified_events",
+    "using": "station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260412000000_unified_security_remediation.sql",
+    "name": "Station admins can delete events",
+    "table": "public.unified_events",
+    "using": "\n        station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260412000000_unified_security_remediation.sql",
+    "name": "Station members can view shift status",
+    "table": "public.current_station_shifts",
+    "using": "station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260412000000_unified_security_remediation.sql",
+    "name": "Station members can update shift status",
+    "table": "public.current_station_shifts",
+    "using": "station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260412231000_final_identity_unification_v2.sql",
+    "name": "Users can view reports for their station",
+    "table": "public.reports",
+    "using": "station_id = (SELECT station_id FROM profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260413030000_enhance_unified_events.sql",
+    "name": "Station members can update unified events",
+    "table": "public.unified_events",
+    "using": "station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260416130000_news_infrastructure_optimization.sql",
+    "name": "Allow authenticated users to read RSS cache",
+    "table": "public.rss_cache",
+    "using": "true"
+  },
+  {
+    "file": "20260417000003_communication_tables.sql",
+    "name": "Admins full access to announcements",
+    "table": "public.global_announcements",
+    "using": "EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260417000003_communication_tables.sql",
+    "name": "Admins full access to banners",
+    "table": "public.dashboard_banners",
+    "using": "EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260417000003_communication_tables.sql",
+    "name": "Everyone can read active banners",
+    "table": "public.dashboard_banners",
+    "using": "is_active = TRUE AND (expires_at IS NULL OR expires_at > NOW("
+  },
+  {
+    "file": "20260417000003_communication_tables.sql",
+    "name": "Everyone can read announcements",
+    "table": "public.global_announcements",
+    "using": "status = 'sent' AND target_audience = 'All'"
+  },
+  {
+    "file": "20260419000000_portal_finalization.sql",
+    "name": "Admins full access to firmware_campaigns",
+    "table": "public.firmware_campaigns",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260419000000_portal_finalization.sql",
+    "name": "Admins full access to system_tasks",
+    "table": "public.system_tasks",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260419000000_portal_finalization.sql",
+    "name": "Admins full access to newsletter_templates",
+    "table": "public.newsletter_templates",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260419120000_operational_intelligence.sql",
+    "name": "Admins manage ticket messages",
+    "table": "public.ticket_messages",
+    "using": "EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260419120000_operational_intelligence.sql",
+    "name": "Admins manage invoices",
+    "table": "public.invoices",
+    "using": "EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260419120000_operational_intelligence.sql",
+    "name": "Admins manage system notifications",
+    "table": "public.system_notifications",
+    "using": "EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260419120000_operational_intelligence.sql",
+    "name": "Clients see their own messages",
+    "table": "public.ticket_messages",
+    "using": "\n        EXISTS (\n            SELECT 1 FROM public.support_tickets st \n            JOIN public.fuel_stations fs ON st.station_id = fs.station_id\n            WHERE st.id = ticket_id AND fs.station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260419120000_operational_intelligence.sql",
+    "name": "Clients see their own invoices",
+    "table": "public.invoices",
+    "using": "\n        EXISTS (\n            SELECT 1 FROM public.fuel_stations fs \n            WHERE fs.station_id = station_id AND fs.station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260419121100_security_compliance.sql",
+    "name": "Service role managed",
+    "table": "public.scraper_rate_limits",
+    "using": "true"
+  },
+  {
+    "file": "20260419121100_security_compliance.sql",
+    "name": "Strict photo viewing",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'profile-photos'\n    AND (\n        -- User can view their own avatar\n        (storage.foldername(name"
+  },
+  {
+    "file": "20260420000001_restore_pending_registrations_rls.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260420000001_restore_pending_registrations_rls.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(3"
+  },
+  {
+    "file": "20260420000001_restore_pending_registrations_rls.sql",
+    "name": "System admins can delete pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin(2"
+  },
+  {
+    "file": "20260421000001_security_linter_remediation.sql",
+    "name": "System admins can view auth attempts",
+    "table": "public.auth_attempts",
+    "using": "public.is_system_admin(2"
+  },
+  {
+    "file": "20260421000001_security_linter_remediation.sql",
+    "name": "Tenant isolation for daily summaries",
+    "table": "public.daily_summaries",
+    "using": "\n    tank_id IN (SELECT id FROM public.tanks WHERE station_id = public.get_station_id_from_auth("
+  },
+  {
+    "file": "20260421120000_unify_shift_operations.sql",
+    "name": "Station members can view shift logs",
+    "table": "public.shift_closures",
+    "using": "station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260421130000_fix_shift_rls.sql",
+    "name": "Station members can view shift status",
+    "table": "public.current_station_shifts",
+    "using": "\n        station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260421130000_fix_shift_rls.sql",
+    "name": "Station members can update shift status",
+    "table": "public.current_station_shifts",
+    "using": "\n        station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260421130000_fix_shift_rls.sql",
+    "name": "Station members can view shift logs",
+    "table": "public.shift_closures",
+    "using": "\n        station_id = (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260421150000_remediate_registration_rls.sql",
+    "name": "System admins can view all pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260421150000_remediate_registration_rls.sql",
+    "name": "System admins can update pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('support_staff'"
+  },
+  {
+    "file": "20260421150000_remediate_registration_rls.sql",
+    "name": "System admins can delete pending registrations",
+    "table": "public.pending_registrations",
+    "using": "public.is_system_admin('admin_helper'"
+  },
+  {
+    "file": "20260423010000_security_linter_remediation.sql",
+    "name": "Service role has full access to system_settings",
+    "table": "public.system_settings",
+    "using": "true"
+  },
+  {
+    "file": "20260423010000_security_linter_remediation.sql",
+    "name": "Admins can view system_settings",
+    "table": "public.system_settings",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM public.profiles \n    WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423010000_security_linter_remediation.sql",
+    "name": "Admins can modify system_settings",
+    "table": "public.system_settings",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM public.profiles \n    WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423010000_security_linter_remediation.sql",
+    "name": "Admins can view all audit logs",
+    "table": "public.unified_events",
+    "using": "\n  EXISTS (\n    SELECT 1 FROM public.profiles \n    WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423020000_definitive_identity_unification.sql",
+    "name": "Users can see own sites",
+    "table": "public.sites",
+    "using": "\n        station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423020000_definitive_identity_unification.sql",
+    "name": "Users can see own tanks",
+    "table": "public.tanks",
+    "using": "\n        station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423020000_definitive_identity_unification.sql",
+    "name": "Users can see own alerts",
+    "table": "public.alerts",
+    "using": "\n        station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423020000_definitive_identity_unification.sql",
+    "name": "Users can see own deliveries",
+    "table": "public.deliveries",
+    "using": "\n        station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423020000_definitive_identity_unification.sql",
+    "name": "Users can see own transactions",
+    "table": "public.transactions",
+    "using": "\n        station_id IN (SELECT station_id FROM public.profiles WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423020000_definitive_identity_unification.sql",
+    "name": "Users can see own profile",
+    "table": "public.profiles",
+    "using": "auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423060000_finalize_alerts_schema.sql",
+    "name": "System can insert alerts",
+    "table": "public.alerts",
+    "using": "\n        station_id IN (SELECT get_station_id_from_auth("
+  },
+  {
+    "file": "20260423070000_security_remediation_v2.sql",
+    "name": "Hardware devices can insert readings",
+    "table": "public.sensor_readings",
+    "using": "false"
+  },
+  {
+    "file": "20260423080000_security_remediation_v1_sync.sql",
+    "name": "Allow authenticated inserts to unified_events",
+    "table": "public.unified_events",
+    "using": "bucket_id = 'profile-photos'"
+  },
+  {
+    "file": "20260423080000_security_remediation_v1_sync.sql",
+    "name": "Users can manage own folder",
+    "table": "storage.objects",
+    "using": "bucket_id = 'profile-photos' AND (storage.foldername(name"
+  },
+  {
+    "file": "20260423100000_comprehensive_security_fixes.sql",
+    "name": "Allow authenticated inserts to unified_events",
+    "table": "public.unified_events",
+    "using": "true"
+  },
+  {
+    "file": "20260423100000_comprehensive_security_fixes.sql",
+    "name": "Station admins can view their device tokens",
+    "table": "public.device_tokens",
+    "using": "\n    station_id IN (\n        SELECT p.station_id FROM public.profiles p\n        WHERE p.auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423100000_comprehensive_security_fixes.sql",
+    "name": "Station admins can revoke their device tokens",
+    "table": "public.device_tokens",
+    "using": "\n    station_id IN (\n        SELECT p.station_id FROM public.profiles p\n        WHERE p.auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260423110000_db_linter_fixes.sql",
+    "name": "System can insert alerts",
+    "table": "public.alerts",
+    "using": "\n            bucket_id = 'profile-photos' AND \n            auth.uid("
+  },
+  {
+    "file": "20260424120000_market_forensics.sql",
+    "name": "Admins manage action queue",
+    "table": "public.market_action_queue",
+    "using": "EXISTS (SELECT 1 FROM public.system_users WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260424120000_market_forensics.sql",
+    "name": "Clients see their own action queue",
+    "table": "public.market_action_queue",
+    "using": "\n        EXISTS (\n            SELECT 1 FROM public.profiles \n            WHERE auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260428200000_persistence_and_scaling.sql",
+    "name": "Users can manage their own tokens",
+    "table": "public.user_push_tokens",
+    "using": "auth.uid("
+  },
+  {
+    "file": "20260428210000_unified_events_partitioning.sql",
+    "name": "Station members can view unified events",
+    "table": "public.unified_events",
+    "using": "\n        EXISTS (\n            SELECT 1 FROM public.profiles \n            WHERE station_id = unified_events.station_id \n            AND auth_user_id = auth.uid("
+  },
+  {
+    "file": "20260428210000_unified_events_partitioning.sql",
+    "name": "No updates to unified_events",
+    "table": "public.unified_events",
+    "using": "false"
+  },
+  {
+    "file": "20260428210000_unified_events_partitioning.sql",
+    "name": "Station admins can delete events",
+    "table": "public.unified_events",
+    "using": "\n        public.get_auth_level("
+  },
+  {
+    "file": "20260429000000_storage_uploads_bucket.sql",
+    "name": "Authenticated users can upload files",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'uploads' AND owner = auth.uid("
+  },
+  {
+    "file": "20260429000000_storage_uploads_bucket.sql",
+    "name": "Authenticated users can delete own uploads",
+    "table": "storage.objects",
+    "using": "\n    bucket_id = 'uploads' AND owner = auth.uid("
+  },
+  {
+    "file": "20260429000000_storage_uploads_bucket.sql",
+    "name": "Public read for uploads",
+    "table": "storage.objects",
+    "using": "bucket_id = 'uploads'"
+  }
+]

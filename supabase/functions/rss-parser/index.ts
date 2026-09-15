@@ -50,7 +50,11 @@ serve(async (req) => {
       headers: { 'User-Agent': 'IoTank-News-Bot/2.0' }
     });
     
-    if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
+    if (!response.ok) {
+      console.error(`[RSS Fetch Failed] URL: ${rssUrl} | Status: ${response.status} ${response.statusText}`);
+      throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+    }
+
     const xml = await response.text();
 
     const parser = new XMLParser({

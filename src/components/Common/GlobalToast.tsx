@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiX } from 'react-icons/fi';
+import { FaCheckCircle, FaExclamationTriangle, FaExclamationCircle, FaInfoCircle } from 'react-icons/fa';
 import './GlobalToast.css';
 
 interface ToastData {
     id: string;
     title: string;
     message: string;
-    type: 'success' | 'error' | 'info' | 'market' | 'refill';
+    type: 'success' | 'error' | 'info' | 'warning' | 'market' | 'refill';
     attribution?: string;
     visible: boolean;
     progress: number;
+    persistent?: boolean;
+    actions?: Array<{
+        label: string;
+        onClick: () => void;
+        primary?: boolean;
+    }>;
 }
 
 export const GlobalToast: React.FC = () => {
     const [toasts, setToasts] = useState<ToastData[]>([]);
     const toastsRef = useRef<ToastData[]>([]);
 
-    // Sync ref with state for use in intervals/timers
     useEffect(() => {
         toastsRef.current = toasts;
     }, [toasts]);
@@ -38,7 +44,8 @@ export const GlobalToast: React.FC = () => {
                     type: 'market',
                     attribution: `${signal.sourceType} • ${signal.attribution}`,
                     visible: true,
-                    progress: 100
+                    progress: 100,
+                    persistent: false
                 };
             } else {
                 newToast = {
@@ -49,12 +56,14 @@ export const GlobalToast: React.FC = () => {
                 };
             }
             
-            setToasts(prev => [newToast, ...prev].slice(0, 5)); // Keep last 5 toasts
+            setToasts(prev => [newToast, ...prev].slice(0, 5));
+
+            const isPersistent = newToast.persistent === true;
+            if (isPersistent) return;
 
             const duration = detail?.type === 'refill' ? 8000 : 5000;
             const step = 100;
             
-            // Progress bar interval
             const progressInterval = setInterval(() => {
                 setToasts(prev => prev.map(t => 
                     t.id === id 
@@ -63,12 +72,10 @@ export const GlobalToast: React.FC = () => {
                 ));
             }, step);
 
-            // Visibility timer
             setTimeout(() => {
                 setToasts(prev => prev.map(t => t.id === id ? { ...t, visible: false } : t));
                 clearInterval(progressInterval);
                 
-                // Cleanup from array after animation
                 setTimeout(() => {
                     setToasts(prev => prev.filter(t => t.id !== id));
                 }, 500);
@@ -91,13 +98,15 @@ export const GlobalToast: React.FC = () => {
         }, 500);
     };
 
-    const getSeverityLabel = (type: string) => {
+    const getIcon = (type: string) => {
         switch (type) {
-            case 'error': return 'CRITICAL';
-            case 'market': return 'MARKET_SIGNAL';
-            case 'refill': return 'HARDWARE';
-            case 'success': return 'OPERATIONAL';
-            default: return 'WATCH';
+            case 'success': return <FaCheckCircle size={18} />;
+            case 'warning': return <FaExclamationTriangle size={18} />;
+            case 'error': return <FaExclamationCircle size={18} />;
+            case 'info': 
+            case 'market':
+            case 'refill':
+            default: return <FaInfoCircle size={18} />;
         }
     };
 
@@ -110,30 +119,44 @@ export const GlobalToast: React.FC = () => {
                     role="alert"
                 >
                     <div className={`precision-toast-card-industrial status-${toast.type}`}>
-                        <div className="toast-body-industrial">
-                            <div className="toast-pill-wrapper">
-                                <span className={`industrial-pill pill-${toast.type}`}>
-                                    {getSeverityLabel(toast.type)}
-                                </span>
+                        <div className="toast-icon-col">
+                            {getIcon(toast.type)}
+                        </div>
+                        <div className="toast-content-col">
+                            <div className="toast-title-row">
+                                <h4 className="toast-title-industrial">{toast.title}</h4>
                             </div>
+                            <p className="toast-message-industrial">{toast.message}</p>
                             
-                            <div className="toast-content-industrial text-slate-800">
-                                <div className="flex justify-between items-start">
-                                    <h4 className="toast-title-industrial">{toast.title}</h4>
-                                    <button onClick={() => removeToast(toast.id)} className="toast-close-mini">
-                                        <FiX size={12} />
-                                    </button>
+                            {toast.actions && toast.actions.length > 0 && (
+                                <div className="toast-action-row">
+                                    {toast.actions.map((action, idx) => (
+                                        <button 
+                                            key={idx}
+                                            className={`toast-action-btn-industrial ${action.primary ? 'primary' : ''}`}
+                                            onClick={() => {
+                                                action.onClick();
+                                                removeToast(toast.id);
+                                            }}
+                                        >
+                                            {action.label}
+                                        </button>
+                                    ))}
                                 </div>
-                                <p className="toast-message-industrial">{toast.message}</p>
-                                
-                                <div className="toast-footer-industrial">
-                                    <span className="toast-action-link">
-                                        Investigate <span className="arrow">→</span>
+                            )}
+
+                            {toast.type === 'error' && (!toast.actions || toast.actions.length === 0) && (
+                                <div className="toast-action-row">
+                                    <span className="toast-action-link" onClick={() => removeToast(toast.id)}>
+                                        Investigate
                                     </span>
                                 </div>
-                            </div>
+                            )}
                         </div>
-
+                        <button onClick={() => removeToast(toast.id)} className="toast-close-mini">
+                            <FiX size={16} />
+                        </button>
+                        
                         <div className="toast-progress-industrial">
                             <div className="toast-progress-bar-industrial" style={{ width: `${toast.progress}%` }} />
                         </div>
@@ -143,3 +166,5 @@ export const GlobalToast: React.FC = () => {
         </div>
     );
 };
+
+

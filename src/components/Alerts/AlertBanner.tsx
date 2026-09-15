@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert } from '@/types';
-import { FiAlertTriangle, FiAlertCircle, FiInfo, FiX, FiCheck, FiTruck, FiGlobe } from 'react-icons/fi';
-import { supabase } from '@/config/supabase';
+import { FiAlertTriangle, FiAlertCircle, FiInfo, FiX, FiTruck, FiGlobe } from 'react-icons/fi';
+
 import { useAuth } from '@/hooks/useAuth';
 import { RefillVerificationModal } from './RefillVerificationModal';
 import './AlertBanner.css';
@@ -15,7 +15,7 @@ interface AlertBannerProps {
 export const AlertBanner: React.FC<AlertBannerProps> = ({ alert, floating }) => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
-    const [acknowledging, setAcknowledging] = useState(false);
+
     const [dismissed, setDismissed] = useState(false);
     const [showVerification, setShowVerification] = useState(false);
 
@@ -43,30 +43,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({ alert, floating }) => 
         return `alert-banner-${alert.severity}`;
     };
 
-    const handleAcknowledge = async () => {
-        if (!currentUser) return;
 
-        setAcknowledging(true);
-        try {
-
-            const { error } = await supabase
-                .from('alerts')
-                .update({
-                    acknowledged_by_auth_id: currentUser?.authUserId,
-                    acknowledged_at: new Date().toISOString(),
-                })
-                .eq('id', alert.id);
-
-            if (error) throw error;
-
-            setDismissed(true);
-        } catch (error) {
-            console.error('Error acknowledging alert:', error);
-            // Fallback for UI responsiveness
-        } finally {
-            setAcknowledging(false);
-        }
-    };
 
     const handleDismiss = () => {
         setDismissed(true);
@@ -85,9 +62,6 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({ alert, floating }) => 
             <div className="alert-banner-content">
                 <div className="alert-banner-header">
                     <span className="alert-banner-type">{alert.type.toUpperCase()}</span>
-                    <span className="alert-banner-method">
-                        {alert.detectionMethod === 'ai-assisted' ? '🤖 AI-Assisted' : '⚙️ Deterministic'}
-                    </span>
                 </div>
 
                 <p className="alert-banner-message">{alert.message}</p>
@@ -126,22 +100,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({ alert, floating }) => 
                     </button>
                 )}
 
-                {!alert.acknowledgedBy && (
-                    <button
-                        onClick={handleAcknowledge}
-                        className="btn btn-sm btn-primary"
-                        disabled={acknowledging}
-                        aria-label="Acknowledge alert"
-                    >
-                        {acknowledging ? (
-                            <div className="spinner" />
-                        ) : (
-                            <>
-                                <FiCheck /> Acknowledge
-                            </>
-                        )}
-                    </button>
-                )}
+
 
                 <button
                     onClick={handleDismiss}

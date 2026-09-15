@@ -88,8 +88,21 @@ const SystemUsers: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
             setNewEmail('');
             setNewName('');
             fetchData();
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Invitation Dispatched',
+                    message: `Security credentials for ${newName} have been sent.`,
+                    type: 'success'
+                }
+            }));
         } catch (err: any) {
-            alert('Provisioning Error: ' + (err.message || 'Failed to communicate with service.'));
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Provisioning Error',
+                    message: err.message || 'Failed to communicate with service.',
+                    type: 'error'
+                }
+            }));
         } finally {
             setCreating(false);
         }
@@ -100,20 +113,66 @@ const SystemUsers: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         try {
             await systemUsersService.updateSystemUser(user.id, { is_active: !user.is_active });
             fetchData();
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Status Updated',
+                    message: `Access for ${user.email} is now ${!user.is_active ? 'Active' : 'Suspended'}.`,
+                    type: 'info'
+                }
+            }));
         } catch (err: any) {
-            alert(err.message);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Update Failed',
+                    message: err.message,
+                    type: 'error'
+                }
+            }));
         }
     };
 
     const handleDeleteUser = async (user: SystemUser) => {
         if (user.id === currentAdmin?.id) return;
-        if (!window.confirm(`Permanently remove access for ${user.email}?`)) return;
-        try {
-            await systemUsersService.deleteSystemUser(user.id);
-            fetchData();
-        } catch (err: any) {
-            alert(`Failed to delete: ${err.message}`);
-        }
+        
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Purge',
+                message: `Are you sure you want to permanently remove access for ${user.email}? This action is irreversible.`,
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Cancel',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Purge Worker',
+                        primary: true,
+                        onClick: async () => {
+                            try {
+                                await systemUsersService.deleteSystemUser(user.id);
+                                fetchData();
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Worker Purged',
+                                        message: 'The administrative node has been removed from the directory.',
+                                        type: 'success'
+                                    }
+                                }));
+                            } catch (err: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Purge Failed',
+                                        message: err.message,
+                                        type: 'error'
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     const handleBootstrap = async (e: React.FormEvent) => {
@@ -128,7 +187,13 @@ const SystemUsers: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
             await fetchData();
             setShowBootstrapPanel(false);
         } catch (err: any) {
-            alert(`Bootstrap failed: ${err.message}`);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Bootstrap Failed',
+                    message: err.message,
+                    type: 'error'
+                }
+            }));
         } finally {
             setBootstrapping(false);
         }

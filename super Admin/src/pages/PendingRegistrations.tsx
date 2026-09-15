@@ -153,8 +153,6 @@ const PendingRegistrations: React.FC<{ isHubView?: boolean }> = ({ isHubView }) 
           return;
       }
 
-      console.log(`[DEBUG_LOG] ADMIN_PROVISION: Authorizing for ${reg.email}...`);
-      
       const { data, error } = await supabase.functions.invoke('approve-registration', {
         body: { registrationId: reg.id, approvedBy: session.user.id }
       });

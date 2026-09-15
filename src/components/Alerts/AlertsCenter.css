@@ -296,6 +296,33 @@
     gap: 1rem;
 }
 
+.realtime-pulse-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.acknowledge-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #1e293b;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.acknowledge-all-btn:hover {
+    color: #000;
+}
+
+.acknowledge-all-btn svg {
+    font-size: 1.2rem;
+}
+
 .user-tactical-pill {
     background: #f1f5f9;
     padding: 6px 14px;
@@ -746,7 +773,7 @@
 
 .vector-title {
     font-size: 0.95rem;
-    font-weight: 750;
+    font-weight: 500;
     color: #1e293b;
     letter-spacing: -0.01em;
 }
@@ -807,6 +834,91 @@
 
 .premium-glow-critical {
     box-shadow: inset 4px 0 0 #ef4444;
+}
+
+/* Empty State: Secure Haven */
+.empty-tactical-state.unified {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6rem 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.secure-haven-graphic {
+    width: 120px;
+    height: 120px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.shield-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(133, 90, 255, 0.1);
+}
+
+.shield-ring.outer {
+    width: 120px;
+    height: 120px;
+    border-style: dashed;
+    animation: rotate-slow 20s linear infinite;
+}
+
+.shield-ring.inner {
+    width: 80px;
+    height: 80px;
+    border-color: rgba(133, 90, 255, 0.2);
+    animation: rotate-slow 12s linear infinite reverse;
+}
+
+.empty-icon-glow {
+    font-size: 3rem;
+    color: #855AFF;
+    filter: drop-shadow(0 0 15px rgba(133, 90, 255, 0.4));
+    z-index: 2;
+}
+
+.empty-state-title {
+    font-size: 1.5rem;
+    font-weight: 850;
+    color: #1e293b;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+}
+
+.empty-state-desc {
+    font-size: 0.95rem;
+    color: #64748b;
+    max-width: 400px;
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+.scan-line-v2 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(133, 90, 255, 0.2), transparent);
+    animation: scan-vertical 4s ease-in-out infinite;
+}
+
+@keyframes rotate-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes scan-vertical {
+    0% { top: 0; }
+    50% { top: 100%; }
+    100% { top: 0; }
 }
 
 /* Calibration Grid */
@@ -1307,7 +1419,14 @@
 }
 
 .toggle-label { font-size: 0.9rem; font-weight: 750; color: #1e293b; display: flex; align-items: center; gap: 0.75rem; }
-.toggle-info p { font-size: 0.75rem; color: #94a3b8; margin: 4px 0 0 0; }
+.toggle-info p { font-size: 0.75rem; color: #94a3b8; margin: 4px 0 0 0; font-weight: 500; }
+
+.dispatch-section {
+    background: #f8fafc;
+    padding: 2rem;
+    border-radius: 20px;
+    border: 1px solid #f1f5f9;
+}
 
 .tactical-switch {
     width: 44px;
@@ -1434,4 +1553,4 @@
 .header-text-combo {
     display: flex;
     flex-direction: column;
-}$content
+}

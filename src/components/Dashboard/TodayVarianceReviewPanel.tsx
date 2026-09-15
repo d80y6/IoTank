@@ -1,14 +1,15 @@
 /* eslint-disable react/no-unescaped-entities */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX, FiInfo, FiUploadCloud, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
 import { AuditService } from '@/services/AuditService';
+import { supabase } from '@/config/supabase';
 import { LossReview } from '../../types';
 
 interface TodayVarianceReviewPanelProps {
     onClose: () => void;
-    // Mock data passed from parent for read-only section
+    // Variance data passed from LossRadar (sourced from ShiftClose data)
     varianceData: {
         pumpSales: number;
         tankDrawdown: number;
@@ -23,53 +24,90 @@ export const TodayVarianceReviewPanel: React.FC<TodayVarianceReviewPanelProps> =
     const [category, setCategory] = useState<LossReview['selectedCause'] | ''>('');
     const [explanation, setExplanation] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { currentUser } = useAuth();
 
     // If difference is greater than 50L (math abs), require explanation
     const requiresExplanation = Math.abs(varianceData.difference) > 50;
 
     const handleAction = async (action: 'reviewed' | 'escalated') => {
-        console.log(`Action selected: ${action}`);
         if (!category) return;
         if (requiresExplanation && explanation.trim().length < 10) return;
 
         setIsSubmitting(true);
-        // Simulate network request (to be implemented with Supabase later)
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        onReviewComplete({
-            varianceLiters: varianceData.difference,
-            selectedCause: category as LossReview['selectedCause'],
-            explanation,
-            // Action type is handled by the parent or logged accordingly
-        });
-
-        // Dispatch global success feedback
-        window.dispatchEvent(new CustomEvent('system-toast', {
-            detail: {
-                title: 'Forensic Logic Verified',
-                message: `Variance intelligence archived: ${varianceData.difference.toFixed(1)}L attributed to "${category}". Financial value adjusted.`,
-                type: 'success',
-                attribution: 'LOSS RADAR'
+        try {
+            // 1. Upload evidence photo if provided
+            let photoUrl: string | undefined = undefined;
+            if (evidenceFile && currentUser?.stationId) {
+                const path = `variance-evidence/${currentUser.stationId}/${Date.now()}_${evidenceFile.name}`;
+                const { error: uploadErr } = await supabase.storage
+                    .from('forensic-attachments')
+                    .upload(path, evidenceFile, { upsert: false });
+                if (!uploadErr) {
+                    const { data: urlData } = supabase.storage.from('forensic-attachments').getPublicUrl(path);
+                    photoUrl = urlData.publicUrl;
+                }
             }
-        }));
 
-        await AuditService.log(
-            'CALIBRATION',
-            'SETTINGS_CHANGED',
-            currentUser?.stationId || 'SYSTEM',
-            `Variance review finalized: ${varianceData.difference.toFixed(1)}L categorized as "${category}". Explanation: ${explanation || 'None provided.'}`,
-            action === 'escalated' ? 'WARNING' : 'INFO',
-            { 
-                variance: varianceData.difference, 
-                category, 
-                action,
-                explanation
-            }
-        ).catch(() => {});
+            // 2. Persist variance review record to Supabase
+            const { error: insertErr } = await supabase.from('loss_reviews').insert({
+                station_id: currentUser?.stationId,
+                reviewed_by: currentUser?.authUserId,
+                variance_liters: varianceData.difference,
+                pump_sales: varianceData.pumpSales,
+                tank_drawdown: varianceData.tankDrawdown,
+                estimated_value_kes: varianceData.estimatedValueKes,
+                selected_cause: category,
+                explanation: explanation || null,
+                action_taken: action,
+                photo_url: photoUrl || null,
+                date: new Date().toISOString().split('T')[0],
+            });
 
-        setIsSubmitting(false);
-        onClose();
+            if (insertErr) throw insertErr;
+
+            // 3. Notify parent and show success toast
+            onReviewComplete({
+                varianceLiters: varianceData.difference,
+                selectedCause: category as LossReview['selectedCause'],
+                explanation,
+                photoUrl,
+                reviewedBy: currentUser?.authUserId || 'unknown',
+                timestamp: Date.now(),
+            });
+
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Forensic Review Archived',
+                    message: `${varianceData.difference.toFixed(1)}L variance attributed to "${category}" and saved to the audit ledger.`,
+                    type: 'success',
+                    attribution: 'LOSS RADAR'
+                }
+            }));
+
+            await AuditService.log(
+                'CALIBRATION',
+                'SETTINGS_CHANGED',
+                currentUser?.stationId || 'SYSTEM',
+                `Variance review finalized: ${varianceData.difference.toFixed(1)}L categorized as "${category}". Explanation: ${explanation || 'None provided.'}`,
+                action === 'escalated' ? 'WARNING' : 'INFO',
+                { variance: varianceData.difference, category, action, explanation }
+            ).catch(() => {});
+
+            onClose();
+        } catch (err: any) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Save Failed',
+                    message: err?.message || 'Failed to persist variance review. Please try again.',
+                    type: 'error',
+                    attribution: 'LOSS RADAR'
+                }
+            }));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const modalContent = (
@@ -86,12 +124,12 @@ export const TodayVarianceReviewPanel: React.FC<TodayVarianceReviewPanelProps> =
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Loss Radar Intelligence</p>
                     </div>
                     <button 
-                        className="close-btn p-2 hover:bg-slate-100 rounded-full transition-colors" 
+                        className="close-btn" 
                         type="button" 
                         onClick={onClose}
                         title="Close Analysis Panel"
                     >
-                        <FiX size={20} className="text-slate-400" />
+                        <FiX />
                     </button>
                 </div>
 
@@ -172,13 +210,28 @@ export const TodayVarianceReviewPanel: React.FC<TodayVarianceReviewPanelProps> =
                                     />
                                 </div>
 
-                                <div className="p-6 border-2 border-dashed border-slate-200 rounded-3xl group hover:border-indigo-400 transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 bg-slate-50/30">
-                                    <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400 group-hover:text-indigo-500 transition-colors">
-                                        <FiUploadCloud size={24} />
+                                <div 
+                                    className={`p-6 border-2 border-dashed rounded-3xl group hover:border-indigo-400 transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 bg-slate-50/30 ${evidenceFile ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-200'}`}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*,.pdf"
+                                        title="Upload Evidence"
+                                        onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
+                                    />
+                                    <div className={`p-3 bg-white rounded-2xl shadow-sm border border-slate-100 transition-colors ${evidenceFile ? 'text-emerald-500' : 'text-slate-400 group-hover:text-indigo-500'}`}>
+                                        {evidenceFile ? <FiCheckCircle size={24} /> : <FiUploadCloud size={24} />}
                                     </div>
                                     <div className="text-center">
-                                        <div className="text-xs font-black text-slate-800 uppercase tracking-widest mb-1">Attach Evidence</div>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Upload receipt or meter log (JPG, PDF)</p>
+                                        <div className="text-xs font-black text-slate-800 uppercase tracking-widest mb-1">
+                                            {evidenceFile ? 'Evidence Attached' : 'Attach Evidence'}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                            {evidenceFile ? evidenceFile.name : 'Upload receipt or meter log (JPG, PDF)'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

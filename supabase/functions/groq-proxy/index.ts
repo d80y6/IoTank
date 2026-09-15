@@ -2,13 +2,11 @@
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 import { enforceDurableRateLimit, getOptionalProxyScope, requireProxyScope } from '../_shared/auth.ts'
-import { CHAT_PROJECT_CONTEXT, buildIntelligencePrompt, sanitizeContextForAI } from '../_shared/prompts.ts'
+import { CHAT_PROJECT_CONTEXT, buildIntelligencePrompt, sanitizeContextForAI, buildDirectivePrompt } from '../_shared/prompts.ts'
 declare const Deno: any;
 
-// Chat (landing page): public allowed, tight anonymous quota
 const CHAT_MAX_ANON    = 5;
 const CHAT_MAX_AUTH    = 20;
-// Intelligence (TankIQ): authenticated users only
 const INTELLIGENCE_MAX = 15;
 
 Deno.serve(async (req) => {
@@ -22,7 +20,6 @@ Deno.serve(async (req) => {
     const { action, context } = payload;
     let body = payload.body || {};
 
-    // HIGH-002: Auth split — 'intelligence' (TankIQ) requires real account; 'chat' is public
     let authz: any;
     if (action === 'intelligence') {
       authz = await requireProxyScope(req, corsHeaders);
@@ -45,41 +42,63 @@ Deno.serve(async (req) => {
           ...(body.messages || [])
        ];
     } else if (action === 'intelligence') {
-       // MED-004: Sanitize context fields to strip adversarial prompt injection
        const safeSignals = (context?.signals || []).map((s: any) => sanitizeContextForAI(JSON.stringify(s)));
        const safeRisks   = (context?.risks   || []).map((r: any) => sanitizeContextForAI(JSON.stringify(r)));
        const safeNotices = (context?.notices || []).map((n: any) => sanitizeContextForAI(JSON.stringify(n)));
-       const systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices);
+       const safeInventory = (context?.inventory || []);
+
+       let systemPrompt;
+       if (context?.signal) {
+         systemPrompt = buildDirectivePrompt(context.signal, safeInventory);
+       } else {
+         systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices, safeInventory);
+       }
        body.messages = [{ role: 'user', content: systemPrompt }];
-    } else {
-       return new Response(JSON.stringify({ error: 'Valid action (chat or intelligence) is required' }), {
-         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-       });
     }
 
-    const payloadString = JSON.stringify(body);
-    if (payloadString.length > 102400) {
-      return new Response(JSON.stringify({ error: 'Payload size exceeds 100KB safety limit' }), {
-        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Key Rotation Logic
+    const apiKeys = [
+      Deno.env.get('GROQ_API_KEY'),
+      Deno.env.get('GROQ_API_KEY_2'),
+      Deno.env.get('GROQ_API_KEY_3')
+    ].filter(Boolean);
+
+    if (apiKeys.length === 0) throw new Error('No Groq API keys configured');
+
+    let lastError: any = null;
+    for (const key of apiKeys) {
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (response.status === 429) {
+          console.warn(`Groq key rotation: 429 encountered, trying next key...`);
+          lastError = new Error('Rate limit reached (429) on this key');
+          continue;
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Groq API error: ${errorText}`);
+        }
+
+        const data = await response.json();
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        lastError = err;
+        console.error(`Groq key attempt failed:`, err.message);
+      }
     }
 
-    const groqApiKey = Deno.env.get('GROQ_API_KEY')
-    if (!groqApiKey) throw new Error('Groq API key not configured')
-
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body)
-    })
-
-    const data = await response.json()
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    throw lastError || new Error('All Groq keys failed');
 
   } catch (error: any) {
     console.error('Groq proxy error:', error.message);

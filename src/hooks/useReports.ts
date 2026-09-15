@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ export function useReports(
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Failed to load reports';
             setError(msg);
-            console.error('[useReports] Error:', err);
+            logger.error('[useReports] Error:', err);
         } finally {
             setLoading(false);
         }

@@ -60,7 +60,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // [RECOVERY BYPASS]: Do not attempt system_user mapping if we are in a recovery flow
     if (window.location.hash.includes('type=recovery') || window.location.hash.includes('recovery_token=')) {
-      console.log("[DEBUG_LOG] ADMIN_AUTH: Recovery flow detected. Skipping system_user enrichment.");
       setLoading(false);
       return;
     }
@@ -89,7 +88,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (emailErr) console.error("Error fetching system user by email fallback:", emailErr);
 
         if (emailMatch) {
-          console.log(`Found unlinked system user for ${supabaseUser.email} via email fallback`);
           userData = emailMatch;
         }
       }
@@ -148,7 +146,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // 3. Proactively link the session if auth_user_id is missing
       if (userData && !userData.auth_user_id) {
-        console.log(`Linking system user ${userData.id} to UID ${supabaseUser.id}`);
         const { data: updated, error: syncError } = await supabase
           .from('system_users')
           .update({ auth_user_id: supabaseUser.id })
@@ -179,7 +176,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // [RECOVERY DETECTOR]: Global catch for password recovery hashes
   useEffect(() => {
     if (window.location.hash.includes('type=recovery') || window.location.hash.includes('recovery_token=')) {
-        console.log("[DEBUG_LOG] BOOT: Recovery hash detected in Super Admin portal. Routing to reset.");
         const targetUrl = `${window.location.origin}/reset-password${window.location.hash}`;
         window.location.href = targetUrl;
     }
@@ -295,7 +291,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           // [RECOVERY REDIRECT]: If we are on ANY page except reset-password but have a recovery hash, MOVE.
           if (window.location.hash.includes('type=recovery') || window.location.hash.includes('recovery_token=')) {
-              console.log("[DEBUG_LOG] BOOT: Admin recovery link active. Redirecting to reset module.");
               if (window.location.pathname !== '/reset-password') {
                   window.location.href = `${window.location.origin}/reset-password${window.location.hash}`;
                   return;
@@ -350,7 +345,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const isSameUser = session?.user?.id === currentUserRef.current;
 
       if (isSilentEvent || (isSameUser && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) {
-        console.log("Auth event suppressed (no action needed):", event);
         return;
       }
 

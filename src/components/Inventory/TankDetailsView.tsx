@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tank } from '@/types';
+import { Tank, TankReading } from '@/types';
 import { useHistoricalReadings } from '@/hooks/useSupabase';
 import { useConsumptionAnalytics } from '@/hooks/useConsumptionAnalytics';
 import { TankVisual2D } from '../Common/TankVisual2D';
@@ -11,6 +11,8 @@ import { exportToCSV } from '@/utils/exportUtils';
 import { SensorHealthSection } from './SensorHealthSection';
 import { PredictivePanel } from '../Analytics/PredictivePanel';
 import { WetstockReconciliation } from '../Analytics/WetstockReconciliation';
+import { CalibrationWizard } from './CalibrationWizard';
+import { useActiveShift } from '@/hooks/useShifts';
 import { useShiftStatus } from '@/hooks/useShiftStatus';
 import { useModals } from '@/contexts/ModalContext';
 import { Toast } from '../Common/Toast';
@@ -33,6 +35,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
     const [intelligenceType, setIntelligenceType] = useState('Historical Level Intelligence');
     const [showIntelligenceDropdown, setShowIntelligenceDropdown] = useState(false);
     const { status: shiftStatus, openedAt } = useShiftStatus();
+    const { activeShift } = useActiveShift(stationId);
     const { openModal } = useModals();
     const [toast, setToast] = useState<{ 
         message: string, 
@@ -40,6 +43,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
         actionLabel?: string,
         onAction?: () => void
     } | null>(null);
+    const [isCalibrationWizardOpen, setIsCalibrationWizardOpen] = useState(false);
     const isGhost = tank.id === 'ghost-tank';
 
     const fillPercent = tank.capacity ? Math.round(((tank.currentVolume || 0) / tank.capacity) * 10000) / 100 : 0;
@@ -113,7 +117,14 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
             exportToCSV(readings, `${tank.name}_Telemetry_${new Date().toISOString().split('T')[0]}`);
         } else {
             await new Promise(resolve => setTimeout(resolve, 800));
-            alert('Report shared with authorized site personnel.');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Report Shared',
+                    message: 'Report shared with authorized site personnel.',
+                    type: 'success',
+                    attribution: 'REPORT EXPORT'
+                }
+            }));
         }
         setExporting(null);
     };
@@ -177,7 +188,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
                                 <TankVisual2D
                                     fuelLevel={fillPercent}
                                     fuelType={tank.fuelType}
-                                    shape={tank.shape as any}
+                                    shape={tank.shape}
                                     height={tank.height}
                                     diameter={tank.diameter}
                                     length={tank.length}
@@ -219,7 +230,10 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                <SensorHealthSection latestReading={latestReading} />
+                                <SensorHealthSection 
+                                    latestReading={latestReading} 
+                                    onCalibrate={() => setIsCalibrationWizardOpen(true)}
+                                />
                             </div>
                         </div>
 
@@ -347,6 +361,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
                                             tanks={tanks} 
                                             transactions={transactions} 
                                             currency="Ksh" 
+                                            activeShift={activeShift}
                                         />
                                         <div className="h-px bg-slate-100 my-8" />
                                     </div>
@@ -381,7 +396,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {readings.slice(0, 10).reverse().map((reading: any) => (
+                                            {readings.slice(0, 10).reverse().map((reading: TankReading) => (
                                                 <tr key={reading.timestamp}>
                                                     <td className="font-mono text-xs">{new Date(reading.timestamp).toLocaleString()}</td>
                                                     <td className="font-medium">{reading.volumeCorrected?.toLocaleString() || reading.volume?.toLocaleString()} L</td>
@@ -426,6 +441,13 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
                     actionLabel={toast.actionLabel}
                     onAction={toast.onAction}
                     onClose={() => setToast(null)} 
+                />
+            )}
+            {isCalibrationWizardOpen && (
+                <CalibrationWizard 
+                    isOpen={isCalibrationWizardOpen}
+                    onClose={() => setIsCalibrationWizardOpen(false)}
+                    tank={tank}
                 />
             )}
         </div>

@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Tank, Alert } from '@/types';
-import { useAllLatestReadings } from '@/hooks/useSupabase';
+import { useAllLatestReadings, useLatestMarketPrices } from '@/hooks/useSupabase';
 import { ShiftCloseCard } from './ShiftCloseCard';
-import { FiLayers, FiTrendingUp, FiCheckCircle } from 'react-icons/fi';
+import { FiTrendingUp, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import '../Common/DesignSystemCards.css';
@@ -21,6 +21,9 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
     const navigate = useNavigate();
     const { canSee } = useAuth();
     
+    // Fetch live market prices for fallback valuation
+    const { data: marketPrices } = useLatestMarketPrices();
+    
     // --- CUMULATIVE METRICS LOGIC ---
     // Fetch readings for all tanks to calculate totals safely
     const tankIds = useMemo(() => tanks.map(t => t.id), [tanks]);
@@ -35,8 +38,24 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
             const reading = allReadings[tank.id];
             const vol = reading?.volumeCorrected || reading?.volume || tank.currentVolume || 0;
             
-            // [FORENSIC HARDENING]: Strictly use Authorized Retail Price from Settings (Tank Metadata)
-            const price = Number((tank as any).metadata?.retailPrice) || 0;
+            // [FORENSIC HARDENING]: Prefer Authorized Retail Price from Settings.
+            // Fallback to Live Market Price from EPRA Sync if manual price is 0.
+            let price = Number((tank as any).metadata?.retailPrice) || 0;
+            
+            if (price <= 0 && marketPrices) {
+                // Find latest price for this fuel type with alias matching
+                const fuelType = tank.fuelType?.toLowerCase();
+                const mPrice = marketPrices.find((mp: any) => {
+                    const mpType = mp.fuel_type?.toLowerCase();
+                    if (mpType === fuelType) return true;
+                    // Alias: PMS = Petrol / Super / Gasoline
+                    if ((fuelType === 'petrol' || fuelType === 'pms' || fuelType === 'super') && (mpType === 'pms' || mpType === 'petrol')) return true;
+                    // Alias: AGO = Diesel
+                    if ((fuelType === 'diesel' || fuelType === 'ago') && (mpType === 'ago' || mpType === 'diesel')) return true;
+                    return false;
+                });
+                if (mPrice) price = Number(mPrice.price_per_liter);
+            }
 
             volTotal += vol;
             assetTotal += (vol * price);
@@ -48,35 +67,45 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
             totalAssetValue: assetTotal, 
             hasMissingPrices: missing 
         };
-    }, [allReadings, tanks]);
+    }, [allReadings, tanks, marketPrices]);
 
 
-    // Trend calculation (mock for demo)
-    const totalTrend = "+2.4%";
+    // Trend calculation removed: using real pricing status below.
 
     return (
         <div className="dashboard-stats-container">
 
             <div className="stats-grid">
                 {/* Card 1: Cumulative Total Volume */}
-                <div className="ds-card ds-card-premium glow-cyan stat-card">
-                    <div className="stat-content flex flex-col gap-1">
-                        <div className="stat-header">
-                            <span className="stat-label-refined">Total Network Volume</span>
-                            <FiLayers className="stat-icon" />
+                <div className="stat-card-clean">
+                    <div className="stat-header">
+                        <div className="stat-title-group">
+                            <div className="status-dot active" />
+                            <div>
+                                <p className="stat-card-label">Volume Matrix</p>
+                                <h4 className="stat-card-title">Total Network Volume</h4>
+                            </div>
                         </div>
-                        <div className="stat-value-large">
+                        <span className="status-badge info">
+                            {tanks.length} Tank{tanks.length === 1 ? '' : 's'}
+                        </span>
+                    </div>
+                    
+                    <div className="stat-value-display">
+                        <h2 className="stat-main-value">
                             {tanks.length === 0 && stationId ? (
                                 <span className="animate-pulse">...</span>
                             ) : (
                                 Math.round(totalVolume).toLocaleString()
                             )}
-                            <span className="stat-value-unit">L</span>
-                        </div>
-                        <div className="stat-meta">
-                            <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontWeight: 400 }}>
-                                {tanks.length === 0 && stationId ? 'Syncing...' : `Across ${tanks.length} tank${tanks.length === 1 ? '' : 's'}`}
-                            </span>
+                            <span className="stat-main-unit">L</span>
+                        </h2>
+                    </div>
+
+                    <div className="stat-sub-row">
+                        <span className="stat-sub-label">Aggregate Live Capacity</span>
+                        <div className="stat-trend-indicator neutral">
+                             Synchronized
                         </div>
                     </div>
                 </div>
@@ -84,41 +113,55 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
                 {/* Card 2: Cumulative Asset Value (Level 6+) */}
                 {canSee(6) && (
                     <div 
-                        className={`ds-card ds-card-premium ${hasMissingPrices ? 'glow-amber' : 'glow-success'} stat-card clickable group`} 
+                        className="stat-card-clean clickable"
                         onClick={() => navigate('/settings')}
-                        title={hasMissingPrices ? "Configure Fuel Prices to enable valuation" : "View Inventory Pricing"}
                     >
-                        <div className="stat-content flex flex-col gap-1">
-                            <div className="stat-header">
-                                <span className="stat-label-refined">Total Asset Value</span>
-                                <FiCheckCircle className="stat-icon" />
+                        <div className="stat-header">
+                            <div className="stat-title-group">
+                                <div className={`status-dot ${hasMissingPrices ? 'warning' : 'success'}`} />
+                                <div>
+                                    <p className="stat-card-label">Asset Valuation</p>
+                                    <h4 className="stat-card-title">Total Portfolio Value</h4>
+                                </div>
                             </div>
-                            <div className="stat-value-large">
+                            <span className={`status-badge ${hasMissingPrices ? 'warning' : 'success'}`}>
+                                {hasMissingPrices ? 'Pricing Warning' : 'Active Valuation'}
+                            </span>
+                        </div>
+
+                        <div className="stat-value-display">
+                            <h2 className="stat-main-value">
                                 {tanks.length === 0 && stationId ? (
                                     <span className="animate-pulse">...</span>
                                 ) : hasMissingPrices ? (
-                                    <span className="text-white underline text-sm animate-pulse flex items-center gap-2">
-                                        N/A (SET PRICES)
-                                    </span>
+                                    <span className="text-amber-600 text-sm font-semibold">SET PRICES</span>
                                 ) : (
                                     <>
-                                        <span className="text-sm opacity-60 mr-1">Ksh</span> 
+                                        <span className="stat-main-unit mr-1">Ksh</span>
                                         {totalAssetValue.toLocaleString(undefined, {
                                             minimumFractionDigits: 0,
                                             maximumFractionDigits: 0
                                         })}
                                     </>
                                 )}
-                            </div>
-                            <div className="stat-meta mt-1">
-                                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', fontWeight: 400 }}>Portfolio value</span>
-                                <div className="stat-trend-chip">
-                                    <FiTrendingUp /> {totalTrend}
+                            </h2>
+                        </div>
+
+                        <div className="stat-sub-row">
+                            <span className="stat-sub-label">Current Market Position</span>
+                            {!hasMissingPrices ? (
+                                <div className="stat-trend-indicator up">
+                                    <FiCheckCircle size={10} /> Live Sync
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="stat-trend-indicator warning" style={{ color: '#b45309' }}>
+                                    <FiTrendingUp size={10} /> Manual Update Needed
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
+
                 {/* Card 3: Shift Management (Action) */}
                 <div className="shift-mgmt-wrapper h-full">
                     <ShiftCloseCard tank={tanks[0] || null} />

@@ -5,6 +5,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  // INTENTIONAL: logger not available at module init
   console.warn('Supabase credentials missing in environment variables.');
 }
 

@@ -5,9 +5,7 @@ import './index.css'
 import { ErrorBoundary } from '@shared/components/Common/ErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
-  </StrictMode>,
 )

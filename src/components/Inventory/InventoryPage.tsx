@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import './InventoryPage.css';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useTanks, useRefuelMonitor, useSites } from '@/hooks/useSupabase';
+import { useTanks, useSites } from '@/hooks/useSupabase';
 import { FiAlertTriangle, FiGrid, FiList, FiPlus } from 'react-icons/fi';
 import { TankDetailsView } from './TankDetailsView';
 import { PageHeader } from '../Common/PageHeader';
@@ -27,7 +27,8 @@ export const InventoryPage: React.FC = () => {
     const { tanks, loading: tanksLoading } = useTanks(stationId);
     const { transactions, loading: txLoading } = useTransactions(stationId);
     const { sites } = useSites(stationId);
-    const { isRefuelling } = useRefuelMonitor(stationId, tanks[0]?.id || '');
+    // Replaced deprecated useRefuelMonitor with live alert check from AlertDetectionEngine
+    // isRefuelling is true if any active refill/delivery alert exists across all tanks
 
     // View Management
     const [viewMode, setViewMode] = useState<'grid' | 'detailed'>('detailed');
@@ -174,12 +175,12 @@ export const InventoryPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Refuel Alert Banner */}
-            {tanks.length > 0 && isRefuelling && (
+            {/* Refuel Alert Banner — driven by AlertDetectionEngine refill events */}
+            {tanks.length > 0 && tanks.some((t: import('@/types').Tank) => t.currentState === 'delivery') && (
                 <div className="refuel-alert-banner">
                     <FiAlertTriangle className="animate-pulse" />
                     <span>
-                        <strong>Refuelling Detected!</strong> High-rate volume increase on {tanks[0]?.name}. Please confirm delivery details.
+                        <strong>Refuelling Detected!</strong> High-rate volume increase detected. Please confirm delivery details.
                     </span>
                 </div>
             )}

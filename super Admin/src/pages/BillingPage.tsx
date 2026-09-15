@@ -454,19 +454,50 @@ const BillingPage: React.FC = () => {
     );
 
     const handleGenerateInvoices = async () => {
-        if (!window.confirm('Trigger monthly batch generation for the current cycle?')) return;
-        setLoading(true);
-        try {
-            await billingService.generateMonthlyInvoices();
-            const invoiceData = await billingService.getInvoices();
-            setInvoices(invoiceData.data || []);
-            alert('Monthly invoicing session completed successfully.');
-        } catch (error) {
-            console.error('Invoicing Error:', error);
-            alert('Failed to execute invoicing protocol.');
-        } finally {
-            setLoading(false);
-        }
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Batch Operation',
+                message: 'Trigger monthly invoice generation for the current billing cycle? This will broadcast digital statements to all active station owners.',
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Abort',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Generate Batch',
+                        primary: true,
+                        onClick: async () => {
+                            setLoading(true);
+                            try {
+                                await billingService.generateMonthlyInvoices();
+                                const invoiceData = await billingService.getInvoices();
+                                setInvoices(invoiceData.data || []);
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Batch Complete',
+                                        message: 'Monthly invoicing protocol has been successfully executed.',
+                                        type: 'success'
+                                    }
+                                }));
+                            } catch (error) {
+                                console.error('Invoicing Error:', error);
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Invoicing Failed',
+                                        message: 'Failed to complete the monthly invoicing protocol. Check logs.',
+                                        type: 'error'
+                                    }
+                                }));
+                            } finally {
+                                setLoading(false);
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     const renderInvoices = () => (

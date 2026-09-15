@@ -3,6 +3,7 @@ import { supabase } from '../../config/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 import { AuditService } from '@/services/AuditService';
+import { logger } from '@/utils/logger';
 import './TeamManagement.css';
 
 interface TeamMember {
@@ -102,34 +103,68 @@ export const TeamManagement: React.FC = () => {
 
             setActivities(mappedActivities);
         } catch (error) {
-            console.error('Error fetching team data:', error);
+            logger.error('[TeamManagement] Error fetching team data:', error);
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteMember = async (id: string) => {
-        if (!window.confirm('Are you sure you want to remove this team member?')) return;
-        try {
-            const member = members.find(m => m.id === id);
-            await supabase.from('profiles').delete().eq('id', id);
-            await AuditService.log(
-                'TEAM',
-                'MEMBER_REMOVED',
-                currentUser?.stationId || '',
-                `Security Access Revoked: Personnel [${member?.full_name || member?.email}] removed from station registry. All credentials invalidated.`,
-                'CRITICAL',
-                { 
-                    memberId: id, 
-                    memberEmail: member?.email, 
-                    memberName: member?.full_name,
-                    revokedBy: currentUser?.email 
-                }
-            );
-            fetchData();
-        } catch (error) {
-            console.error('Error removing member:', error);
-        }
+        const member = members.find(m => m.id === id);
+        if (!member) return;
+
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Removal',
+                message: `Are you sure you want to remove ${member.full_name}? This will immediately revoke all security credentials and platform access.`,
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Abort',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Revoke Access',
+                        primary: true,
+                        onClick: async () => {
+                            try {
+                                await supabase.from('profiles').delete().eq('auth_user_id', id);
+                                await AuditService.log(
+                                    'TEAM',
+                                    'MEMBER_REMOVED',
+                                    currentUser?.stationId || '',
+                                    `Security Access Revoked: Personnel [${member.full_name || member.email}] removed from station registry. All credentials invalidated.`,
+                                    'CRITICAL',
+                                    { 
+                                        memberId: id, 
+                                        memberEmail: member.email, 
+                                        memberName: member.full_name,
+                                        revokedBy: currentUser?.email 
+                                    }
+                                );
+                                fetchData();
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Access Revoked',
+                                        message: `Personnel record for ${member.full_name} has been purged from the station registry.`,
+                                        type: 'info'
+                                    }
+                                }));
+                            } catch (error: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Removal Failed',
+                                        message: error.message || 'An error occurred during credential revocation.',
+                                        type: 'error'
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     const handleSubmitInvitation = async (e: React.FormEvent) => {
@@ -168,7 +203,7 @@ export const TeamManagement: React.FC = () => {
                         const body = await (functionError as any).context.json();
                         msg = body.error || body.message || msg;
                     }
-                } catch(e) {}
+                } catch(e) { logger.warn('[TeamManagement] Failed to parse function error context', e); }
                 throw new Error(msg);
             }
 

@@ -1,0 +1,143 @@
+/* GlobalToast.css - Super Admin Toast System */
+
+.precision-toast-stack {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.precision-toast-container {
+    width: 360px;
+    pointer-events: auto;
+    transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+    transform: translateX(50px) scale(0.95);
+    opacity: 0;
+}
+
+.precision-toast-container.active {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+}
+
+.precision-toast-container.exiting {
+    transform: translateX(50px) scale(0.95);
+    opacity: 0;
+    margin-bottom: -100px;
+}
+
+.precision-toast-card-industrial {
+    position: relative;
+    border-radius: 4px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.toast-icon-col {
+    flex-shrink: 0;
+}
+
+.toast-content-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.toast-title-industrial {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.toast-message-industrial {
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
+    opacity: 0.9;
+}
+
+.toast-action-row {
+    margin-top: 0.5rem;
+}
+
+.toast-action-btn-industrial {
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: inherit;
+}
+
+.toast-action-btn-industrial:hover {
+    background: rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.toast-action-btn-industrial.primary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.toast-action-btn-industrial.primary:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.toast-close-mini {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.toast-close-mini:hover {
+    opacity: 1;
+}
+
+/* Status Colors - Darker, High-Contrast for Admin */
+
+.status-success { 
+    background: #064e3b; 
+    color: #ecfdf5;
+    border-left: 4px solid #10b981; 
+}
+.status-success .toast-icon-col { color: #34d399; }
+
+.status-warning { 
+    background: #78350f; 
+    color: #fffbeb;
+    border-left: 4px solid #f59e0b; 
+}
+.status-warning .toast-icon-col { color: #fbbf24; }
+
+.status-error { 
+    background: #7f1d1d; 
+    color: #fef2f2;
+    border-left: 4px solid #ef4444; 
+}
+.status-error .toast-icon-col { color: #f87171; }
+
+.status-info { 
+    background: #1e3a8a; 
+    color: #eff6ff;
+    border-left: 4px solid #3b82f6; 
+}
+.status-info .toast-icon-col { color: #60a5fa; }

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { sanitizeText, validateEmail } from '@/utils/sanitization';
+import { logger } from '@/utils/logger';
 import { 
   FiX, 
   FiUser, 
@@ -46,6 +47,7 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [showRecaptchaModal, setShowRecaptchaModal] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData((prev: FormData) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -56,8 +58,8 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
     e.preventDefault();
     setError('');
 
-    if (!formData.full_name || !formData.email || !formData.phone || !formData.station_name || !formData.county || !formData.notes) {
-      setError('please fill in all fields to proceed with your request.');
+    if (!formData.full_name || !formData.email || !formData.phone || !formData.station_name || !formData.county) {
+      setError('please fill in all required fields to proceed with your request.');
       return;
     }
     if (!validateEmail(formData.email)) {
@@ -85,19 +87,31 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
           try {
             recaptchaToken = await window.grecaptcha.execute(siteKey, { action: 'register' });
           } catch (execError) {
-            console.error('reCAPTCHA execution failed:', execError);
+            logger.error('reCAPTCHA execution failed:', execError);
           }
         } else {
-            console.warn('reCAPTCHA library failed to initialize within 5 seconds.');
+            logger.warn('reCAPTCHA library failed to initialize within 5 seconds.');
+            setShowRecaptchaModal(true);
+            // Dispatch premium persistent toast
+            const toastEvent = new CustomEvent('system-toast', {
+              detail: {
+                title: 'reCAPTCHA Service',
+                message: 'Please check your internet connection and reload to get a reCAPTCHA challenge.',
+                type: 'error',
+                persistent: true
+              }
+            });
+            window.dispatchEvent(toastEvent);
         }
       } catch (recaptchaError) {
-        console.warn('reCAPTCHA v3 error (non-blocking):', recaptchaError);
+        logger.warn('reCAPTCHA v3 error (non-blocking):', recaptchaError);
         // Continue without token - registration can still proceed
       }
 
       // 2. SUBMIT: Routing via hardened Edge Function (enforces server-side reCAPTCHA & sanitization)
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const response = await fetch('https://suifvborodwergtrbjez.supabase.co/functions/v1/submit-registration-request', {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/submit-registration-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,9 +142,25 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
       document.body.classList.remove('show-recaptcha');
       
       setSubmitted(true);
-    } catch (err: unknown) {
-      console.error('registration request error:', err);
-      setError('failed to submit your request. please try again or contact support.');
+    } catch (err: any) {
+      logger.error('registration request error:', err);
+      const errMsg = err.message || '';
+      
+      if (errMsg.includes('Email already exists') || errMsg.includes('pending request')) {
+        setError(errMsg);
+        // Dispatch premium persistent toast
+        const toastEvent = new CustomEvent('system-toast', {
+          detail: {
+            title: 'Registration Error',
+            message: errMsg,
+            type: 'error',
+            persistent: true
+          }
+        });
+        window.dispatchEvent(toastEvent);
+      } else {
+        setError('failed to submit your request. please try again or contact support.');
+      }
       document.body.classList.remove('show-recaptcha');
     } finally {
       setLoading(false);
@@ -181,6 +211,38 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
 
   return (
     <div className="registration-overlay">
+      {showRecaptchaModal && (
+        <div className="recaptcha-error-modal-overlay">
+          <div className="recaptcha-error-modal-content">
+            <div className="modal-icon-header warning">
+              <FiAlertCircle size={32} />
+            </div>
+            <h3>What is the reCAPTCHA Service?</h3>
+            <p>
+              reCAPTCHA is an automated security gatekeeper designed by Google. It verified that you are a human operator and not a malicious bot attempting to brute-force or spam the enterprise signup pipeline.
+            </p>
+            <p className="mt-2 text-sm text-secondary">
+              Due to a network interruption or ad-blocker filtering, the reCAPTCHA security scripts failed to load.
+            </p>
+            <div className="action-buttons mt-6">
+              <button 
+                type="button" 
+                className="btn-cancel mr-2" 
+                onClick={() => setShowRecaptchaModal(false)}
+              >
+                Dismiss
+              </button>
+              <button 
+                type="button" 
+                className="btn-submit" 
+                onClick={() => window.location.reload()}
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="registration-modal-content">
         <header className="modal-header">
           <div className="header-text-container">

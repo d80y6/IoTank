@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiInfo, FiAlertCircle, FiCheckCircle, FiShield, FiArrowRight } from 'react-icons/fi';
+import { FiInfo, FiAlertTriangle, FiCheckCircle, FiShield, FiArrowRight, FiX } from 'react-icons/fi';
 
 import './Toast.css';
 
@@ -27,12 +27,12 @@ export const Toast: React.FC<ToastProps> = ({
     const isShiftBlocked = message.toLowerCase().includes('shift');
 
     const getIcon = () => {
-        if (isShiftBlocked) return <FiShield size={32} />;
+        if (isShiftBlocked) return <FiShield size={20} />;
         switch (type) {
-            case 'warning': return <FiAlertCircle size={32} />;
-            case 'success': return <FiCheckCircle size={32} />;
-            case 'error': return <FiAlertCircle size={32} />;
-            default: return <FiInfo size={32} />;
+            case 'warning': return <FiAlertTriangle size={20} />;
+            case 'success': return <FiCheckCircle size={20} />;
+            case 'error': return <FiAlertTriangle size={20} />;
+            default: return <FiInfo size={20} />;
         }
     };
 
@@ -64,61 +64,50 @@ export const Toast: React.FC<ToastProps> = ({
 
     return createPortal(
         <AnimatePresence mode="wait">
-            <div className={`toast-portal-root toast-${type}`}>
+            <div className={`precision-toast-portal status-${type}`}>
                 <motion.div 
-                    initial={{ opacity: 0, scale: 0.8, y: -20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                    transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                    className="toast-card"
+                    initial={{ opacity: 0, x: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="precision-industrial-toast"
                 >
-                    <div className="toast-content-wrapper">
-                        <div className="toast-icon-container">
-                            <motion.div 
-                                animate={{ 
-                                    boxShadow: ['0 0 10px rgba(99, 102, 241, 0.1)', '0 0 20px rgba(99, 102, 241, 0.2)', '0 0 10px rgba(99, 102, 241, 0.1)']
-                                }}
-                                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                                className="toast-icon-wrapper"
-                            >
-                                <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_50%_0%,_#fff,_transparent_70%)]" />
-                                <div className="relative text-white flex items-center justify-center">
-                                    {getIcon()}
-                                </div>
-                            </motion.div>
-                        </div>
-
-                        <div className="toast-text-content">
-                            <h3 className="toast-title">
-                                {getTitle()}
-                            </h3>
-                            <p className="toast-message">
-                                {message}
-                            </p>
-                        </div>
+                    <div className="toast-icon-column">
+                        {getIcon()}
                     </div>
-
-                    <div className="toast-actions">
-                        {actionLabel && (
-                            <motion.button 
-                                whileHover={{ scale: 1.02, translateY: -1 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={handleAction}
-                                className="btn-toast-primary"
-                            >
-                                {actionLabel}
-                                <FiArrowRight size={14} />
-                            </motion.button>
-                        )}
+                    
+                    <div className="toast-body-column">
+                        <div className="toast-header-row">
+                            <span className="toast-type-label">{type.toUpperCase()}</span>
+                            <button onClick={onClose} className="toast-dismiss-x">
+                                <FiX size={14} />
+                            </button>
+                        </div>
                         
-                        <motion.button 
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={onClose}
-                            className="btn-toast-secondary uppercase tracking-widest text-[10px]"
-                        >
-                            {actionLabel ? 'CLOSE' : 'DISMISS'}
-                        </motion.button>
+                        <div className="toast-main-content">
+                            <h4 className="toast-headline">{getTitle()}</h4>
+                            <p className="toast-subtext">{message}</p>
+                        </div>
+
+                        {actionLabel && (
+                            <div className="toast-footer-actions">
+                                <button 
+                                    onClick={handleAction}
+                                    className="toast-primary-action"
+                                >
+                                    {actionLabel} <FiArrowRight size={12} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="toast-lifetime-track">
+                        <motion.div 
+                            initial={{ width: '100%' }}
+                            animate={{ width: '0%' }}
+                            transition={{ duration: duration / 1000, ease: 'linear' }}
+                            className="toast-lifetime-bar"
+                        />
                     </div>
                 </motion.div>
             </div>

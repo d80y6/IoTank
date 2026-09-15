@@ -115,8 +115,8 @@ export const LossRadar: React.FC = () => {
                 <TodayVarianceReviewPanel
                     onClose={() => setIsPanelOpen(false)}
                     varianceData={dataToUse}
-                    onReviewComplete={(data) => {
-                        console.log('Variance Review Submitted:', data);
+                    onReviewComplete={() => {
+                        // Variance Review Submitted
                     }}
                 />
             )}

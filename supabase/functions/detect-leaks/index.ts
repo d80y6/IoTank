@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.40.0"
 import { corsHeaders } from "../_shared/cors.ts"
 import { requireAdminOrCron } from "../_shared/auth.ts"
-import { calculateTimeBasedSlope } from "../_shared/algorithms.ts"
+import { THRESHOLDS, calculateTimeBasedSlope } from "../_shared/algorithms.ts"
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -15,12 +15,23 @@ serve(async (req) => {
     try {
         console.log('[LeakDetection] Starting forensic analysis cycle...');
         
+        // 1. Fetch tanks and station data
         const { data: tanks, error: tanksError } = await supabase.from('tanks').select('*');
         if (tanksError || !tanks) throw tanksError;
 
+        // 2. Fetch shift statuses
+        const stationIds = [...new Set(tanks.map(t => t.station_id))];
+        const { data: shiftStatuses } = await supabase
+            .from('current_station_shifts')
+            .select('station_id, status')
+            .in('station_id', stationIds);
+        
+        const shiftMap = new Map(shiftStatuses?.map(s => [s.station_id, s.status]) || []);
+
         for (const tank of tanks) {
-            // Only analyze idle tanks to prevent noise from active pumping
-            if (tank.status !== 'idle') continue;
+            // Only analyze if station is CLOSED (best time for leak detection)
+            const shiftStatus = shiftMap.get(tank.station_id) || 'CLOSED';
+            if (shiftStatus !== 'CLOSED') continue;
 
             const twoHoursAgo = new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString();
             const { data: readingsData, error: readingsError } = await supabase
@@ -38,27 +49,37 @@ serve(async (req) => {
             }));
 
             const slopeLhr = calculateTimeBasedSlope(points);
-            const LEAK_THRESHOLD_LHR = -2.0; // 2L per hour loss during idle
+            const dropRate = -slopeLhr; // Positive value for volume loss
+            const LEAK_THRESHOLD_LHR = THRESHOLDS.FORENSICS.LEAK_DETECTION_LHR;
 
-            if (slopeLhr < LEAK_THRESHOLD_LHR) {
-                console.warn(`[LeakDetection] Potential leak in Tank ${tank.id}: slope ${slopeLhr.toFixed(4)} L/hr`);
+            if (dropRate > LEAK_THRESHOLD_LHR) {
+                // 3. Deduplication: Check for unresolved leak alerts
+                const { count } = await supabase
+                    .from('alerts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('tank_id', tank.id)
+                    .eq('alert_type', 'leak_detected')
+                    .eq('is_resolved', false);
 
-                // 🚨 Create Alert (Canonical Naming)
-                await supabase.from('alerts').insert({
-                    station_id: tank.station_id,
-                    tank_id: tank.id,
-                    alert_type: 'leak_detected',
-                    severity: 'critical',
-                    title: 'Forensic Inventory Leak Detected',
-                    message: `System identified a sustained loss of ${Math.abs(slopeLhr).toFixed(2)} L/hr during an idle window. Check tank and piping integrity.`,
-                    metadata: { slope: slopeLhr, readingsCount: points.length, durationHrs: 2 }
-                });
+                if (count === 0) {
+                    console.warn(`[LeakDetection] Potential leak in Tank ${tank.id}: slope ${slopeLhr.toFixed(4)} L/hr`);
 
-                // 🛠️ Update Tank Status
-                await supabase.from('tanks').update({
-                    has_active_leak_alert: true,
-                    leak_confidence: 0.92 
-                }).eq('id', tank.id);
+                    await supabase.from('alerts').insert({
+                        station_id: tank.station_id,
+                        tank_id: tank.id,
+                        alert_type: 'leak_detected',
+                        severity: 'critical',
+                        title: 'Forensic Inventory Leak Detected',
+                        message: `System identified a sustained loss of ${dropRate.toFixed(2)} L/hr while station is CLOSED.`,
+                        metadata: { dropRate, readingsCount: points.length, durationHrs: 2, shiftStatus }
+                    });
+
+                    // 🛠️ Update Tank Status
+                    await supabase.from('tanks').update({
+                        has_active_leak_alert: true,
+                        leak_confidence: 0.95 
+                    }).eq('id', tank.id);
+                }
             }
         }
 
@@ -73,4 +94,5 @@ serve(async (req) => {
             status: 500 
         });
     }
+
 })

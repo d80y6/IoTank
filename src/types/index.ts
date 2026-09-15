@@ -37,7 +37,7 @@ export interface TankReading {
     metadata?: any;
 }
 
-export type TankState = 'idle' | 'dispensing' | 'delivery' | 'leak_suspicion' | 'offline';
+export type TankState = 'idle' | 'dispensing' | 'delivery' | 'leak_suspicion' | 'rapid_defill' | 'offline';
 
 export interface Tank {
     id: string;
@@ -46,11 +46,11 @@ export interface Tank {
     name: string;
     location: string;
     capacity: number; // Total capacity in liters
-    fuelType: 'Diesel' | 'Petrol' | 'Kerosene' | 'LPG' | 'Jet Fuel' | 'biodiesel' | 'diesel' | 'gasoline' | 'kerosene' | 'jet-fuel';
+    fuelType: 'diesel' | 'petrol' | 'kerosene' | 'lpg' | 'jet_fuel' | 'biodiesel';
     shape: 'cylinder' | 'rectangular' | 'capsule' | 'spherical' | 'compartmentalized';
-    height: number;      // cm
-    diameter?: number;   // cm (for cylinder/capsule)
-    length?: number;     // cm (for horizontal/capsule)
+    height: number;      // meters (as stored in DB: tank_height column)
+    diameter?: number;   // meters (for cylinder/capsule, derived from tank_radius * 2)
+    length?: number;     // meters (for horizontal/capsule)
 
     // Alert thresholds
     lowLevelThreshold: number; // Percentage (e.g., 20%)
@@ -62,10 +62,10 @@ export interface Tank {
     leakDetectionSensitivity: number; // Percentage drop per hour (legacy)
     thermalCoefficient: number; // α for thermal expansion (per °C)
     density: number; // kg/L at 15.5°C
-    sensorOffset: number; // Calibration offset in cm
-    sensorHeight: number; // Sensor installation height from tank bottom (cm)
-    sensorEmptyDistance?: number; // Distance sensor reads when tank is EMPTY (cm)
-    sensorFullDistance?: number;  // Distance sensor reads when tank is FULL (cm)
+    sensorOffset: number; // Calibration offset in mm (as stored in DB: sensor_offset column)
+    sensorHeight: number; // Sensor installation height from tank bottom (mm)
+    sensorEmptyDistance?: number; // Distance sensor reads when tank is EMPTY (mm)
+    sensorFullDistance?: number;  // Distance sensor reads when tank is FULL (mm)
 
     // State (Last known values)
     currentVolume?: number;
@@ -122,7 +122,7 @@ export interface Alert {
     id: string;
     tankId?: string;
     siteId?: string;
-    type: 'leak' | 'theft' | 'theft_detected' | 'leak_detected' | 'overfill' | 'low_level' | 'low_level_critical' | 'low_level_warning' | 'high_temperature' | 'sensor_failure' | 'anomaly' | 'refill' | 'refill_detected' | 'unauthorized_refill' | 'connectivity_lost' | 'market_news' | 'regulatory_update' | 'delivery_variance' | 'telemetry_gap' | 'compliance_deadline' | 'composite' | 'info';
+    type: 'leak' | 'theft' | 'theft_detected' | 'leak_detected' | 'overfill' | 'low_level' | 'low_level_critical' | 'low_level_warning' | 'high_temperature' | 'sensor_failure' | 'anomaly' | 'refill' | 'refill_detected' | 'unauthorized_refill' | 'connectivity_lost' | 'market_news' | 'regulatory_update' | 'delivery' | 'delivery_variance' | 'telemetry_gap' | 'compliance_deadline' | 'composite' | 'info';
     severity: 'info' | 'warning' | 'critical';
     severityLabel?: AlertSeverityLabel;  // INFO | WATCH | HIGH | CRITICAL
     score?: number;            // 0-100 calculated severity score
@@ -164,6 +164,12 @@ export interface Alert {
         atgVolume?: number;
         startVolume?: number;
         endVolume?: number;
+        currVol?: number;
+        volumeIncrease?: number;
+        tankCapacity?: number;
+        startTimestamp?: number;
+        endTimestamp?: number;
+        endTemperature?: number | null;
         detectedAt?: string;
         type?: string;
         // Escalation ladder
@@ -182,6 +188,12 @@ export interface Alert {
         openedBy?: any;
         closing_volume?: number;
         tankName?: string;
+        maxPumpFlow?: number;
+        volumeLost?: number;
+        // Correlation
+        correlatedCount?: number;
+        correlatedIds?: string[];
+        correlatedTypes?: string[];
     };
 }
 
@@ -194,9 +206,11 @@ export interface MarketData {
     timestamp: number;
     source: 'platts' | 'argus' | 'bloomberg' | 'eia' | 'mock' | 'epra' | 'api';
     volatilityIndex?: number;
+    effective_date?: string;
+    metadata?: any;
 }
 
-export type SignalSourceType = 'API' | 'Public Notice' | 'Corporate Announcement' | 'News Outlet' | 'News' | 'Commodity' | 'Operational Alert' | 'Price Impact' | 'Supply Chain' | 'Regulatory';
+export type SignalSourceType = 'API' | 'Public Notice' | 'Corporate Announcement' | 'News Outlet' | 'Commodity' | 'Operational Alert' | 'Price Impact' | 'Supply Chain' | 'Regulatory' | 'General News';
 
 export interface MarketSignal {
     id: string;
@@ -212,6 +226,24 @@ export interface MarketSignal {
     attribution?: string; // e.g., "Kenya Ports Authority", "Daily Nation"
     priority?: number; // 1-3
     metadata?: Record<string, any>;
+}
+
+export interface MarketActionItem {
+    id: string;
+    stationId: string;
+    fuelType: string;
+    oldPrice: number | null;
+    newPrice: number;
+    effectiveDate: string;
+    actionType: 'price_adjustment' | 'procurement_hedge' | 'compliance_review';
+    status: 'pending' | 'completed' | 'ignored';
+    metadata: {
+        source_url?: string;
+        signal_id?: string;
+        variance?: number;
+    };
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface SupplyRisk {
@@ -311,7 +343,9 @@ export interface User {
     phoneNumber?: string;
     siteIds: string[]; // Sites user has access to
     mfaEnabled: boolean;
+    securityPinEnabled?: boolean;
     isSystemAccount?: boolean;
+    stationEmail?: string;
     isProvisional?: boolean;
     /** @deprecated Use re-authentication with login password instead */
     masterAccessPassword?: string;
@@ -507,6 +541,21 @@ export interface DeliveryDocument {
 
     createdBy: { kind: 'user' | 'system'; authUserId: string; display: string };
     createdAt: string; // ISO String
+    notes?: string;
+    bolPhotoUrl?: string;
+}
+
+export interface FuelOrder {
+    id: string;
+    orderRef: string;
+    supplier: string;
+    product: string;
+    quantity: number;
+    expectedDate: string;
+    status: string;
+    priority: string;
+    actorEmail: string;
+    createdAt: string;
     notes?: string;
 }
 

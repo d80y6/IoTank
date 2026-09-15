@@ -4,7 +4,7 @@ import './TankVisual2D.css';
 interface TankVisual2DProps {
   fuelLevel: number; // 0-100
   fuelType: string;
-  shape?: 'cylinder' | 'rectangular' | 'capsule';
+  shape?: 'cylinder' | 'rectangular' | 'capsule' | 'spherical' | 'compartmentalized';
   height?: number;
   diameter?: number;
   length?: number;

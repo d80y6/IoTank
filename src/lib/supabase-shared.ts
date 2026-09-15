@@ -15,7 +15,12 @@ export const createSharedSupabaseClient = (
             storage: window.sessionStorage, // HIGH-001: Narrower scope than localStorage
             autoRefreshToken: true,
             detectSessionInUrl: true,
-            storageKey: 'iotank_session'
+            storageKey: 'iotank_session',
+            // Disable default browser lock mechanism since sessionStorage is tab-isolated
+            // and locking causes 5000ms contention hangs on hot reload / React Strict Mode.
+            lock: async (_name, _acquireTimeout, fn) => {
+                return await fn();
+            }
         }
     });
 };

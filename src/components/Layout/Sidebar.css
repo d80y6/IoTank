@@ -404,7 +404,7 @@
     transform: translateX(0);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 600px) { /* Tier 4 and below (Mobile View) */
     .sidebar {
         position: fixed;
         left: 0;
@@ -415,7 +415,6 @@
         padding-top: env(safe-area-inset-top, 0);
         padding-bottom: env(safe-area-inset-bottom, 0);
         z-index: 5000;
-        /* Ensure no content is covered when closed by shifting it completely off-screen */
         box-shadow: none;
     }
 
@@ -433,57 +432,17 @@
     }
 }
 
-/* ── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    .el-page {
-        padding: 1.25rem 1rem;
-    }
-
-    .el-event-right {
-        display: none;
-    }
-
-    .el-filter-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .el-filter-search-wrap {
-        min-width: 100%;
-    }
-
-    .el-header-top {
-        flex-direction: column;
-    }
-
-    .el-detail-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .el-snapshot-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Extra narrow portrait: thinner sidebar for more content visibility */
-@media (max-width: 480px) {
+/* Extra narrow portrait optimization */
+@media (max-width: 360px) { /* Tier 1 (Small Smartphones) */
     .sidebar {
-        width: 280px !important;
-        transform: translateX(-100%) !important;
-    }
-
-    .sidebar.mobile-open {
-        width: calc(max-content + 32px) !important;
-        transform: translateX(0) !important;
+        width: 260px !important;
     }
 
     .sidebar .nav-link {
-        padding: 10px 16px;
+        padding: 8px 12px;
     }
 
-    .collapse-btn {
-        width: 32px;
-        height: 32px;
+    .brand .logo-text {
         font-size: 1rem;
     }
 }

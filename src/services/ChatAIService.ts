@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 
 
 export type AIModel = 'gemini' | 'groq' | 'deepseek';
@@ -27,14 +28,14 @@ export class RateLimitError extends Error {
 }
 
 export class ChatAIService {
-    private static modelPriority: AIModel[] = ['gemini', 'groq', 'deepseek'];
+    private static modelPriority: AIModel[] = ['groq', 'gemini', 'deepseek'];
 
     static async getChatResponse(message: string, history: { role: 'user' | 'assistant', content: string }[]): Promise<string> {
         const errors: string[] = [];
 
         for (const model of this.modelPriority) {
             try {
-                console.log(`[ChatAIService] Attempting response with model: ${model}`);
+                // Intelligence flow: Attempting response
                 const response = await this.callModel(model, message, history);
                 if (response) return response;
 
@@ -43,7 +44,7 @@ export class ChatAIService {
                 if (error instanceof RateLimitError) throw error;
                 
                 const errorMsg = error?.message || 'Unknown error';
-                console.warn(`[ChatAIService] Model ${model} failed in production:`, {
+                logger.warn(`[ChatAIService] Model ${model} failed in production:`, {
                     message: errorMsg,
                     error: error,
                     timestamp: new Date().toISOString()
@@ -55,10 +56,17 @@ export class ChatAIService {
             }
         }
 
-        console.error('[ChatAIService] All models failed:', errors);
+        logger.error('[ChatAIService] All models failed:', errors);
         return "I'm currently experiencing high demand. Please reach out to us at iotank.com@gmail.com for immediate assistance!";
     }
 
+    /**
+     * @note L-05: getSafeAuthHeaders() is intentionally duplicated from IntelligenceAIService
+     * with a key difference: this version FALLS THROUGH anonymously on missing session, because
+     * the public TankIQ chat interface must remain accessible without a full auth token.
+     * IntelligenceAIService.getSafeAuthHeaders() THROWS on missing session (enforcing auth for
+     * market intelligence). Do NOT merge these methods.
+     */
     private static async getSafeAuthHeaders(): Promise<Record<string, string>> {
         const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const headers: Record<string, string> = { 
@@ -74,7 +82,7 @@ export class ChatAIService {
                 headers['Authorization'] = `Bearer ${session.access_token}`;
             }
         } catch (e) {
-            console.warn('[ChatAIService] Auth check failed, proceeding anonymously.');
+            logger.warn('[ChatAIService] Auth check failed, proceeding anonymously.');
         }
 
         return headers;
@@ -102,7 +110,8 @@ export class ChatAIService {
 
         try {
             const headers = await this.getSafeAuthHeaders();
-            const response = await fetch('https://suifvborodwergtrbjez.supabase.co/functions/v1/gemini-proxy', {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const response = await fetch(`${supabaseUrl}/functions/v1/gemini-proxy`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -124,7 +133,7 @@ export class ChatAIService {
             const data = await response.json();
             return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
         } catch (error) {
-            console.error('Gemini error:', error);
+            logger.error('[ChatAIService] Gemini call failed:', error);
             throw error;
         }
     }
@@ -138,7 +147,8 @@ export class ChatAIService {
 
         try {
             const headers = await this.getSafeAuthHeaders();
-            const response = await fetch('https://suifvborodwergtrbjez.supabase.co/functions/v1/groq-proxy', {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const response = await fetch(`${supabaseUrl}/functions/v1/groq-proxy`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -160,7 +170,7 @@ export class ChatAIService {
             const data = await response.json();
             return data.choices?.[0]?.message?.content || null;
         } catch (error) {
-            console.error('Groq error:', error);
+            logger.error('[ChatAIService] Groq call failed:', error);
             throw error;
         }
     }
@@ -174,7 +184,8 @@ export class ChatAIService {
 
         try {
             const headers = await this.getSafeAuthHeaders();
-            const response = await fetch('https://suifvborodwergtrbjez.supabase.co/functions/v1/deepseek-proxy', {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const response = await fetch(`${supabaseUrl}/functions/v1/deepseek-proxy`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -196,7 +207,7 @@ export class ChatAIService {
             const data = await response.json();
             return data.choices?.[0]?.message?.content || null;
         } catch (e) {
-            console.error('DeepSeek error:', e);
+            logger.error('[ChatAIService] DeepSeek call failed:', e);
             throw e;
         }
     }

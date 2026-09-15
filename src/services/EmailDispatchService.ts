@@ -1,8 +1,9 @@
 import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 
 export interface EmailPayload {
     to: string;
-    type: 'THEFT' | 'LEAK' | 'COLLUSION' | 'SYSTEM_CRITICAL';
+    type: 'THEFT' | 'LEAK' | 'COLLUSION' | 'SYSTEM_CRITICAL' | 'REFILL' | 'UNAUTHORIZED_REFILL' | 'DISCONNECT' | 'LOW_FUEL' | 'OVERFILL' | 'WELCOME' | 'INVITATION' | 'SHIFT_REPORT';
     siteName: string;
     details: {
         timestamp: string;
@@ -11,6 +12,10 @@ export interface EmailPayload {
         varianceValue?: number;
         operator?: string;
         description: string;
+        // Shift Specific
+        totalSales?: number;
+        totalLiters?: number;
+        duration?: string;
     };
 }
 
@@ -23,6 +28,7 @@ export class EmailDispatchService {
         };
 
         try {
+            // Always fetch fresh session — no caching to prevent cross-tenant identity spoofing
             const { data: { session } } = await supabase.auth.getSession();
             const isValidToken = session && (session.expires_at ? session.expires_at > (Date.now() / 1000) + 10 : true);
             
@@ -30,7 +36,7 @@ export class EmailDispatchService {
                 headers['Authorization'] = `Bearer ${session.access_token}`;
             }
         } catch (e) {
-            console.warn('[EmailDispatchService] Auth check failed, proceeding anonymously.');
+            logger.warn('[EmailDispatchService] Auth check failed, proceeding anonymously.');
         }
 
         return headers;
@@ -43,11 +49,12 @@ export class EmailDispatchService {
     static async sendSecurityAlert(payload: EmailPayload) {
         try {
             const headers = await this.getSafeAuthHeaders();
-            const response = await fetch('https://suifvborodwergtrbjez.supabase.co/functions/v1/dispatch-critical-alerts', {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const response = await fetch(`${supabaseUrl}/functions/v1/dispatch-critical-alerts`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    action: 'direct_security_alert',
+                    cmd: 'direct_security_alert',
                     to: payload.to,
                     params: {
                         type: payload.type,
@@ -57,7 +64,10 @@ export class EmailDispatchService {
                         dropRate: payload.details.dropRate,
                         lossVolume: payload.details.lossVolume,
                         varianceValue: payload.details.varianceValue,
-                        operator: payload.details.operator
+                        operator: payload.details.operator,
+                        totalSales: payload.details.totalSales,
+                        totalLiters: payload.details.totalLiters,
+                        duration: payload.details.duration
                     }
                 })
             });
@@ -68,10 +78,10 @@ export class EmailDispatchService {
             }
 
             const data = await response.json();
-            console.log('[EmailDispatch] Tactical alert sent successfully:', data);
+            // Tactical alert sent successfully
             return data;
         } catch (err) {
-            console.error('[EmailDispatch] Failed to dispatch tactical email:', err);
+            logger.error('[EmailDispatchService] Failed to dispatch tactical email:', err);
             // Fallback: Log to Audit directly if function fails
             return null;
         }

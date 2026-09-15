@@ -1,234 +1,311 @@
-.market-lens {
-    padding: var(--spacing-lg);
+.market-lens-container {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
-    background-color: var(--color-bg-elevated);
+    height: 380px; /* Fixed height for dashboard alignment */
+    overflow: hidden;
+    padding: 0 !important;
 }
 
 .market-lens-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: linear-gradient(to right, #ffffff, #f8fafc);
 }
 
-.title-area {
+.market-lens-title-group {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: 0.75rem;
 }
 
-.market-status {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+.market-lens-icon {
+    width: 36px;
+    height: 36px;
+    background: #eff6ff;
+    border-radius: 10px;
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.dot-green {
-    width: 6px;
-    height: 6px;
-    background-color: var(--color-success);
-    border-radius: 50%;
-}
-
-.market-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-md);
-}
-
-.market-stat {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    background-color: var(--color-bg-secondary);
-    border-radius: var(--border-radius-md);
-}
-
-.stat-icon {
-    font-size: 1.5rem;
-    color: var(--color-accent-primary);
-}
-
-.stat-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.stat-info .label {
-    font-size: 10px;
-    text-transform: uppercase;
-    color: var(--color-text-secondary);
-    letter-spacing: 0.5px;
-}
-
-.stat-info .value {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-bold);
-}
-
-.stat-info .trend {
-    font-size: 10px;
-    font-weight: var(--font-weight-semibold);
-}
-
-.market-ai-advice {
-    padding: var(--spacing-md);
-    background-color: var(--color-info-bg);
-    border-radius: var(--border-radius-lg);
-    border: var(--border-width-thin) solid var(--color-info);
-}
-
-.advice-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-}
-
-.advice-action {
-    margin-top: var(--spacing-md);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-}
-
-.potential-savings {
-    display: flex;
-    flex-direction: column;
-}
-
-.potential-savings .label {
-    font-size: 9px;
-    text-transform: uppercase;
-    color: var(--color-text-secondary);
-}
-
-.potential-savings .value {
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-bold);
-}
-
-.market-empty {
-    text-align: center;
-    padding: var(--spacing-lg);
-}
-
-@media (max-width: 600px) {
-    .market-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .market-lens {
-        padding: var(--spacing-base);
-    }
-}
-
-@media (max-width: 480px) {
-    .market-lens {
-        padding: var(--spacing-sm);
-    }
-
-    .stat-info .value {
-        font-size: var(--font-size-sm);
-    }
-}
-/* News Feed Card (Premium Redesign) */
-.market-lens-card {
-    background: #fff;
-    border-radius: 20px;
-    border: 1px solid #f1f5f9;
-    box-shadow: 0 4px 24px -8px rgba(30,27,75,0.08);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 16px;
-    height: 360px;
-}
-
-.market-lens-premium-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
+    justify-content: center;
+    color: #3b82f6;
 }
 
 .market-lens-title {
-    font-size: 15px;
+    font-size: 0.875rem;
     font-weight: 800;
-    color: #fff;
-    letter-spacing: -0.01em;
+    color: #1e293b;
+    margin: 0;
+    line-height: 1;
 }
 
-.market-status-badge {
-    background: rgba(255,255,255,0.2);
-    backdrop-filter: blur(8px);
-    border-radius: 20px;
-    padding: 3px 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.market-lens-subtitle {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0.25rem 0 0;
 }
 
-.market-status-label {
-    font-size: 11px;
+.market-lens-badge {
+    background: #f0fdf4;
+    color: #16a34a;
+    font-size: 0.625rem;
     font-weight: 700;
-    color: #fff;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    border: 1px solid #dcfce7;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-.market-lens-body {
-    flex-grow: 1;
+.signals-count-badge {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+}
+
+.market-feed-scroll {
+    flex: 1;
     overflow-y: auto;
-    padding: 8px 0;
+    padding: 0.5rem;
 }
 
-.market-lens-item {
-    padding: 12px 20px;
-    border-bottom: 1px solid #f8fafc;
-    transition: background 0.15s ease;
-    cursor: pointer;
+.market-item {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    transition: all 0.2s ease;
+    border-radius: 0.75rem;
+    margin-bottom: 0.25rem;
 }
 
-.market-lens-item:last-child {
+.market-item:last-child {
     border-bottom: none;
 }
 
-.market-lens-item:hover {
-    background: #fafafa;
+.market-item:hover {
+    background: #f8fafc;
+    transform: translateX(4px);
+}
+
+.market-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.market-item-source {
+    font-size: 0.625rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.market-item-time {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    color: #94a3b8;
+    font-weight: 600;
 }
 
 .market-item-title {
-    font-size: 12px;
+    font-size: 0.8125rem;
     font-weight: 700;
     color: #334155;
-    line-height: 1.45;
-    margin: 0 0 4px 0;
-}
-
-.market-item-summary {
-    font-size: 11px;
-    font-weight: 500;
-    color: #64748b;
     line-height: 1.4;
-    margin: 0 0 6px 0;
+    margin-bottom: 0.375rem;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-.market-item-source {
-    font-size: 10px;
+.market-item-summary {
+    font-size: 0.6875rem;
+    color: #64748b;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.market-item-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #3b82f6;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.market-item-link:hover {
+    text-decoration: underline;
+}
+
+.market-item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.market-item-ack-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.market-item-ack-btn:hover {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.market-item-ack-btn.active {
+    background: #f0fdf4;
+    border-color: #4ade80;
+    color: #16a34a;
+    box-shadow: 0 2px 4px rgba(22, 163, 74, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #cbd5e1;
+}
+
+/* Premium TankIQ Recommendation box in Dashboard MarketLens */
+.market-lens-recommendation-box {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease-in-out;
+}
+
+.market-lens-recommendation-box--critical {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+    border: 1px solid rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+}
+
+.market-lens-recommendation-box--caution {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.02));
+    border: 1px solid rgba(245, 158, 11, 0.1);
+    border-left: 3px solid #f59e0b;
+}
+
+.market-lens-recommendation-box--stable {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+    border: 1px solid rgba(16, 185, 129, 0.1);
+    border-left: 3px solid #10b981;
+}
+
+.market-lens-rec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.375rem;
+}
+
+.rec-badge {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: #1e1b4b;
+    text-transform: uppercase;
+}
+
+.status-badge {
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.status-badge--critical {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.status-badge--caution {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.status-badge--stable {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.rec-text {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #475569;
+    line-height: 1.4;
+    margin: 0 0 0.25rem 0;
+}
+
+.rec-action {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #1e293b;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.market-item-source-title {
+    margin: 0.5rem 0;
+}
+
+.source-label {
+    font-size: 8px;
     font-weight: 800;
     color: #94a3b8;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: 0.125rem;
 }
+

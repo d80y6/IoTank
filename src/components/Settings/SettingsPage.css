@@ -974,16 +974,38 @@
     text-align: left;
 }
 
-.mfa-input-verify {
-    letter-spacing: 0.4em;
-    text-align: center;
-    font-size: 1.8rem;
-    font-weight: 800;
-    margin-bottom: 2rem;
-    height: auto;
-    padding: 1.25rem;
-    border: 2px solid #3b82f6;
-    background: #f0f7ff;
+.mfa-digit-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 2rem 0;
+}
+
+.mfa-digit-input {
+    width: 48px;
+    height: 60px;
+    background: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    text-align: center !important;
+    font-size: 1.5rem !important;
+    font-weight: 900 !important;
+    color: #1e1b4b !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    padding: 0 !important;
+}
+
+.mfa-digit-input:focus {
+    outline: none !important;
+    border-color: #3b82f6 !important;
+    background: #f0f9ff !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2) !important;
+    transform: translateY(-2px);
+}
+
+.mfa-digit-input.filled {
+    border-color: #3b82f6 !important;
 }
 
 .mfa-text-main {

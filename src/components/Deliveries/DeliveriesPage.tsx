@@ -202,9 +202,9 @@ export const DeliveriesPage: React.FC = () => {
                         <FiActivity size={22} />
                     </div>
                     <div className="dp-stat-content">
-                        <span className="dp-stat-label">Measured Flow</span>
+                        <span className="dp-stat-label">Measured Flow (VCF)</span>
                         <span className="dp-stat-value">{stats.totalMeasured.toLocaleString()} L</span>
-                        <div className="dp-stat-footer">ATG Verified Intake</div>
+                        <div className="dp-stat-footer">ATG Verified Intake @ 15°C</div>
                     </div>
                 </div>
 
@@ -282,7 +282,7 @@ export const DeliveriesPage: React.FC = () => {
                                 ) : (
                                     paginatedOrders.map((order) => (
                                         <tr key={order.id}>
-                                            <td className="font-mono text-indigo-600 font-bold">{order.id.slice(0, 8)}</td>
+                                            <td className="font-mono text-indigo-600 font-bold">{order.orderRef}</td>
                                             <td className="customer-name font-bold">{order.supplier}</td>
                                             <td className="text-slate-600 font-semibold">{order.product}</td>
                                             <td className="font-bold text-slate-800">{order.quantity.toLocaleString()} L</td>
@@ -370,9 +370,24 @@ export const DeliveriesPage: React.FC = () => {
                                             <td className="font-mono text-emerald-600 font-bold">{delivery.invoiceNo}</td>
                                             <td className="customer-name font-bold">{delivery.supplier}</td>
                                             <td>
-                                                <span className="font-bold text-slate-700">{mockTruckName(delivery.id)}</span>
+                                                <span className="font-bold text-slate-700">{generateDeterministicTruckName(delivery.id)}</span>
                                             </td>
-                                            <td className="font-bold text-slate-600">{delivery.product}</td>
+                                            <td className="font-bold text-slate-600">
+                                                <div className="flex items-center gap-2">
+                                                    {delivery.product}
+                                                    {delivery.bolPhotoUrl && (
+                                                        <a 
+                                                            href={delivery.bolPhotoUrl} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            className="text-indigo-400 hover:text-indigo-600 transition-colors"
+                                                            title="View Bill of Lading"
+                                                        >
+                                                            <FiFileText size={14} />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="font-bold">{(delivery.invoiceLiters || 0).toLocaleString()} L</td>
                                             <td className="font-bold text-slate-800">{(delivery.measured?.standardizedLiters || 0).toLocaleString()} L</td>
                                             <td className={`font-black ${(delivery.variance?.liters || 0) < -50 ? 'text-rose-600' : 'text-emerald-600'}`}>
@@ -431,8 +446,8 @@ export const DeliveriesPage: React.FC = () => {
     );
 };
 
-// Internal utility to generate a stable truck name for display if not in DB
-function mockTruckName(id: string) {
+// Internal utility to generate a stable truck name for display if not explicitly provided in DB
+function generateDeterministicTruckName(id: string) {
     const seed = id.charCodeAt(0) + id.charCodeAt(1);
     const letters = ['KBZ', 'KCL', 'KDM', 'KEA', 'KCF'];
     return `${letters[seed % letters.length]} ${300 + seed}X`;

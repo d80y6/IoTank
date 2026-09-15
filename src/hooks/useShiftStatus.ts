@@ -1,93 +1,103 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/config/supabase';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
+import { useActiveShift } from './useShifts';
 
 export type ShiftStatus = 'OPEN' | 'CLOSED';
+
+/** M-01 FIX: Safely parse a stored ISO date string to epoch ms. Returns null if the
+ * stored value is missing, unparseable, or produces an invalid Date. Without this guard,
+ * new Date(corrupted_string).getTime() === NaN flows into all uptime/rate calculations. */
+function safeParseStoredTime(key: string): number | null {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const ts = new Date(raw).getTime();
+    return isNaN(ts) ? null : ts;
+}
 
 export const useShiftStatus = () => {
     const { currentUser } = useAuth();
     const stationId = currentUser?.stationId;
 
-    const [status, setStatus] = useState<ShiftStatus>('CLOSED');
-    const [openedAt, setOpenedAt] = useState<number | null>(null);
-    const [closedAt, setClosedAt] = useState<number | null>(null);
+    const { activeShift, loading: isLoading, error: shiftError } = useActiveShift(stationId);
     const [uptime, setUptime] = useState<string>('--:--:--');
-    const [isLoading, setIsLoading] = useState(true);
 
-    const fetchCurrentShift = useCallback(async () => {
-        if (!stationId) return;
-
-        const { data, error } = await supabase
-            .from('current_station_shifts')
-            .select('*')
-            .eq('station_id', stationId)
-            .maybeSingle();
-
-        if (error) {
-            console.error('Error fetching shift status:', error);
+    // [RESILIENCE SYNC]: Persist confirmed DB state to localStorage so page-reload / network
+    // dropouts don't trigger false "CLOSED" alarms.
+    useEffect(() => {
+        if (isLoading || shiftError) return;
+        
+        // If query succeeded but returned null, there is no active shift (closed by another user/device)
+        if (!activeShift) {
+            localStorage.setItem('iotank_shift_status', 'closed');
             return;
         }
 
-        if (data) {
-            setStatus(data.status as ShiftStatus);
-            const time = data.updated_at ? new Date(data.updated_at).getTime() : null;
-            if (data.status === 'OPEN') {
-                setOpenedAt(time);
-                setClosedAt(null);
-            } else {
-                setClosedAt(time);
-                setOpenedAt(null);
-            }
-        } else {
-            // Default to CLOSED if no record exists for the station
-            setStatus('CLOSED');
-            setOpenedAt(null);
-            setClosedAt(null);
+        const confirmed = (activeShift.status || '').toLowerCase();
+        if (confirmed === 'open' || confirmed === 'closed') {
+            localStorage.setItem('iotank_shift_status', confirmed);
         }
-        setIsLoading(false);
-    }, [stationId]);
+        // Persist the confirmed shift OPEN timestamp (not updated_at which changes on any edit)
+        const shiftStart = activeShift.opened_at || activeShift.created_at;
+        if (shiftStart) {
+            localStorage.setItem('iotank_shift_start_time', shiftStart);
+        }
+    }, [activeShift, shiftError, isLoading]);
 
-    useEffect(() => {
-        if (!stationId) return;
-        
-        fetchCurrentShift();
+    const status = useMemo(() => {
+        // [RESILIENCE]: While loading or during a transient network error, read localStorage
+        // to avoid flip-flopping to CLOSED and triggering false theft/leak alerts.
+        if (isLoading || shiftError) {
+            const localStatus = localStorage.getItem('iotank_shift_status');
+            if (localStatus === 'open') return 'OPEN';
+            if (localStatus === 'closed') return 'CLOSED';
+        }
 
-        // Subscribe to changes
-        const channel = supabase
-            .channel(`shift_sync_${stationId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'current_station_shifts',
-                    filter: `station_id=eq.${stationId}`
-                },
-                (payload) => {
-                    const newData = payload.new as any;
-                    if (newData) {
-                        setStatus(newData.status as ShiftStatus);
-                        const time = newData.updated_at ? new Date(newData.updated_at).getTime() : null;
-                        if (newData.status === 'OPEN') {
-                            setOpenedAt(time);
-                            setClosedAt(null);
-                        } else {
-                            setClosedAt(time);
-                            setOpenedAt(null);
-                        }
-                    }
-                }
-            )
-            .subscribe();
+        if (activeShift?.status) {
+            // Normalise case: DB may store 'open' or 'OPEN'
+            const normalised = (activeShift.status as string).toUpperCase();
+            if (normalised === 'OPEN' || normalised === 'CLOSED') return normalised as ShiftStatus;
+        }
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [stationId, fetchCurrentShift]);
+        // If we successfully reached the DB and activeShift is null, the shift is definitively closed.
+        if (!isLoading && !shiftError && !activeShift) {
+            return 'CLOSED';
+        }
+
+        // [FALLBACK]: Connection timeout / offline resilience
+        const localStatus = localStorage.getItem('iotank_shift_status');
+        if (localStatus === 'open') return 'OPEN';
+        if (localStatus === 'closed') return 'CLOSED';
+
+        return 'CLOSED';
+    }, [activeShift, isLoading, shiftError]);
+
+    const openedAt = useMemo(() => {
+        if (!activeShift) {
+            return safeParseStoredTime('iotank_shift_start_time');
+        }
+        const time = activeShift.created_at ? new Date(activeShift.created_at).getTime() : null;
+
+        if (status === 'OPEN') {
+            return time;
+        } else {
+            const metadata = activeShift.metadata || {};
+            let lastOpened = metadata.last_opened_at ? new Date(metadata.last_opened_at).getTime() : null;
+            if (!lastOpened || isNaN(lastOpened)) {
+                lastOpened = safeParseStoredTime('iotank_shift_start_time');
+            }
+            return lastOpened;
+        }
+    }, [activeShift, status]);
+
+    const closedAt = useMemo(() => {
+        if (!activeShift) return null;
+        if (status === 'OPEN') return null;
+        return activeShift.updated_at ? new Date(activeShift.updated_at).getTime() : null;
+    }, [activeShift, status]);
 
     const updateUptime = useCallback(() => {
         const activeTime = status === 'OPEN' ? openedAt : closedAt;
-        
+
         if (!activeTime) {
             setUptime('--:--:--');
             return;

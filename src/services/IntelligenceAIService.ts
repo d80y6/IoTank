@@ -1,4 +1,5 @@
 import { MarketSignal, SupplyRisk, RegulatoryNotice, GeminiInsight } from '@/types';
+import { logger } from '@/utils/logger';
 import { supabase } from '@/config/supabase';
 
 export interface ChatMessage {
@@ -21,6 +22,12 @@ export interface ArticleAIDirective {
     actionRequired: boolean;
     actionDetails?: string;
     confidence: number;
+    priceData?: {
+        fuelType: 'AGO' | 'PMS' | 'IK' | 'BRENT' | 'FX';
+        price: number;
+        currency: string;
+        effectiveDate?: string;
+    }[];
 }
 
 export class IntelligenceAIService {
@@ -37,19 +44,15 @@ export class IntelligenceAIService {
 
         try {
             const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) throw error;
             
-            if (error || !session?.access_token) {
+            if (!session?.access_token) {
                 throw new Error('TankIQ intelligence requires an active authenticated session.');
             }
             
-            const isValidToken = session.expires_at ? session.expires_at > (Date.now() / 1000) + 10 : true;
-            if (!isValidToken) {
-                throw new Error('TankIQ session expired. Please re-authenticate.');
-            }
-
             headers['Authorization'] = `Bearer ${session.access_token}`;
         } catch (e: any) {
-            console.error('[IntelligenceAIService] Authentication enforcement failed:', e);
+            logger.error('[IntelligenceAIService] Authentication enforcement failed:', e);
             throw new Error('TankIQ requires a registered account to process operational data. ' + e.message);
         }
 
@@ -60,22 +63,35 @@ export class IntelligenceAIService {
         signals: MarketSignal[],
         risks: SupplyRisk[],
         notices: RegulatoryNotice[],
+        tanks: any[] = [],
         tankId: string = 'fleet'
     ): Promise<GeminiInsight> {
-        const context = { signals: signals.slice(0, 5), risks: risks.slice(0, 3), notices: notices.slice(0, 2) };
+        const tankData = tanks.map(t => ({ 
+            id: t.id, 
+            name: t.name, 
+            fuel: t.fuelType, 
+            level: t.currentLevel || t.currentVolume 
+        }));
+
+        const context = { 
+            signals: signals.slice(0, 5), 
+            risks: risks.slice(0, 3), 
+            notices: notices.slice(0, 2),
+            inventory: tankData
+        };
         const promptLog = JSON.stringify(context);
-        const providers: (keyof AIProviderConfig)[] = ['gemini', 'groq', 'deepseek'];
+        const providers: (keyof AIProviderConfig)[] = ['groq', 'gemini', 'deepseek'];
 
         for (const provider of providers) {
             try {
-                console.info(`[IntelligenceAIService] Attempting insight generation with: ${provider}`);
+                logger.info(`[IntelligenceAIService] Attempting insight generation with: ${provider}`);
                 const response = await this.callProvider(provider, context, 'intelligence');
                 if (response) {
-                    console.info(`[IntelligenceAIService] Success with: ${provider}`);
-                    return this.parseResponse(provider as any, response, promptLog, provider, signals, risks, tankId);
+                    logger.info(`[IntelligenceAIService] Success with: ${provider}`);
+                    return this.parseResponse(response, promptLog, provider, signals, risks, tankId);
                 }
             } catch (error) {
-                console.warn(`[IntelligenceAIService] ${provider} failed, falling back to next provider...`, error);
+                logger.warn(`[IntelligenceAIService] ${provider} failed, falling back to next provider...`, error);
                 continue;
             }
         }
@@ -90,11 +106,12 @@ export class IntelligenceAIService {
         article: any,
         tanks: any[]
     ): Promise<ArticleAIDirective> {
-        const tankData = (tanks || []).map(t => ({ 
+        const safeTanks = Array.isArray(tanks) ? tanks : [];
+        const tankData = safeTanks.map(t => ({ 
             id: t.id, 
             name: t.name, 
             fuel: t.fuelType, 
-            level: t.currentLevel 
+            level: t.currentVolume 
         }));
 
         const context = {
@@ -108,18 +125,18 @@ export class IntelligenceAIService {
             timestamp: Date.now()
         };
 
-        const providers: (keyof AIProviderConfig)[] = ['gemini', 'groq', 'deepseek'];
+        const providers: (keyof AIProviderConfig)[] = ['groq', 'gemini', 'deepseek'];
 
         for (const provider of providers) {
             try {
-                console.info(`[IntelligenceAIService] Attempting directive generation with: ${provider}`);
+                logger.info(`[IntelligenceAIService] Attempting directive generation with: ${provider}`);
                 const response = await this.callProvider(provider, context, 'directive');
                 if (response) {
-                    console.info(`[IntelligenceAIService] Success with: ${provider}`);
+                    logger.info(`[IntelligenceAIService] Success with: ${provider}`);
                     return this.parseDirectiveResponse(provider, response);
                 }
             } catch (error) {
-                console.warn(`[IntelligenceAIService] ${provider} failed, falling back to next provider...`, error);
+                logger.warn(`[IntelligenceAIService] ${provider} failed, falling back to next provider...`, error);
                 continue;
             }
         }
@@ -143,21 +160,33 @@ export class IntelligenceAIService {
     ): Promise<any> {
         try {
             const headers = await this.getSafeAuthHeaders();
-            // OpenAI-compatible format (mapped automatically by proxy for Gemini)
-            const body = {
+            const modelMap: Record<string, string> = {
+                gemini: 'gemini-2.0-flash',
+                groq: 'llama-3.3-70b-versatile',
+                deepseek: 'deepseek-chat'
+            };
+
+            const body: any = {
+                model: modelMap[provider] || 'llama-3.3-70b-versatile',
                 messages,
                 tools,
                 tool_choice: tools ? 'auto' : undefined
             };
 
+            const requestPayload: any = {
+                action: 'chat',
+                body
+            };
+
+            if (provider === 'gemini') {
+                requestPayload.endpoint = `models/${modelMap.gemini}:generateContent`;
+            }
+
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const response = await fetch(`${supabaseUrl}/functions/v1/${provider}-proxy`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({
-                    action: 'chat',
-                    body
-                })
+                body: JSON.stringify(requestPayload)
             });
 
             if (!response.ok) {
@@ -197,7 +226,7 @@ export class IntelligenceAIService {
                 message: data.choices?.[0]?.message || { role: 'assistant', content: '' }
             };
         } catch (error) {
-            console.error(`IntelligenceAIService Chat Error (${provider}):`, error);
+            logger.error(`IntelligenceAIService Chat Error (${provider}):`, error);
             throw error;
         }
     }
@@ -231,7 +260,7 @@ export class IntelligenceAIService {
                 body: JSON.stringify({
                     action: actionType === 'directive' ? 'intelligence' : actionType,
                     context,
-                    endpoint: 'models/gemini-1.5-flash:generateContent',
+                    endpoint: 'models/gemini-2.0-flash:generateContent',
                     body: {
                         generationConfig: { temperature: 0.7 },
                     }
@@ -240,13 +269,13 @@ export class IntelligenceAIService {
 
             if (!response.ok) {
                 const errorBody = await response.json().catch(() => ({}));
-                throw new Error(`Gemini error: ${response.statusText}${errorBody.error ? ` - ${errorBody.error}` : ''}`);
+                throw new Error(`Gemini error: ${response.statusText}${errorBody.error ? ` - ${JSON.stringify(errorBody.error)}` : ''}`);
             }
 
             const data = await response.json();
             return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } catch (error) {
-            console.error('Gemini error:', error);
+            logger.error('Gemini error:', error);
             throw error;
         }
     }
@@ -276,7 +305,7 @@ export class IntelligenceAIService {
             const data = await response.json();
             return data.choices?.[0]?.message?.content || '';
         } catch (error) {
-            console.error('Groq error:', error);
+            logger.error('Groq error:', error);
             throw error;
         }
     }
@@ -304,13 +333,19 @@ export class IntelligenceAIService {
 
             if (!response.ok) {
                 const errorBody = await response.json().catch(() => ({}));
-                throw new Error(`DeepSeek error: ${response.statusText}${errorBody.error ? ` - ${errorBody.error}` : ''}`);
+                const errorMsg = errorBody.error?.message || response.statusText;
+                
+                if (errorMsg.includes('Insufficient Balance')) {
+                    throw new Error('DeepSeek error: Insufficient Credits. Please top up your balance or wait for failover.');
+                }
+                
+                throw new Error(`DeepSeek error: ${response.statusText}${errorBody.error ? ` - ${JSON.stringify(errorBody.error)}` : ''}`);
             }
 
             const data = await response.json();
             return data.choices?.[0]?.message?.content || '';
         } catch (error) {
-            console.error('DeepSeek error:', error);
+            logger.error('DeepSeek error:', error);
             throw error;
         }
     }
@@ -320,15 +355,20 @@ export class IntelligenceAIService {
             const cleanedText = this.cleanJSONResponse(text);
             const data = JSON.parse(cleanedText);
             
+            const rawStatus = (data.status || 'STABLE').toUpperCase();
+            const validStatuses = ['CRITICAL', 'CAUTION', 'STABLE'];
+            const status = validStatuses.includes(rawStatus) ? rawStatus as ArticleAIDirective['status'] : 'STABLE';
+            
             return {
-                status: (data.status || 'STABLE').toUpperCase() as any,
+                status,
                 recommendation: data.recommendation || data.text || 'Monitor market conditions.',
                 actionRequired: !!data.actionRequired || !!data.suggestsAction,
                 actionDetails: data.actionDetails || data.details,
-                confidence: data.confidence || 0.85
+                confidence: data.confidence || 0.85,
+                priceData: data.priceData || data.extractedPrices || []
             };
         } catch (e) {
-            console.error(`[IntelligenceAIService] Directive parsing failure for ${provider}:`, e);
+            logger.error(`[IntelligenceAIService] Directive parsing failure for ${provider}:`, e);
             throw new Error('AI response format invalid for directive');
         }
     }
@@ -351,7 +391,6 @@ export class IntelligenceAIService {
     }
 
     private parseResponse(
-        _unused: any,
         text: string,
         prompt: string,
         provider: string,
@@ -378,7 +417,7 @@ export class IntelligenceAIService {
                 supportingData: { signals, risks, keyFactors: advisory.keyFactors || [] }
             };
         } catch (e) {
-            console.error(`[IntelligenceAIService] Critical parsing failure for ${provider}:`, e, "Raw response:", text);
+            logger.error(`[IntelligenceAIService] Critical parsing failure for ${provider}:`, { error: e, rawResponse: text });
             throw new Error(`AI response format invalid for ${provider}`);
         }
     }

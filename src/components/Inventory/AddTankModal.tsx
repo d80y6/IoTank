@@ -57,10 +57,10 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
 
     if (!isOpen) return null;
 
-    const handleAuthorize = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleAuthorize = async (e?: React.SyntheticEvent) => {
+        e?.preventDefault?.();
         if (!authPassword) return;
-        
+
         setVerifying(true);
         setError(null);
         try {
@@ -186,22 +186,24 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
                     <div className="lock-icon-wrapper">
                         <FiCpu className="cpu-pulse" />
                     </div>
-                    <h3>Provisioning Locked</h3>
-                    <p>Administrative authorization is required to modify terminal hardware identities.</p>
+                    <div className="lock-text-content">
+                        <h3>Security Lock</h3>
+                        <p>Enter your password to add new tank hardware.</p>
+                    </div>
                     
-                    <form onSubmit={handleAuthorize} className="lock-form">
+                    <div className="lock-form" onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleAuthorize(); }}>
                         <input 
                             type="password" 
-                            placeholder="Terminal Access Code"
+                            placeholder="Your Password"
                             value={authPassword}
                             onChange={e => setAuthPassword(e.target.value)}
                             required
                         />
                         {error && <div className="error-message">{error}</div>}
-                        <button type="submit" disabled={verifying}>
-                            {verifying ? 'Verifying...' : 'Unlock Identity'}
+                        <button type="button" className="unlock-btn" onClick={() => handleAuthorize()} disabled={verifying}>
+                            {verifying ? 'Verifying...' : 'Unlock Settings'}
                         </button>
-                    </form>
+                    </div>
                 </div>
             );
         }
@@ -209,10 +211,10 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
         return (
             <div className="max-h-[70vh] overflow-y-auto px-1 pr-3 custom-scrollbar">
                 {/* SECTION 1: IDENTITY */}
-                <div className="atm-section">
+                <div className="atm-section indigo">
                     <div className="atm-section-header">
-                        <div className="atm-section-icon bg-indigo-500 text-white"><FiServer size={14} /></div>
-                        <span className="atm-section-title text-indigo-700">Identity & Binding</span>
+                        <div className="atm-section-icon"><FiServer size={14} /></div>
+                        <span className="atm-section-title">Identity & Binding</span>
                     </div>
                     <div className="atm-section-body atm-grid atm-grid-2">
                         <div className="form-group">
@@ -234,7 +236,7 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
                                 required
                             >
                                 <option value="">Select Depot / Site...</option>
-                                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                {sites.map(s => <option key={s.id} value={s.id}>{s.siteName}</option>)}
                             </select>
                         </div>
                         <div className="form-group">
@@ -274,10 +276,10 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
                 </div>
 
                 {/* SECTION 2: GEOMETRY */}
-                <div className="atm-section">
+                <div className="atm-section blue">
                     <div className="atm-section-header">
-                        <div className="atm-section-icon bg-blue-500 text-white"><FiActivity size={14} /></div>
-                        <span className="atm-section-title text-blue-700">Geometry & Calibration</span>
+                        <div className="atm-section-icon"><FiActivity size={14} /></div>
+                        <span className="atm-section-title">Geometry & Calibration</span>
                     </div>
                     <div className="atm-section-body atm-grid atm-grid-2">
                         <div className="form-group">
@@ -311,10 +313,10 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
                 </div>
 
                 {/* SECTION 3: SENSOR PARAMS */}
-                <div className="atm-section">
+                <div className="atm-section cyan">
                     <div className="atm-section-header">
-                        <div className="atm-section-icon bg-cyan-500 text-white"><FiDroplet size={14} /></div>
-                        <span className="atm-section-title text-cyan-700">Sensor Mounting & Delta</span>
+                        <div className="atm-section-icon"><FiDroplet size={14} /></div>
+                        <span className="atm-section-title">Sensor Mounting & Delta</span>
                     </div>
                     <div className="atm-section-body atm-grid atm-grid-3">
                         <div className="form-group">
@@ -351,11 +353,11 @@ export const AddTankModal: React.FC<AddTankModalProps> = ({
 
     return createPortal(
         <div className="add-tank-modal-overlay animate-in fade-in duration-300" onClick={triggerHibernate}>
-            <div className="add-tank-modal-content max-w-2xl" onClick={e => e.stopPropagation()}>
+            <div className={`add-tank-modal-content ${!isAuthorized ? 'auth-mode' : 'max-w-2xl'}`} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <div className="header-text-container">
-                        <h2>Node Infrastructure Setup</h2>
-                        <p>Provision a new terminal identity and sensory parameters.</p>
+                        <h2>Add New Tank</h2>
+                        <p>Link a new sensor to your tank system.</p>
                         <div className="modal-header-badges">
                             <span className="modal-badge purple-solid">PROVISIONING</span>
                             <span className="modal-badge cyan-glow">HARDWARE_LOCK</span>

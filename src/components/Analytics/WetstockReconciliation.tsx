@@ -6,14 +6,20 @@ interface WetstockReconciliationProps {
     tanks: Tank[];
     transactions: FuelTransaction[];
     currency: 'Ksh';
+    activeShift?: any;
 }
 
-export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({ tanks, transactions, currency }) => {
-    // Mocking reconciliation data for the demo
+export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({ tanks, transactions, currency, activeShift }) => {
+    // Calculate forensic reconciliation metrics from telemetry and transactions
     const reconData = useMemo(() => {
-        // [ONE TRUTH]: Opening stock is derived from the active shift snapshot
-        const startVolumes = JSON.parse(localStorage.getItem('iotank_shift_start_volumes') || '{}');
-        const openingStock = tanks.reduce((sum, t) => sum + (startVolumes[t.id] || t.currentVolume || 0), 0);
+        // [ONE TRUTH]: Opening stock is derived from the active shift snapshot (Database-backed)
+        const snapshots = activeShift?.metadata?.tank_snapshots || {};
+        
+        const openingStock = tanks.reduce((sum, t) => {
+            // Priority: Snapshot -> Tank Volume -> 0
+            const snapshotVol = snapshots[t.id]?.opening_volume;
+            return sum + (snapshotVol !== undefined ? snapshotVol : (t.currentVolume || 0));
+        }, 0);
         
         // Deliveries and Sales from transactions for "Expected" profile
         const deliveries = transactions.filter(tx => tx.type === 'delivery').reduce((sum, tx) => sum + tx.amount, 0);
@@ -42,7 +48,7 @@ export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({ 
             varianceCost,
             score: Math.max(0, 100 - Math.abs(variancePct) * 50)
         };
-    }, [tanks, transactions, currency]);
+    }, [tanks, transactions, currency, activeShift]);
 
     const isHealthy = Math.abs(reconData.variancePct) < 0.5;
 

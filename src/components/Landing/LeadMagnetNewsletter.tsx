@@ -2,21 +2,53 @@
 import React, { useState } from 'react';
 import { FiMail, FiDownload, FiCheck, FiArrowRight } from 'react-icons/fi';
 import './LeadMagnetNewsletter.css';
+import { supabase } from '@/config/supabase';
+import { logger } from '@/utils/logger';
 
 const LeadMagnetNewsletter: React.FC = () => {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     
     setStatus('loading');
-    // Simulate API call
-    setTimeout(() => {
+    setErrorMessage('');
+    
+    try {
+      const { error } = await supabase
+        .from('marketing_leads')
+        .insert([{ 
+          email: email.toLowerCase().trim(),
+          source: 'lead_magnet_newsletter',
+          metadata: {
+            user_agent: navigator.userAgent,
+            referrer: document.referrer,
+            timestamp: new Date().toISOString()
+          }
+        }]);
+
+      if (error) {
+        // Handle duplicate email specifically if needed (though RLS might just ignore or error)
+        if (error.code === '23505') {
+          // Unique violation - they are already signed up!
+          setStatus('success');
+          setEmail('');
+          return;
+        }
+        throw error;
+      }
+
       setStatus('success');
       setEmail('');
-    }, 1500);
+    } catch (err: any) {
+      logger.error('Lead capture error:', err);
+      setStatus('error');
+      setErrorMessage('Something went wrong. Please try again.');
+      setTimeout(() => setStatus('idle'), 3000);
+    }
   };
 
   return (
@@ -66,6 +98,9 @@ const LeadMagnetNewsletter: React.FC = () => {
                 )}
               </button>
             </form>
+            {status === 'error' && (
+              <p className="lmn-error-msg">{errorMessage}</p>
+            )}
             <p className="lmn-privacy">
               Zero spam. Unsubscribe anytime. Powered by IoTank Intelligence.
             </p>

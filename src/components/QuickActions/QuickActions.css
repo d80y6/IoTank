@@ -54,16 +54,37 @@
 }
 
 .close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
     color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    transition: color 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.close-btn svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
 }
 
 .close-btn:hover {
-    color: #475569;
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #ef4444;
+    transform: rotate(90deg) scale(1.08);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.close-btn:active {
+    transform: scale(0.92);
 }
 
 .qa-modal-body {

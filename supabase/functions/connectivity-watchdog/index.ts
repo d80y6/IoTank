@@ -28,13 +28,13 @@ serve(async (req) => {
         );
 
         console.log('[Watchdog] Starting connectivity integrity check...');
-        const INACTIVITY_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
+        const INACTIVITY_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 
         const { data: tanks, error: tanksError } = await supabase.from('tanks').select('*');
         if (tanksError || !tanks) throw tanksError;
 
         for (const tank of tanks) {
-            if (!tank.esp32_address) continue;
+            if (!tank.esp32_address && !tank.id) continue;
 
             const now = Date.now();
             const lastUpdate = tank.last_reading_at ? new Date(tank.last_reading_at).getTime() : 0;
@@ -45,21 +45,43 @@ serve(async (req) => {
                     .from('alerts')
                     .select('id')
                     .eq('tank_id', tank.id)
-                    .eq('type', 'connectivity-lost')
-                    .eq('status', 'active');
+                    .eq('alert_type', 'sensor_offline')
+                    .eq('is_resolved', false);
 
                 if (!existingAlerts || existingAlerts.length === 0) {
                     await supabase.from('alerts').insert({
-                        type: 'connectivity-lost',
+                        station_id: tank.station_id || tank.client_id,
+                        alert_type: 'sensor_offline',
                         severity: 'critical',
                         title: 'Sensor Offline',
-                        message: `Tank "${tank.name}" has not reported data for over 1 hour. Check power and link stability.`,
+                        message: `Tank "${tank.name}" has not reported data for over 15 minutes. Check power and link stability.`,
                         tank_id: tank.id,
-                        status: 'active'
+                        is_resolved: false
                     });
                     console.log(`[Watchdog] Offline alert triggered for Tank: ${tank.id}`);
                 }
+            } else {
+                // SELF-HEALING: Tank is back online — resolve any lingering offline alerts
+                const { data: staleAlerts } = await supabase
+                    .from('alerts')
+                    .select('id')
+                    .eq('tank_id', tank.id)
+                    .eq('alert_type', 'sensor_offline')
+                    .eq('is_resolved', false);
+
+                if (staleAlerts && staleAlerts.length > 0) {
+                    await supabase
+                        .from('alerts')
+                        .update({
+                            is_resolved: true,
+                            resolved_at: new Date().toISOString(),
+                            resolution_notes: 'Auto-resolved: Sensor resumed reporting within threshold window.'
+                        })
+                        .in('id', staleAlerts.map((a: any) => a.id));
+                    console.log(`[Watchdog] Self-healing: Resolved ${staleAlerts.length} stale offline alert(s) for Tank: ${tank.id}`);
+                }
             }
+
         }
 
         return new Response(JSON.stringify({ status: 'Connectivity watchdog cycle completed' }), { 

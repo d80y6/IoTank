@@ -5,6 +5,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import './LiveChat.css';
 import { ChatAIService, RateLimitError } from '../../services/ChatAIService';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '@/utils/logger';
 
 interface Message {
     id: string;
@@ -185,7 +186,7 @@ export const LiveChat: React.FC = () => {
                     : s
             ));
         } catch (error: any) {
-            console.error('Chat error:', error);
+            logger.error('Chat error:', error);
             if (error instanceof RateLimitError) {
                 setRateLimitResetAt(new Date(error.resetAt).getTime());
                 setSecondsRemaining(Math.max(0, Math.ceil((new Date(error.resetAt).getTime() - Date.now()) / 1000)));
@@ -237,13 +238,38 @@ Submitted via Landing Page AI Assistant
 
     const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation();
-        if (window.confirm('Delete this conversation?')) {
-            setSessions(prev => prev.filter(s => s.id !== sessionId));
-            if (currentSessionId === sessionId) {
-                setCurrentSessionId(null);
-                setView('list');
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Delete Conversation',
+                message: 'Are you sure you want to permanently delete this chat history? This action cannot be undone.',
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Keep Chat',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Delete History',
+                        primary: true,
+                        onClick: () => {
+                            setSessions(prev => prev.filter(s => s.id !== sessionId));
+                            if (currentSessionId === sessionId) {
+                                setCurrentSessionId(null);
+                                setView('list');
+                            }
+                            window.dispatchEvent(new CustomEvent('system-toast', {
+                                detail: {
+                                    title: 'Session Purged',
+                                    message: 'The conversation history has been removed from your local cache.',
+                                    type: 'info'
+                                }
+                            }));
+                        }
+                    }
+                ]
             }
-        }
+        }));
     };
 
     const renderText = (text: string) => {

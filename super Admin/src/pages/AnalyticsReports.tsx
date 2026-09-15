@@ -109,19 +109,10 @@ const AnalyticsReports: React.FC = () => {
                         <h4>Engagement Funnel</h4>
                     </div>
                     <div className="funnel-container">
-                        {[
-                            { step: 'Registration', val: '1,240', drop: '0%' },
-                            { step: 'Setup', val: '850', drop: '31% drop' },
-                            { step: 'Connection', val: '720', drop: '15% drop' },
-                            { step: 'Pro Activation', val: '450', drop: '37% drop' }
-                        ].map((s, i) => (
-                            <div key={i} className="funnel-step" style={{ opacity: 1 - (i * 0.1), width: `${100 - (i * 8)}%`, margin: '0 auto' }}>
-                                <span>{s.step}</span>
-                                <div className="text-right">
-                                    <div className="text-xs font-black text-purple-700">{s.val}</div>
-                                </div>
-                            </div>
-                        ))}
+                        {/* Dynamic funnel logic would go here. Defaulting to empty state for now. */}
+                        <div className="flex items-center justify-center h-40 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                            No Engagement Data Found
+                        </div>
                     </div>
                 </div>
             </div>
@@ -132,28 +123,21 @@ const AnalyticsReports: React.FC = () => {
                     <div className="flex gap-4">
                         <div className="flex-1 p-6 bg-slate-50 rounded-3xl">
                             <span className="text-[10px] font-black uppercase opacity-40">DAU/MAU</span>
-                            <div className="text-3xl font-black text-purple-600">84%</div>
+                            <div className="text-3xl font-black text-purple-600">0%</div>
                         </div>
                         <div className="flex-1 p-6 bg-slate-50 rounded-3xl">
                             <span className="text-[10px] font-black uppercase opacity-40">Retention</span>
-                            <div className="text-3xl font-black text-cyan-500">96%</div>
+                            <div className="text-3xl font-black text-cyan-500">0%</div>
                         </div>
                     </div>
                 </div>
                 <div className="dp-intelligence-card">
                     <div className="card-label-row"><h4>Regional Distribution</h4></div>
                     <div className="space-y-4">
-                        {[{ county: 'Nairobi', share: 45 }, { county: 'Mombasa', share: 22 }].map(c => (
-                            <div key={c.county} className="region-row">
-                                <div className="flex justify-between text-[10px] font-bold mb-1">
-                                    <span>{c.county}</span>
-                                    <span>{c.share}%</span>
-                                </div>
-                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-purple-500" style={{ width: `${c.share}%` }} />
-                                </div>
-                            </div>
-                        ))}
+                        {/* Regional data would be fetched from database. Defaulting to empty state. */}
+                        <div className="text-[10px] font-black text-slate-300 uppercase py-8 text-center tracking-widest">
+                            Scanning Distribution Hub...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -256,18 +240,11 @@ const AnalyticsReports: React.FC = () => {
                         <tr><th>Archive Identifier</th><th>Classification</th><th>Certified Date</th><th>Magnitude</th><th className="text-right">Action</th></tr>
                     </thead>
                     <tbody>
-                        {[
-                            { name: 'Monthly Revenue - Feb 2026', type: 'Tax compliant', date: 'Mar 1, 2026', size: '2.4 MB' },
-                            { name: 'KRA P10 - Annual Summary', type: 'KRA/PDF', date: 'Feb 15, 2026', size: '1.8 MB' }
-                        ].map((r, i) => (
-                            <tr key={i}>
-                                <td className="font-bold">{r.name}</td>
-                                <td><span className="text-[10px] font-black uppercase opacity-40">{r.type}</span></td>
-                                <td className="text-xs font-bold">{r.date}</td>
-                                <td className="text-[10px] font-mono opacity-50">{r.size}</td>
-                                <td className="text-right"><button className="action-circle view"><FiDownload /></button></td>
-                            </tr>
-                        ))}
+                        <tr>
+                            <td colSpan={5} className="text-center py-20 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                                No Archived Reports Available
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

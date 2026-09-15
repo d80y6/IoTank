@@ -1,10 +1,10 @@
-/* GlobalToast.css - Industrial Action Queue Notification System */
+/* GlobalToast.css - Minimalist Toast Notification System */
 
 .precision-toast-stack {
     position: fixed;
     top: 24px;
     right: 24px;
-    z-index: 99999; /* Ensure high visibility over modals */
+    z-index: 99999;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -16,7 +16,7 @@
 .precision-toast-container {
     width: 360px;
     pointer-events: auto;
-    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
     transform: translateX(50px) scale(0.95);
     opacity: 0;
 }
@@ -29,123 +29,142 @@
 .precision-toast-container.exiting {
     transform: translateX(50px) scale(0.95);
     opacity: 0;
-    margin-bottom: -100px; /* Collapse the gap during exit */
+    margin-bottom: -100px;
 }
 
 .precision-toast-card-industrial {
     position: relative;
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 
-        0 20px 40px -10px rgba(0, 0, 0, 0.12),
-        0 0 0 1px rgba(0, 0, 0, 0.02) inset;
-    overflow: hidden;
-    padding: 1.25rem;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    padding: 0.875rem 1rem;
     display: flex;
-    flex-direction: column;
-}
-
-.toast-body-industrial {
-    display: flex;
-    gap: 1.25rem;
+    flex-direction: row;
+    gap: 0.875rem;
     align-items: flex-start;
 }
 
-.toast-pill-wrapper {
+.toast-icon-col {
     flex-shrink: 0;
+    margin-top: 2px;
 }
 
-.industrial-pill {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: inline-block;
-}
-
-/* Severity Colors to match Action Queue */
-.pill-error { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
-.pill-success { background: #ecfdf5; color: #059669; border: 1px solid #d1fae5; }
-.pill-info { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
-.pill-market { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
-.pill-refill { background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8; }
-.status-default .industrial-pill { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; } /* WATCH */
-
-.toast-content-industrial {
+.toast-content-col {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
 }
 
-.toast-title-industrial {
+.toast-title-row h4.toast-title-industrial {
     font-size: 14px;
-    font-weight: 850;
-    color: #1e293b;
-    letter-spacing: -0.02em;
+    font-weight: 600;
     line-height: 1.2;
+    margin: 0;
 }
 
 .toast-message-industrial {
-    font-size: 12px;
-    color: #64748b;
-    line-height: 1.5;
-    font-weight: 500;
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
 }
 
-.toast-footer-industrial {
+.toast-action-row {
     margin-top: 0.5rem;
 }
 
 .toast-action-link {
-    font-size: 11px;
-    font-weight: 850;
-    color: #4f46e5;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.toast-action-link:hover {
+    opacity: 0.8;
 }
 
-.toast-action-link:hover {
-    color: #4338ca;
-    gap: 6px;
+.toast-action-btn-industrial {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: inherit;
+}
+
+.toast-action-btn-industrial:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.toast-action-btn-industrial.primary {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-color: rgba(0, 0, 0, 0.9);
+}
+
+.toast-action-btn-industrial.primary:hover {
+    background: rgba(0, 0, 0, 1);
 }
 
 .toast-close-mini {
     background: transparent;
     border: none;
-    color: #cbd5e1;
     cursor: pointer;
     padding: 2px;
+    margin-top: 2px;
+    margin-right: -4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s;
+    transition: opacity 0.2s ease;
 }
 
 .toast-close-mini:hover {
-    color: #64748b;
+    opacity: 0.7;
 }
 
 .toast-progress-industrial {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: rgba(0, 0, 0, 0.02);
+    display: none; /* Removed the progress bar */
 }
 
-.toast-progress-bar-industrial {
-    height: 100%;
-    background: #cbd5e1;
-    transition: width 0.1s linear;
-}
+/* Specific Status Colors matching reference image */
 
-.status-error .toast-progress-bar-industrial { background: #e11d48; }
-.status-success .toast-progress-bar-industrial { background: #059669; }
+.status-success { 
+    background: #edf7ed; 
+    border-left: 4px solid #4caf50; 
+}
+.status-success .toast-icon-col { color: #4caf50; }
+.status-success .toast-title-industrial, .status-success .toast-message-industrial, .status-success .toast-action-link { color: #1e4620; }
+.status-success .toast-close-mini { color: #81c784; }
+
+.status-warning { 
+    background: #fff4e5; 
+    border-left: 4px solid #ff9800; 
+}
+.status-warning .toast-icon-col { color: #ff9800; }
+.status-warning .toast-title-industrial, .status-warning .toast-message-industrial, .status-warning .toast-action-link { color: #663c00; }
+.status-warning .toast-close-mini { color: #ffb74d; }
+
+.status-error { 
+    background: #fdeded; 
+    border-left: 4px solid #ef5350; 
+}
+.status-error .toast-icon-col { color: #ef5350; }
+.status-error .toast-title-industrial, .status-error .toast-message-industrial, .status-error .toast-action-link { color: #5f2120; }
+.status-error .toast-close-mini { color: #e57373; }
+
+.status-info, .status-market, .status-refill { 
+    background: #e5f6fd; 
+    border-left: 4px solid #03a9f4; 
+}
+.status-info .toast-icon-col, .status-market .toast-icon-col, .status-refill .toast-icon-col { color: #03a9f4; }
+.status-info .toast-title-industrial, .status-info .toast-message-industrial, .status-info .toast-action-link,
+.status-market .toast-title-industrial, .status-market .toast-message-industrial, .status-market .toast-action-link,
+.status-refill .toast-title-industrial, .status-refill .toast-message-industrial, .status-refill .toast-action-link { color: #014361; }
+.status-info .toast-close-mini, .status-market .toast-close-mini, .status-refill .toast-close-mini { color: #4fc3f7; }

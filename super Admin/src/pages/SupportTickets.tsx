@@ -112,7 +112,13 @@ const SupportTickets: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
             await fetchMessages(selectedTicket.id);
         } catch (error) {
             console.error('Error sending response:', error);
-            alert('Failed to send response.');
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Transmission Error',
+                    message: 'Failed to dispatch administrative response. Verify connectivity and try again.',
+                    type: 'error'
+                }
+            }));
         } finally {
             setSendingResponse(false);
         }

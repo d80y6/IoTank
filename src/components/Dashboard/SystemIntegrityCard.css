@@ -1,134 +1,147 @@
 /* src/components/Dashboard/SystemIntegrityCard.css */
 
-.protocol-guard-card {
+:root {
+    --integrity-bg: #ffffff;
+    --integrity-border: #e2e8f0;
+    --integrity-text-main: #0f172a;
+    --integrity-text-muted: #64748b;
+    --integrity-accent: #6366f1;
+    --integrity-success: #10b981;
+    --integrity-warning: #f59e0b;
+    --integrity-danger: #ef4444;
+}
+
+.system-integrity-card {
+    background: var(--integrity-bg);
+    border: 1px solid var(--integrity-border);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
     position: relative;
     overflow: hidden;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    background: linear-gradient(165deg, #ffffff 0%, #f0fdf4 100%);
-    border: 1px solid rgba(16, 185, 129, 0.15);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.protocol-guard-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: 
-        radial-gradient(circle at 2px 2px, rgba(16, 185, 129, 0.05) 1px, transparent 0);
-    background-size: 24px 24px;
-    opacity: 0.5;
-    pointer-events: none;
+.system-integrity-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+    border-color: var(--integrity-accent);
 }
 
-.protocol-guard-card:hover {
-    transform: translateY(-8px) scale(1.01);
-    box-shadow: 0 30px 60px -12px rgba(16, 185, 129, 0.15),
-                0 18px 36px -18px rgba(0, 0, 0, 0.1);
-    border-color: rgba(16, 185, 129, 0.3);
-}
-
-.guard-pulse-core {
-    position: relative;
-    width: 48px;
-    height: 48px;
+/* --- Header Section --- */
+.integrity-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 0.75rem;
-}
-
-.pulse-ring {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 20px;
-    background: rgba(16, 185, 129, 0.1);
-    animation: guardPulse 3s infinite;
-}
-
-.pulse-ring:nth-child(2) {
-    animation-delay: 1s;
-}
-
-@keyframes guardPulse {
-    0% {
-        transform: scale(0.95);
-        opacity: 0.8;
-    }
-    50% {
-        transform: scale(1.4);
-        opacity: 0;
-    }
-    100% {
-        transform: scale(0.95);
-        opacity: 0;
-    }
-}
-
-.guard-icon-box {
-    position: relative;
-    z-index: 2;
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.4);
-}
-.guard-icon-box svg {
-    width: 16px;
-    height: 16px;
-}
-
-.security-hud-metric {
-    background: rgba(255, 255, 255, 0.6);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    border-radius: 18px;
-    padding: 0.65rem 0.85rem;
-    transition: all 0.3s ease;
-}
-
-.security-hud-metric:hover {
-    background: #ffffff;
-    border-color: rgba(16, 185, 129, 0.2);
-    transform: translateX(4px);
-}
-
-.status-active-glow {
-    width: 8px;
-    height: 8px;
-    background: #10b981;
-    border-radius: 50%;
-    box-shadow: 0 0 12px #10b981;
-    animation: statusGlow 2s infinite;
-}
-
-@keyframes statusGlow {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.2); }
-}
-
-.terminal-id-box {
-    background: #0f172a;
-    border-radius: 12px;
-    padding: 0.6rem 1rem;
-    font-family: 'Fira Code', 'Roboto Mono', monospace;
-    color: #94a3b8;
-    font-size: 0.7rem;
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    align-items: center;
 }
 
-.terminal-id-box .glitch-text {
-    color: #10b981;
-    font-weight: 700;
+.integrity-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
+
+.integrity-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--integrity-text-muted);
+}
+
+.integrity-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--integrity-text-main);
+    letter-spacing: -0.02em;
+}
+
+.accuracy-badge {
+    padding: 6px 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--integrity-text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.status-pulse.healthy { background: var(--integrity-success); box-shadow: 0 0 10px var(--integrity-success); animation: pulse-green 2s infinite; }
+.status-pulse.warning { background: var(--integrity-warning); box-shadow: 0 0 10px var(--integrity-warning); animation: pulse-orange 2s infinite; }
+.status-pulse.critical { background: var(--integrity-danger); box-shadow: 0 0 10px var(--integrity-danger); animation: pulse-red 2s infinite; }
+
+@keyframes pulse-green { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+@keyframes pulse-orange { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+@keyframes pulse-red { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+
+/* --- Metrics Grid --- */
+.integrity-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.integrity-metric-item {
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.metric-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--integrity-text-muted);
+}
+
+.metric-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--integrity-text-main);
+    font-family: 'Roboto Mono', monospace;
+}
+
+
+
+/* --- Footer --- */
+.integrity-footer {
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px dashed #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.secure-node-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.node-id-chip {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    background: #ede9fe;
+    color: #6366f1;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #ddd6fe;
+}
+

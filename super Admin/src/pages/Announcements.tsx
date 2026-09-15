@@ -57,11 +57,23 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
 
     const handleSend = async () => {
         if (!subject || !body) {
-            alert("Please provide both a subject and a message body.");
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Incomplete Broadcast',
+                    message: 'Please provide both a subject and a message body.',
+                    type: 'warning'
+                }
+            }));
             return;
         }
         if (selectedChannels.length === 0) {
-            alert("Select at least one delivery channel.");
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Channel Error',
+                    message: 'Select at least one delivery channel for transmission.',
+                    type: 'warning'
+                }
+            }));
             return;
         }
         setIsSending(true);
@@ -76,13 +88,25 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
             });
             if (error) throw error;
             
-            alert("Announcement broadcasted successfully!");
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Broadcast Successful',
+                    message: 'The announcement has been queued and transmitted to all selected channels.',
+                    type: 'success'
+                }
+            }));
             setSubject('');
             setBody('');
             await fetchData();
             setActiveTab('history');
         } catch (error: any) {
-            alert("Broadcast Failed: " + error.message);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Broadcast Failed',
+                    message: error.message || 'An unexpected error occurred during transmission.',
+                    type: 'error'
+                }
+            }));
         } finally {
             setIsSending(false);
         }

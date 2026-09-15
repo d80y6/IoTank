@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import Cropper, { Point, Area } from 'react-easy-crop';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiCheck, FiRefreshCw } from 'react-icons/fi';
+import { logger } from '@/utils/logger';
 import './ImageCropperModal.css';
 
 interface ImageCropperModalProps {
@@ -115,8 +116,15 @@ export const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
             const croppedBlob = await getCroppedImg(image, croppedAreaPixels, rotation, cropObjectFit);
             onCropComplete(croppedBlob);
         } catch (e) {
-            console.error(e);
-            alert('Failed to process image crop.');
+            logger.error('Image crop failed', e);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Crop Failed',
+                    message: 'Failed to process image crop.',
+                    type: 'error',
+                    attribution: 'IMAGE PROCESSOR'
+                }
+            }));
         } finally {
             setIsProcessing(false);
         }

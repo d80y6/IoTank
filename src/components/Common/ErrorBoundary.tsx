@@ -1,5 +1,6 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 import { FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
+import { logger } from '@/utils/logger';
 
 interface Props {
     children: ReactNode;
@@ -22,7 +23,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error('Uncaught error:', error, errorInfo);
+        logger.error('Uncaught error:', { error, errorInfo }, 'ErrorBoundary');
     }
 
     private handleReset = () => {

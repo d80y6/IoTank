@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
     MdDashboard,
-    MdStorage,
+    MdList,
     MdBarChart,
     MdTrendingUp,
     MdWarning,
@@ -13,13 +13,14 @@ import {
     MdHelp,
     MdOutlineEventNote,
     MdCreditCard,
+    MdAssignment,
 } from 'react-icons/md';
 import { prefetch } from '@/utils/prefetch';
 import * as Factories from '@/App';
 
 import { FiHome, FiTruck } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
-import { enableGovernanceConsole } from '@/config/supabase';
+// import { enableGovernanceConsole } from '@/config/supabase'; // Governance console disabled to resolve unused variable warning
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -65,23 +66,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     const menuItems = [
-        { name: 'Core Operations', isSection: true, path: 'sec-core', level: 8 },
+        { name: 'CORE OPERATIONS', isSection: true, path: 'sec-core', level: 8 },
         { name: t('dashboard'), path: '/dashboard', icon: <MdDashboard />, level: 8 },
-        { name: t('inventory'), path: '/inventory', icon: <MdStorage />, level: 8 },
-        { name: 'Shift Audit', path: '/shifts', icon: <MdOutlineEventNote />, level: 6 },
+        { name: t('inventory'), path: '/inventory', icon: <MdList />, level: 8 },
+        { name: 'Shift Audit', path: '/shifts', icon: <MdAssignment />, level: 6 },
         { name: 'Deliveries', path: '/deliveries', icon: <FiTruck />, level: 6 },
-        { name: t('analytics'), path: '/analytics', icon: <MdBarChart />, level: 6 },
+        { name: 'Intelligence Hub', path: '/analytics', icon: <MdBarChart />, level: 6 },
 
-        { name: 'Intelligence & Monitoring', isSection: true, path: 'sec-intel', level: 8 },
+        { name: 'INTELLIGENCE & MONITORING', isSection: true, path: 'sec-intel', level: 8 },
         { name: 'Event Log', path: '/event-log', icon: <MdOutlineEventNote />, level: 6 },
-        { name: t('market'), path: '/market', icon: <MdTrendingUp />, level: 8 },
+        { name: 'Market Intelligence', path: '/market', icon: <MdTrendingUp />, level: 8 },
         { name: t('alerts'), path: '/alerts', icon: <MdWarning />, level: 8 },
         { name: t('reporting'), path: '/reporting', icon: <MdAssessment />, level: 6 },
 
-        { name: 'Administration', isSection: true, path: 'sec-admin', level: 6 },
+        { name: 'ADMINISTRATION', isSection: true, path: 'sec-admin', level: 5 },
         { name: 'User Management', path: '/users', icon: <MdSecurity />, level: 5 },
-        { name: 'Billing & Usage', path: '/billing', icon: <MdCreditCard />, level: 5 },
-        ...(enableGovernanceConsole ? [{ name: t('governance'), path: '/governance', icon: <MdSecurity />, level: 4 }] : []),
+        { name: 'Payment', path: '/billing', icon: <MdCreditCard />, level: 5 },
         { name: t('settings'), path: '/settings', icon: <MdSettings />, level: 5 },
         { name: t('help'), path: '/help', icon: <MdHelp />, level: 8 },
     ].filter(item => canSee(item.level));

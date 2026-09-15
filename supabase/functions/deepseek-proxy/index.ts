@@ -3,7 +3,7 @@
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 import { enforceDurableRateLimit, requireProxyScope } from '../_shared/auth.ts'
-import { CHAT_PROJECT_CONTEXT, buildIntelligencePrompt, sanitizeContextForAI } from '../_shared/prompts.ts'
+import { CHAT_PROJECT_CONTEXT, buildIntelligencePrompt, sanitizeContextForAI, buildDirectivePrompt } from '../_shared/prompts.ts'
 declare const Deno: any;
 
 const MAX_PER_WINDOW = 15;
@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // HIGH-002: DeepSeek is TankIQ only — always require a real authenticated account
     const authz = await requireProxyScope(req, corsHeaders);
     if ('response' in authz) return authz.response;
 
@@ -32,11 +31,17 @@ Deno.serve(async (req) => {
           ...(body.messages || [])
        ];
     } else if (action === 'intelligence') {
-       // MED-004: Sanitize context before sending to AI
        const safeSignals = (context?.signals || []).map((s: any) => sanitizeContextForAI(JSON.stringify(s)));
        const safeRisks   = (context?.risks   || []).map((r: any) => sanitizeContextForAI(JSON.stringify(r)));
        const safeNotices = (context?.notices || []).map((n: any) => sanitizeContextForAI(JSON.stringify(n)));
-       const systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices);
+       const safeInventory = (context?.inventory || []);
+
+       let systemPrompt;
+       if (context?.signal) {
+         systemPrompt = buildDirectivePrompt(context.signal, safeInventory);
+       } else {
+         systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices, safeInventory);
+       }
        body.messages = [{ role: 'user', content: systemPrompt }];
     } else {
        return new Response(JSON.stringify({ error: 'Valid action (chat or intelligence) is required' }), {
@@ -44,29 +49,47 @@ Deno.serve(async (req) => {
        });
     }
 
-    const payloadString = JSON.stringify(body);
-    if (payloadString.length > 102400) {
-      return new Response(JSON.stringify({ error: 'Payload size exceeds 100KB safety limit' }), {
-        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Key Rotation Logic
+    const apiKeys = [
+      Deno.env.get('DEEPSEEK_API_KEY'),
+      Deno.env.get('DEEPSEEK_API_KEY_2')
+    ].filter(Boolean);
+
+    if (apiKeys.length === 0) throw new Error('No DeepSeek API keys configured');
+
+    let lastError: any = null;
+    for (const key of apiKeys) {
+      try {
+        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (response.status === 429) {
+          console.warn(`DeepSeek key rotation: 429 encountered, trying next key...`);
+          continue;
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`DeepSeek API error: ${errorText}`);
+        }
+
+        const data = await response.json();
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        lastError = err;
+        console.error(`DeepSeek key attempt failed:`, err.message);
+      }
     }
 
-    const apiKey = Deno.env.get('DEEPSEEK_API_KEY')
-    if (!apiKey) throw new Error('DeepSeek API key not configured')
-
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body)
-    })
-
-    const data = await response.json()
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    throw lastError || new Error('All DeepSeek keys failed');
 
   } catch (error: any) {
     console.error('DeepSeek proxy error:', error.message);

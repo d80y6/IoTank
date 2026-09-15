@@ -51,36 +51,112 @@ const ClientDetails = () => {
             setIsAdjustingDebt(false);
             setAdjustmentAmount('');
             setAdjustmentReason('');
-            alert("Debt adjusted successfully!");
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Debt Adjusted',
+                    message: `Liability for ${client.station_name} has been modified in the ledger.`,
+                    type: 'success'
+                }
+            }));
         } catch (err: any) {
-            alert("Error adjusting debt: " + err.message);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Adjustment Failed',
+                    message: err.message,
+                    type: 'error'
+                }
+            }));
         }
     };
 
     const handleSuspend = async () => {
-        if (!id || !window.confirm("Are you sure you want to suspend this account?")) return;
-        const reason = window.prompt("Reason for suspension:");
-        if (!reason) return;
-        try {
-            await clientsService.suspendClient(id, reason);
-            const data = await clientsService.getClientById(id);
-            setClient(data);
-            alert("Account suspended.");
-        } catch (err: any) {
-            alert("Error: " + err.message);
-        }
+        if (!id) return;
+        
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Suspension',
+                message: `Suspend all operational access for ${client.station_name}? This will interrupt telemetry and billing.`,
+                type: 'warning',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Abort',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Suspend Node',
+                        primary: true,
+                        onClick: async () => {
+                            try {
+                                await clientsService.suspendClient(id, 'Administrative suspension initiated via Super Admin.');
+                                const data = await clientsService.getClientById(id);
+                                setClient(data);
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Node Suspended',
+                                        message: 'Operational credentials have been revoked.',
+                                        type: 'info'
+                                    }
+                                }));
+                            } catch (err: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Suspension Failed',
+                                        message: err.message,
+                                        type: 'error'
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     const handleReactivate = async () => {
-        if (!id || !window.confirm("Reactivate all services for this subject?")) return;
-        try {
-            await clientsService.reactivateClient(id);
-            const data = await clientsService.getClientById(id);
-            setClient(data);
-            alert("Services reactivated successfully.");
-        } catch (err: any) {
-            alert("Error: " + err.message);
-        }
+        if (!id) return;
+        
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Confirm Reactivation',
+                message: `Restore full services and telemetry for ${client.station_name}?`,
+                type: 'info',
+                persistent: true,
+                actions: [
+                    {
+                        label: 'Cancel',
+                        onClick: () => {}
+                    },
+                    {
+                        label: 'Restore Services',
+                        primary: true,
+                        onClick: async () => {
+                            try {
+                                await clientsService.reactivateClient(id);
+                                const data = await clientsService.getClientById(id);
+                                setClient(data);
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Node Reactivated',
+                                        message: 'All platform services have been synchronized.',
+                                        type: 'success'
+                                    }
+                                }));
+                            } catch (err: any) {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Restoration Failed',
+                                        message: err.message,
+                                        type: 'error'
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                ]
+            }
+        }));
     };
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -91,9 +167,21 @@ const ClientDetails = () => {
             const data = await clientsService.getClientById(id);
             setClient(data);
             setIsUpdatingProfile(false);
-            alert("Profile updated successfully!");
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Profile Updated',
+                    message: 'Master registration details have been committed.',
+                    type: 'success'
+                }
+            }));
         } catch (err: any) {
-            alert("Error: " + err.message);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Update Error',
+                    message: err.message,
+                    type: 'error'
+                }
+            }));
         }
     };
 
@@ -111,9 +199,21 @@ const ClientDetails = () => {
             setClient(data);
             setIsRecordingPayment(false);
             setPaymentData({ amount: '', method: 'M-PESA', reference: '' });
-            alert("Payment recorded successfully!");
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Remittance Recorded',
+                    message: 'External payment has been applied to the ledger.',
+                    type: 'success'
+                }
+            }));
         } catch (err: any) {
-            alert("Error: " + err.message);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Recording Failed',
+                    message: err.message,
+                    type: 'error'
+                }
+            }));
         }
     };
 
@@ -379,9 +479,21 @@ const ClientDetails = () => {
                                             const data = await clientsService.getClientById(client.station_id);
                                             setClient(data);
                                             setIsAddingTank(false);
-                                            alert("tank added successfully!");
+                                            window.dispatchEvent(new CustomEvent('system-toast', {
+                                                detail: {
+                                                    title: 'Tank Initialized',
+                                                    message: `New storage endpoint "${newTank.name}" has been provisioned.`,
+                                                    type: 'success'
+                                                }
+                                            }));
                                         } catch (err: any) {
-                                            alert("error: " + err.message);
+                                            window.dispatchEvent(new CustomEvent('system-toast', {
+                                                detail: {
+                                                    title: 'Provisioning Error',
+                                                    message: err.message,
+                                                    type: 'error'
+                                                }
+                                            }));
                                         }
                                     }} className="btn btn-primary flex-1 font-black">initialize tank</button>
                                 </div>

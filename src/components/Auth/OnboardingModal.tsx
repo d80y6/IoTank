@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FiCheckCircle, FiChevronRight, FiChevronLeft, FiMapPin, FiBox, FiCpu } from 'react-icons/fi';
 import { supabase } from '@/config/supabase';
 import { User, Tank } from '@/types';
+import { logger } from '@/utils/logger';
 import './OnboardingModal.css';
 
 interface OnboardingModalProps {
@@ -95,7 +96,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, user, 
                     site_id: siteId,
                     auth_user_id: authUserId,
                     tank_name: tankInfo.name,
-                    fuel_type: tankInfo.fuelType === 'gasoline' ? 'petrol' : tankInfo.fuelType,
+                    fuel_type: tankInfo.fuelType,
                     tank_capacity: tankInfo.capacity,
                     status: 'active'
                 });
@@ -103,10 +104,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, user, 
 
             onComplete();
         } catch (error: any) {
-            console.error(`Onboarding Save Error (${saveStatus}):`, error);
+            logger.error(`Onboarding Save Error (${saveStatus}):`, error);
             const errorMsg = error.message || 'Unknown error';
             setLoading(false);
-            alert(`Initialization failed at step: [${saveStatus}]. \n\nError: ${errorMsg}\n\nPlease try again or contact support.`);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Initialization Failed',
+                    message: `Failed at step: [${saveStatus}]\n\nError: ${errorMsg}\n\nPlease try again or contact support.`,
+                    type: 'error',
+                    attribution: 'PROVISIONING SYSTEM'
+                }
+            }));
         } finally {
             setLoading(false);
             setSaveStatus('');
@@ -225,9 +233,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, user, 
                                         onChange={e => setTankInfo({ ...tankInfo, fuelType: e.target.value as Tank['fuelType'] })}
                                     >
                                         <option value="diesel">Diesel</option>
-                                        <option value="gasoline">Gasoline</option>
+                                        <option value="petrol">Petrol/Gasoline</option>
                                         <option value="kerosene">Kerosene</option>
-                                        <option value="jet-fuel">Jet Fuel</option>
+                                        <option value="jet_fuel">Jet Fuel</option>
                                         <option value="biodiesel">Biodiesel</option>
                                     </select>
                                 </div>

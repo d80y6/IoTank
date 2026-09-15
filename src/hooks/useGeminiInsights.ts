@@ -6,6 +6,7 @@ import { useMarketIntelligence } from './useMarketIntelligence';
 import { useTanks } from './useSupabase';
 import { IntelligenceAIService } from '@/services/IntelligenceAIService';
 import { generateTankAwareInsights } from '@/utils/tankAwareIntelligence';
+import { logger } from '@/utils/logger';
 
 /**
  * Hook to fetch AI insights for a specific tank with integrated market intelligence and failover
@@ -22,14 +23,6 @@ export function useGeminiInsights(stationId: string, tankId?: string) {
         setLoading(true);
         setError(null);
 
-        const useLive = !!(geminiConfig?.apiKey || groqConfig?.apiKey || deepSeekConfig?.apiKey);
-
-        if (!useLive) {
-            setInsights([]);
-            setLoading(false);
-            return;
-        }
-
         try {
             const service = new IntelligenceAIService({
                 gemini: geminiConfig ? { apiKey: geminiConfig.apiKey } : undefined,
@@ -38,10 +31,10 @@ export function useGeminiInsights(stationId: string, tankId?: string) {
             });
 
             // Use tank-aware intelligence generation
-            const tankAwareInsights = await generateTankAwareInsights(tanks, signals, risks, service);
+            const tankAwareInsights = await generateTankAwareInsights(tanks, signals, risks, notices, service);
             setInsights(tankAwareInsights);
         } catch (err) {
-            console.error('Error fetching AI insights (Failover exhausted):', err);
+            logger.error('[useGeminiInsights] Error fetching AI insights (Failover exhausted):', err);
             setError(err as Error);
             setInsights([]);
         } finally {
@@ -53,7 +46,7 @@ export function useGeminiInsights(stationId: string, tankId?: string) {
         if (stationId) {
             fetchInsights();
         }
-    }, [stationId, tankId, geminiConfig?.apiKey, signals.length]);
+    }, [stationId, fetchInsights]);
 
     return { insights, loading, error, refetch: fetchInsights };
 }
