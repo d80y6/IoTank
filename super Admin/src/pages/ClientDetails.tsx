@@ -443,18 +443,18 @@ const ClientDetails = () => {
                                 </div>
                                 <div className="input-group-premium">
                                     <label>fuel specification</label>
-                                    <select 
-                                        className="input-premium"
-                                        value={newTank.type}
-                                        onChange={(e) => setNewTank({ ...newTank, type: e.target.value })}
-                                    >
-                                        <option>super petrol (unleaded premium)</option>
-                                        <option>diesel (automotive gas oil)</option>
-                                        <option>kerosene (illuminating paraffin)</option>
-                                        <option>liquefied petroleum gas (lpg/cooking gas)</option>
-                                        <option>compressed natural gas (cng)</option>
-                                        <option>premium/premium additive fuels</option>
-                                    </select>
+                                    <select
+    					className="input-premium"
+    					value={newTank.type}
+    					onChange={(e) => setNewTank({ ...newTank, type: e.target.value })}
+				    >
+    					<option value="Petrol">super petrol (unleaded premium)</option>
+    					<option value="Diesel">diesel (automotive gas oil)</option>
+    					<option value="Kerosene">kerosene (illuminating paraffin)</option>
+					<option value="LPG">liquefied petroleum gas (lpg/cooking gas)</option>
+    					<option value="CNG">compressed natural gas (cng)</option>
+					<option value="Premium">premium/premium additive fuels</option>
+				   </select>
                                 </div>
                                 <div className="input-group-premium">
                                     <label>total capacity (litres)</label>

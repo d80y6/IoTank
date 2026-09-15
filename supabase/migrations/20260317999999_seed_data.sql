@@ -1,3 +1,0 @@
--- supabase/migrations/20260317999999_seed_data.sql
--- Seed data cleared at user request to ensure a completely clean slate for station-centric architecture.
--- This file is kept as a placeholder to maintain migration history.

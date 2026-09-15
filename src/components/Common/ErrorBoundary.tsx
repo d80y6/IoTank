@@ -1,6 +1,6 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 import { FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
-import { logger } from '@/utils/logger';
+import { logger } from '../../utils/logger';
 
 interface Props {
     children: ReactNode;

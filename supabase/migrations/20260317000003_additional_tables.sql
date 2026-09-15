@@ -1,3 +1,0 @@
--- supabase/migrations/20260317000003_additional_tables.sql
--- Table definitions for profiles, shift_closures, and user_preferences moved to initial_schema.sql (000000)
--- to ensure architectural stability during nuclear resets.

@@ -1,2 +1,0 @@
--- supabase/migrations/20260405000002_sync.sql
--- Synchronising with remote migration history for version 20260405000002
