@@ -1,2 +1,0 @@
-src/components/Dashboard/TankDetailModal.tsx(189,46): error TS2322: Type '{ orgId: string; tankId: string; }' is not assignable to type 'IntrinsicAttributes & PredictivePanelProps'.
-  Property 'orgId' does not exist on type 'IntrinsicAttributes & PredictivePanelProps'.

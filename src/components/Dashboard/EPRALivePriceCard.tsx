@@ -1,8 +1,12 @@
 import React from 'react';
 import { useMarketIntelligence } from '@/hooks/useMarketIntelligence';
+import { currencySymbolOf } from '@/lib/jurisdiction';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 
 export const EPRALivePriceCard: React.FC<{ stationId: string }> = ({ stationId }) => {
     const { prices, loading } = useMarketIntelligence(stationId);
+    const { jurisdiction } = useJurisdiction();
+    const symbol = currencySymbolOf(jurisdiction);
 
     if (loading || !prices || prices.length === 0) return null;
 
@@ -10,7 +14,7 @@ export const EPRALivePriceCard: React.FC<{ stationId: string }> = ({ stationId }
         <div className="epra-price-info-panel animate-in fade-in slide-in-from-top-2 duration-300 mt-6">
             <div className="epra-panel-header">
                 <span className="epra-pulse-dot" />
-                <span className="epra-panel-title">EPRA Live Price Cap (Informational Only)</span>
+                <span className="epra-panel-title">Regulated Price Cap (Informational Only)</span>
             </div>
             <div className="epra-prices-list">
                 {[
@@ -23,7 +27,7 @@ export const EPRALivePriceCard: React.FC<{ stationId: string }> = ({ stationId }
                     return (
                         <div key={grade.type} className="epra-price-item">
                             <span className="epra-fuel-name">{grade.name}</span>
-                            <span className="epra-fuel-val">KES {Number(mp.pricePerLiter).toFixed(2)}/L</span>
+                            <span className="epra-fuel-val">{symbol} {Number(mp.pricePerLiter).toFixed(2)}/L</span>
                         </div>
                     );
                 })}

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from './useAuth';
+import { useJurisdiction } from './useJurisdiction';
 import { supabase } from '@/config/supabase';
 import { logger } from '@/utils/logger';
 
@@ -8,6 +9,7 @@ const EPRA_SNOOZE_DURATION = 60 * 60 * 1000; // 1 hour snooze
 
 export const useEPRANotifier = () => {
     const { currentUser } = useAuth();
+    const { currencySymbol } = useJurisdiction();
 
     useEffect(() => {
         if (!currentUser) return;
@@ -52,7 +54,7 @@ export const useEPRANotifier = () => {
                 window.dispatchEvent(new CustomEvent('system-toast', {
                     detail: {
                         title: '⚠️ EPRA MANDATE: RETAIL PRICE UPDATE REQUIRED',
-                        message: `The system detected new official EPRA price limits for ${data.fuel_type} (KES ${data.price_per_liter}).\n\nYou must update your local retail pump prices immediately to maintain operational margin tracking.`,
+                        message: `The system detected new official regulatory price limits for ${data.fuel_type} (${currencySymbol} ${data.price_per_liter}).\n\nYou must update your local retail pump prices immediately to maintain operational margin tracking.`,
                         type: 'error',
                         persistent: true,
                         actions: [

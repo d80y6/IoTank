@@ -21,6 +21,7 @@ import {
     FiInfo,
 } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { useTanks, updateTank } from '@/hooks/useSupabase';
 import { useMarketIntelligence } from '@/hooks/useMarketIntelligence';
 import { useGeminiInsights } from '@/hooks/useGeminiInsights';
@@ -71,6 +72,7 @@ const NewsCard: React.FC<{
     tanks?: any[];
 }> = ({ article, onBookmark, bookmarked, isArchive, onDelete, onIgnore, tanks }) => {
     const [expanded, setExpanded] = useState(false);
+    const { jurisdiction } = useJurisdiction();
     const isHighPriority = (article.relevanceScore ?? 0) > 0.90;
     const isBookmarked = bookmarked.has(article.id);
     
@@ -198,7 +200,7 @@ const NewsCard: React.FC<{
                             </div>
                             
                             {(() => {
-                                const directive = generateTacticalDirective(article, tanks || []);
+                                const directive = generateTacticalDirective(article, tanks || [], jurisdiction);
                                 const status = directive.status;
                                 const colorClass = directive.colorClass;
                                 const icon = status === 'CRITICAL' ? <FiAlertCircle /> : status === 'CAUTION' ? <FiAlertTriangle /> : <FiCheckCircle />;
@@ -357,6 +359,7 @@ const StatusBanner: React.FC<{
 
 export const MarketPage: React.FC = () => {
     const { currentUser } = useAuth();
+    const { currencySymbol } = useJurisdiction();
     const location = useLocation();
     const stationId = currentUser?.stationId || '00000000-0000-0000-0000-000000000000'; // Prevents PostgREST UUID syntax error during provisional boot
 
@@ -635,7 +638,7 @@ export const MarketPage: React.FC = () => {
                                 
                                 const priceData = prices.find(p => p.fuelType === sourceKey || p.fuelType === ft);
                                 const priceValue = priceData?.pricePerLiter || 0;
-                                const price = priceValue > 0 ? `KES ${priceValue.toFixed(2)}` : '---';
+                                const price = priceValue > 0 ? `${currencySymbol} ${priceValue.toFixed(2)}` : '---';
                                 const metadata = (priceData as any)?.metadata || {};
                                 const isLive = metadata.isLiveExtraction;
                                 const isOfficial = metadata.isOfficial;
@@ -675,7 +678,7 @@ export const MarketPage: React.FC = () => {
 
                             return [
                                 { label: 'Brent Crude', val: brentPrice > 0 ? `$${brentPrice.toFixed(2)}` : '---', unit: brentPrice > 0 ? '/bbl' : '', delta: 'LIVE SYNC', up: true, sub: 'Global benchmark', isLive: (brentData as any)?.metadata?.isLiveExtraction },
-                                { label: 'FX Rate', val: fxPrice > 0 ? `KES ${fxPrice.toFixed(2)}` : '---', unit: '', delta: 'LIVE SYNC', up: true, sub: 'USD/KES Spot', isLive: (fxData as any)?.metadata?.isLiveExtraction },
+                                { label: 'FX Rate', val: fxPrice > 0 ? `${currencySymbol} ${fxPrice.toFixed(2)}` : '---', unit: '', delta: 'LIVE SYNC', up: true, sub: 'USD/KES Spot', isLive: (fxData as any)?.metadata?.isLiveExtraction },
                                 ...fuelPriceCards,
                                 { label: 'OTS Cycle', val: `${daysLeft} days`, unit: '', delta: `${formatMonth(cycleStart)} 15–${formatMonth(cycleEnd)} 14`, up: true, sub: 'Next review countdown' },
                             ].map((kpi: any, idx) => (
@@ -744,7 +747,7 @@ export const MarketPage: React.FC = () => {
                                     </h3>
                                     <p className="text-[11px] text-[#7A7A95] mb-4 leading-relaxed">
                                         EPRA has officially revised {action.fuelType} rates to 
-                                        <span className="text-[#323264] font-bold mx-1">KES {action.newPrice.toFixed(2)}</span>.
+                                        <span className="text-[#323264] font-bold mx-1">{currencySymbol} {action.newPrice.toFixed(2)}</span>.
                                         Variance: {action.metadata.variance ? `${action.metadata.variance > 0 ? '+' : ''}${action.metadata.variance.toFixed(2)}` : 'N/A'}.
                                     </p>
                                     <div className="flex gap-2">
@@ -944,7 +947,7 @@ export const MarketPage: React.FC = () => {
                                             <div className="hidden md:flex items-center gap-6">
                                                 <div className="text-right">
                                                     <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Projected Savings</div>
-                                                    <div className="text-2xl font-black text-accent leading-none">KES 420K</div>
+                                                    <div className="text-2xl font-black text-accent leading-none">{currencySymbol} 420K</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1148,7 +1151,7 @@ export const MarketPage: React.FC = () => {
                         <div className="space-y-4 mb-6">
                             <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/50 to-[#00D4FF]/5 border border-blue-100/50">
                                 <p className="text-xs text-[#4A4A65] leading-relaxed">
-                                    EPRA has revised <span className="font-bold text-[#323264]">{confirmingAction.fuelType}</span> regulated rates to <span className="font-bold text-[#323264]">KES {confirmingAction.newPrice.toFixed(2)}/L</span>.
+                                    EPRA has revised <span className="font-bold text-[#323264]">{confirmingAction.fuelType}</span> regulated rates to <span className="font-bold text-[#323264]">{currencySymbol} {confirmingAction.newPrice.toFixed(2)}/L</span>.
                                 </p>
                                 <p className="text-[11px] text-[#7A7A95] mt-2">
                                     Do you want to automatically adjust the retail price for all <span className="font-semibold">{confirmingAction.fuelType}</span> tanks at your station to match this rate?
@@ -1177,7 +1180,7 @@ export const MarketPage: React.FC = () => {
                                             <div key={t.id} className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                                                 <span className="font-bold text-[#323264] truncate max-w-[80px]">{t.name}</span>
                                                 <span className="text-gray-400">
-                                                    {t.metadata?.retailPrice ? `KES ${t.metadata.retailPrice}` : 'Not set'}
+                                                    {t.metadata?.retailPrice ? `${currencySymbol} ${t.metadata.retailPrice}` : 'Not set'}
                                                 </span>
                                             </div>
                                         ))}
@@ -1217,7 +1220,7 @@ export const MarketPage: React.FC = () => {
                                             window.dispatchEvent(new CustomEvent('system-toast', {
                                                 detail: {
                                                     title: 'Retail Prices Updated',
-                                                    message: `Successfully adjusted retail prices for all ${confirmingAction.fuelType} tanks to KES ${confirmingAction.newPrice.toFixed(2)}/L.`,
+                                                    message: `Successfully adjusted retail prices for all ${confirmingAction.fuelType} tanks to ${currencySymbol} ${confirmingAction.newPrice.toFixed(2)}/L.`,
                                                     type: 'success'
                                                 }
                                             }));
@@ -1227,7 +1230,7 @@ export const MarketPage: React.FC = () => {
                                                 'FINANCE',
                                                 'PRICE_UPDATE',
                                                 stationId,
-                                                `Forensic Price Adjustment: Auto-updated retail prices for ${confirmingAction.fuelType} to KES ${confirmingAction.newPrice.toFixed(2)}`,
+                                                `Forensic Price Adjustment: Auto-updated retail prices for ${confirmingAction.fuelType} to ${currencySymbol} ${confirmingAction.newPrice.toFixed(2)}`,
                                                 'INFO',
                                                 { fuelType: confirmingAction.fuelType, price: confirmingAction.newPrice, tanksCount: targetTanks.length }
                                             );

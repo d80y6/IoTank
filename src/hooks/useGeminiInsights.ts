@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GeminiInsight } from '@/types';
 import { useConfig } from '@/contexts/ConfigContext';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { useMarketIntelligence } from './useMarketIntelligence';
 import { useTanks } from './useSupabase';
 import { IntelligenceAIService } from '@/services/IntelligenceAIService';
@@ -13,6 +14,7 @@ import { logger } from '@/utils/logger';
  */
 export function useGeminiInsights(stationId: string, tankId?: string) {
     const { geminiConfig, groqConfig, deepSeekConfig } = useConfig();
+    const { jurisdiction } = useJurisdiction();
     const { signals, risks, notices } = useMarketIntelligence(stationId);
     const { tanks } = useTanks(stationId);
     const [insights, setInsights] = useState<GeminiInsight[]>([]);
@@ -31,7 +33,7 @@ export function useGeminiInsights(stationId: string, tankId?: string) {
             });
 
             // Use tank-aware intelligence generation
-            const tankAwareInsights = await generateTankAwareInsights(tanks, signals, risks, notices, service);
+            const tankAwareInsights = await generateTankAwareInsights(tanks, signals, risks, notices, service, jurisdiction);
             setInsights(tankAwareInsights);
         } catch (err) {
             logger.error('[useGeminiInsights] Error fetching AI insights (Failover exhausted):', err);

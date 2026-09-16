@@ -176,8 +176,10 @@ export async function generateTankAwareInsights(
   signals: MarketSignal[],
   risks: SupplyRisk[],
   notices: any[],
-  aiService: IntelligenceAIService
+  aiService: IntelligenceAIService,
+  jurisdiction?: { currencySymbol?: string; locale?: string }
 ): Promise<GeminiInsight[]> {
+  const symbol = jurisdiction?.currencySymbol || '$';
   const tankAnalyses = generateTankSpecificAnalysis(tanks, signals, risks);
   const fleetSummary = generateFleetIntelligenceSummary(tankAnalyses);
 
@@ -226,7 +228,7 @@ export async function generateTankAwareInsights(
       id: 'fleet-strategic-summary-fallback',
       type: 'procurement',
       title: `Fleet Strategy: ${fleetSummary.overallRisk} Risk Level`,
-      summary: `Fleet status: ${fleetSummary.criticalTanks} critical tanks. Market analysis shows ${tankAnalyses[0]?.marketFactors.sentiment || 'neutral'} conditions with ${fleetSummary.totalSavingsPotential.toLocaleString()} KES potential savings.`,
+      summary: `Fleet status: ${fleetSummary.criticalTanks} critical tanks. Market analysis shows ${tankAnalyses[0]?.marketFactors.sentiment || 'neutral'} conditions with ${fleetSummary.totalSavingsPotential.toLocaleString()} ${symbol} potential savings.`,
       recommendation: fleetSummary.fleetRecommendation,
       prompt: 'Generate fleet-wide strategic procurement intelligence (Fallback)',
       response: 'Fleet intelligence synthesis complete (Heuristic)',

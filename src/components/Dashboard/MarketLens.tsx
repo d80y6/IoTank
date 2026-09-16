@@ -2,6 +2,7 @@ import { FiExternalLink, FiClock, FiRss, FiCheck } from 'react-icons/fi';
 import React, { useMemo } from 'react';
 import { useMarketNews, VERIFIED_AI_SOURCES } from '@/hooks/useMarketNews';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { useTanks } from '@/hooks/useSupabase';
 import { generateTacticalDirective } from '@/utils/directiveEngine';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +18,7 @@ export const MarketLens: React.FC<MarketLensProps> = () => {
     const stationId = currentUser?.stationId || '00000000-0000-0000-0000-000000000000';
     const { tanks } = useTanks(stationId);
     const { filteredArticles, status, acknowledgeArticle } = useMarketNews();
+    const { jurisdiction } = useJurisdiction();
     const loading = status === 'loading';
     const navigate = useNavigate();
 
@@ -83,7 +85,7 @@ export const MarketLens: React.FC<MarketLensProps> = () => {
                     </div>
                 ) : displayedArticles.length > 0 ? (
                     displayedArticles.map((signal, idx) => {
-                        const directive = generateTacticalDirective(signal, tanks);
+                        const directive = generateTacticalDirective(signal, tanks, jurisdiction);
                         return (
                             <div 
                                 key={signal.id || idx} 

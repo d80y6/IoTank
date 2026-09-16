@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
         const { data: station, error: stationError } = await supabaseAdmin
             .from('fuel_stations')
             .select('*')
-            .eq('id', station_id)
+            .eq('station_id', station_id)
             .single();
 
         if (stationError || !station) throw new Error(`Station not found: ${station_id}`);

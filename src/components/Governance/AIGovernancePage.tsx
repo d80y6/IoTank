@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { supabase } from '@/config/supabase';
 import {
     FiShield, FiActivity, FiCpu, FiDatabase, FiEye,
@@ -24,6 +25,7 @@ interface InferenceLog {
 
 export const AIGovernancePage: React.FC = () => {
     const { canSee, currentUser } = useAuth();
+    const { currencySymbol } = useJurisdiction();
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState<'integrity' | 'data' | 'transparency' | 'risk' | 'reliability' | 'logs' | 'trace' | 'safeguards'>('logs');
@@ -324,7 +326,7 @@ export const AIGovernancePage: React.FC = () => {
                                             <div className="flex justify-between text-[10px]">
                                                 <span className="font-bold text-gray-300">{m}</span>
                                                 <span className="font-mono text-secondary">
-                                                    KES {((inferenceLogs.filter(log => log.model === m).reduce((acc, log) => acc + (log.inputTokens + log.outputTokens), 0) / 1000) * (m.includes('Pro') ? 0.15 : 0.05)).toFixed(2)}
+                                                    {currencySymbol} {((inferenceLogs.filter(log => log.model === m).reduce((acc, log) => acc + (log.inputTokens + log.outputTokens), 0) / 1000) * (m.includes('Pro') ? 0.15 : 0.05)).toFixed(2)}
                                                 </span>
                                             </div>
                                             <div className="w-full bg-surface-darker h-1 rounded-full">
@@ -515,7 +517,7 @@ export const AIGovernancePage: React.FC = () => {
                                     <div className="flex items-center justify-between p-3 bg-surface-darker/30 rounded border border-divider">
                                         <div>
                                             <div className="font-bold text-xs text-white">HIIL Requirement</div>
-                                            <div className="text-[10px] text-secondary">Manual override for decisions &gt; KES 50k.</div>
+                                            <div className="text-[10px] text-secondary">Manual override for decisions &gt; {currencySymbol} 50k.</div>
                                         </div>
                                         <div className="w-10 h-5 bg-accent/30 rounded-full relative cursor-pointer border border-accent/50">
                                             <div className="w-3 h-3 rounded-full bg-accent absolute right-1 top-1"></div>

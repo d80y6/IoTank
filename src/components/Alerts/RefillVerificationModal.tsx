@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fi';
 import { Alert } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { NotificationService } from '@/services/NotificationService';
 import { validateUUID } from '@/utils/sanitization';
 import { logger } from '@/utils/logger';
@@ -30,6 +31,7 @@ function calcTempCorrectedVolume(observedVolume: number, tempC: number, fuelType
 
 export const RefillVerificationModal: React.FC<RefillVerificationModalProps> = ({ alert: alertProp, stationId, onClose }) => {
     const { currentUser } = useAuth();
+    const { currencySymbol, jurisdiction } = useJurisdiction();
     const meta = alertProp.metadata || {};
 
     // ── ATG Sensing Values (Auto-brought from the alert metadata) ─────────────
@@ -280,9 +282,9 @@ export const RefillVerificationModal: React.FC<RefillVerificationModalProps> = (
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Total Cost / Stock Value (KES)</label>
+                                    <label>Total Cost / Stock Value ({jurisdiction.currency})</label>
                                     <div className="rv-input-with-prefix">
-                                        <span className="rv-prefix-badge">KSh</span>
+                                        <span className="rv-prefix-badge">{currencySymbol}</span>
                                         <input
                                             type="number"
                                             value={totalCost}
@@ -297,10 +299,10 @@ export const RefillVerificationModal: React.FC<RefillVerificationModalProps> = (
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Derived Unit Price (KES/L)</label>
+                                    <label>Derived Unit Price ({jurisdiction.currency}/L)</label>
                                     <input
                                         readOnly
-                                        value={`KSh ${unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                                        value={`${currencySymbol} ${unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                                         className="bg-slate-50 font-black text-slate-500 !border-slate-200 cursor-default"
                                     />
                                 </div>

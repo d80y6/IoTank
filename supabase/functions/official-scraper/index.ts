@@ -1,22 +1,16 @@
 // supabase/functions/official-scraper/index.ts
+// Scrapes price-authority sources and publishes official prices to market_prices.
+// The scraping/extraction logic lives in _shared/price-authorities adapters,
+// selected per-jurisdiction via the `regulatory.adapter` config key.
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.40.0"
 import { getCorsHeaders } from "../_shared/cors.ts"
 import { enforceDurableRateLimit, getOptionalProxyScope } from "../_shared/auth.ts"
+import { resolveAuthority } from "../_shared/price-authorities/index.ts"
+import type { PriceAuthorityContext } from "../_shared/price-authorities/types.ts"
 
-const SCRAPER_CONFIG = [
-  {
-    name: 'EPRA Petroleum Prices',
-    domain: 'epra.go.ke',
-    url: 'https://www.epra.go.ke/pump-prices/',
-    type: 'Regulatory'
-  }
-];
-
-
-// Forensic Regex: Extract prices with fuel types
-// Matches patterns like: Super Petrol retail at Ksh 179.30
-const EPRA_PRICE_REGEX = /(Super Petrol|Diesel|Kerosene|PMS|AGO|IK).*?(retail at|set at|Ksh|shillings)\s*(\d{1,3}(\.\d{2})?)/gi;
+const DEFAULT_SITE = 'https://www.epra.go.ke/pump-prices/'
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get('origin'))
@@ -31,133 +25,109 @@ serve(async (req) => {
 
     const limit = await enforceDurableRateLimit(authz.context, corsHeaders, 'official-scraper', 10);
     if ('response' in limit) return limit.response;
-    
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const results = [];
+    // Jurisdiction selection: `?jurisdiction=KE` overrides the platform default.
+    const url = new URL(req.url);
+    const requested = url.searchParams.get('jurisdiction') || 'GLOBAL';
 
-    for (const site of SCRAPER_CONFIG) {
-      console.log(`[OfficialScraper] Scanning ${site.name}...`);
-      
-      // [FORENSIC WINDOW]: Increase aggression on the 14th and 15th
-      const now = new Date();
-      const isReviewDay = now.getDate() === 14 || now.getDate() === 15;
-      
-      if (isReviewDay) {
-        console.log(`[OfficialScraper] HIGH-INTENSITY SCAN: Detection window (14th/15th) active.`);
-      }
+    const { data: cfg } = await supabase.rpc('get_jurisdiction_config', { p_code: requested });
+    const jur = cfg?.jurisdiction || {};
+    const config = cfg?.config || {};
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const regulatory = config.regulatory || {};
+    const adapterCode = (regulatory.adapter as string) || (jur.regulatory_body === 'EPRA' ? 'epra' : 'generic');
+    const adapter = resolveAuthority(adapterCode);
 
-      let response;
-      try {
-        response = await fetch(site.url, {
-          signal: controller.signal,
-          headers: { 
-            'User-Agent': 'IoTank-Forensic-Bot/2.0 (+https://the-iotank-project.web.app)',
-            'Accept': 'text/html',
-            'Cache-Control': 'no-cache'
-          }
-        });
-      } catch (fetchErr: any) {
-        console.warn(`[OfficialScraper] Connect timeout/failure for ${site.name}:`, fetchErr.message);
-        clearTimeout(timeoutId);
-        continue;
-      }
+    const siteUrl = (regulatory.site as string) ||
+      (requested === 'KE' ? DEFAULT_SITE : (regulatory.baseUrl as string) || '') ||
+      DEFAULT_SITE;
+
+    const site = {
+      name: (jur.name as string) || 'Price Authority',
+      domain: new URL(siteUrl).hostname,
+      url: siteUrl,
+    };
+
+    const band = regulatory.priceBand as [number, number] | undefined;
+
+    const ctx: PriceAuthorityContext = {
+      jurisdictionCode: requested,
+      currency: (jur.currency as string) || 'USD',
+      baseUrl: (regulatory.baseUrl as string) || null,
+      targets: (regulatory.targets as string[]) || [],
+      priceBand: band || null,
+      config,
+      supabaseUrl: Deno.env.get('SUPABASE_URL') || '',
+      serviceRoleKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+    };
+
+    console.log(`[OfficialScraper] Adapter="${adapter.name}" for "${requested}" site=${site.domain}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    let response;
+    try {
+      response = await fetch(site.url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'IoTank-Forensic-Bot/2.0 (+https://the-iotank-project.web.app)',
+          'Accept': 'text/html',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    } catch (fetchErr: any) {
       clearTimeout(timeoutId);
+      console.warn(`[OfficialScraper] Connect timeout/failure for ${site.name}:`, fetchErr.message);
+      return new Response(JSON.stringify({ success: false, error: `Fetch failed: ${fetchErr.message}` }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        console.warn(`[OfficialScraper] Failed to reach ${site.name}: ${response.statusText}`);
-        continue;
-      }
-
-      const html = await response.text();
-      
-      // 1. Detect New Notice (PDF or Date)
-      const dateMatch = html.match(/(\d{1,2}(st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})/i);
-      const pdfMatch = html.match(/href="([^"]+\.pdf)"/i);
-
-      if (dateMatch || pdfMatch || isReviewDay) {
-        const signalId = `official-${site.domain}-${Date.now()}`;
-        const foundDate = dateMatch?.[0] || new Date().toISOString();
-        
-        // 2. Perform Forensic Extraction for EPRA
-        if (site.domain === 'epra.go.ke') {
-          // [FORENSIC REFINEMENT]: Target the primary price table or "Nairobi" specific rows
-          // Matches patterns like: Super Petrol retail at Ksh 193.84 or table cells with prices
-          const EPRA_FORENSIC_REGEX = /(Super Petrol|Diesel|Kerosene|PMS|AGO|IK).*?(?:Ksh|shillings|at)?\s*(\d{2,3}(?:\.\d{2})?)/gi;
-          
-          let match;
-          const detections = [];
-          
-          // Focus on the first 8000 characters of the HTML where latest news usually lives
-          const scanContent = html.slice(0, 8000); 
-          
-          while ((match = EPRA_FORENSIC_REGEX.exec(scanContent)) !== null) {
-            const fuelLabel = match[1].toUpperCase();
-            const price = parseFloat(match[2]);
-            
-            // Validate: EPRA prices in Kenya are currently between 160 and 220
-            if (price > 150 && price < 250) {
-              // Map to standard fuel keys
-              let fuelType = fuelLabel;
-              if (fuelLabel.includes('PETROL') || fuelLabel === 'PMS') fuelType = 'PMS';
-              else if (fuelLabel.includes('DIESEL') || fuelLabel === 'AGO') fuelType = 'AGO';
-              else if (fuelLabel.includes('KEROSENE') || fuelLabel === 'IK') fuelType = 'IK';
-
-              // Prevent duplicates in same scan
-              if (detections.some(d => d.fuelType === fuelType)) continue;
-
-              detections.push({ fuelType, price });
-
-              // 3. Trigger Forensic Update RPC
-              await supabase.rpc('forensic_update_market_price', {
-                p_fuel_type: fuelType,
-                p_new_price: price,
-                p_effective_date: new Date().toISOString(),
-                p_source_url: site.url,
-                p_is_official: true
-              });
-            }
-          }
-          console.log(`[OfficialScraper] Detected ${detections.length} prices from EPRA. Verified window: ${isReviewDay}`);
-        }
-
-        const signal = {
-          id: signalId,
-          type: 'regulatory',
-          source: site.name,
-          sourceType: 'API',
-          title: `Official Update: ${site.name}`,
-          summary: `Official document or price review detected at ${site.domain}. Detected Date: ${foundDate}.`,
-          timestamp: Date.now(),
-          relevanceScore: 1.0,
-          confidenceScore: 1.0,
-          externalUrl: site.url,
-          attribution: site.domain,
-          metadata: { pdfUrl: pdfMatch?.[1], isForensic: true }
-        };
-
-        // Broadcast to news feed
-        await supabase.from('market_news').upsert({
-          id: signal.id,
-          source: signal.source,
-          title: signal.title,
-          link: signal.externalUrl,
-          summary: signal.summary,
-          source_type: signal.sourceType,
-          created_at: new Date().toISOString()
-        });
-
-        results.push(signal);
-      }
+    if (!response.ok) {
+      return new Response(JSON.stringify({ success: false, error: `${site.name}: ${response.statusText}` }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify({ success: true, results }), {
+    const html = await response.text();
+    const result = await adapter.adapt(ctx, html, site);
+    const results = [];
+
+    // Persist official prices.
+    for (const price of result.prices) {
+      await supabase.rpc('forensic_update_market_price', {
+        p_fuel_type: price.fuelType,
+        p_new_price: price.price,
+        p_effective_date: price.effectiveDate,
+        p_source_url: price.sourceUrl,
+        p_is_official: price.isOfficial,
+      });
+    }
+
+    // Broadcast the signal to the news feed.
+    if (result.signal) {
+      await supabase.from('market_news').upsert({
+        id: result.signal.id,
+        source: result.signal.source,
+        title: result.signal.title,
+        link: result.signal.externalUrl,
+        summary: result.signal.summary,
+        source_type: result.signal.sourceType,
+        created_at: new Date().toISOString(),
+      });
+      results.push(result.signal);
+    }
+
+    return new Response(JSON.stringify({ success: true, adapter: adapter.name, jurisdiction: requested, prices: result.prices.length, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

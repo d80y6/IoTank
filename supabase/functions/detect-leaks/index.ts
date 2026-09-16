@@ -74,10 +74,15 @@ serve(async (req) => {
                         metadata: { dropRate, readingsCount: points.length, durationHrs: 2, shiftStatus }
                     });
 
-                    // 🛠️ Update Tank Status
+                    // 🛠️ Update Tank status via the metadata JSONB column
+                    // (tanks.has_active_leak_alert / leak_confidence do not exist).
                     await supabase.from('tanks').update({
-                        has_active_leak_alert: true,
-                        leak_confidence: 0.95 
+                        metadata: {
+                            ...((tank as any).metadata || {}),
+                            has_active_leak_alert: true,
+                            leak_confidence: 0.95,
+                            leak_detected_at: new Date().toISOString()
+                        }
                     }).eq('id', tank.id);
                 }
             }

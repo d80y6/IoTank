@@ -34,7 +34,7 @@ serve(async (req) => {
         if (tanksError || !tanks) throw tanksError;
 
         for (const tank of tanks) {
-            if (!tank.esp32_address && !tank.id) continue;
+            if (!tank.id) continue;
 
             const now = Date.now();
             const lastUpdate = tank.last_reading_at ? new Date(tank.last_reading_at).getTime() : 0;
@@ -54,7 +54,7 @@ serve(async (req) => {
                         alert_type: 'sensor_offline',
                         severity: 'critical',
                         title: 'Sensor Offline',
-                        message: `Tank "${tank.name}" has not reported data for over 15 minutes. Check power and link stability.`,
+                        message: `Tank "${tank.tank_name || tank.name}" has not reported data for over 15 minutes. Check power and link stability.`,
                         tank_id: tank.id,
                         is_resolved: false
                     });

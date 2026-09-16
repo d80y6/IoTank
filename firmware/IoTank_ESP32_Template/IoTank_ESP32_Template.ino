@@ -25,7 +25,7 @@
 
 // Fallback defaults (used only if 'secrets.h' is not present)
 #ifndef SUPABASE_URL
-#define SUPABASE_URL "https://suifvborodwergtrbjez.supabase.co"
+#define SUPABASE_URL "https://your-project.supabase.co"
 #endif
 
 #ifndef SUPABASE_ANON_KEY
@@ -37,8 +37,14 @@
 #endif
 
 // --- IDENTITY CONFIGURATION ---
+// Provided via 'secrets.h'; falls back to placeholders.
+#ifndef STATION_ID
 #define STATION_ID "YOUR_STATION_UUID"
+#endif
+
+#ifndef TANK_ID
 #define TANK_ID "YOUR_TANK_UUID"
+#endif
 
 // Pin Definitions
 #define SENSOR_TX 17 // Ultrasonic TX -> ESP32 RX2

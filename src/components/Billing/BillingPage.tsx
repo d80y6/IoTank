@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { supabase } from '@/config/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NebulaLoader } from '@/components/Common/NebulaLoader';
@@ -51,6 +52,7 @@ interface Transaction {
 
 export const BillingPage: React.FC = () => {
     const { currentUser, canSee } = useAuth();
+    const { currencySymbol, currency } = useJurisdiction();
     const navigate = useNavigate();
 
     const [billing, setBilling] = useState<BillingInfo | null>(null);
@@ -114,7 +116,7 @@ export const BillingPage: React.FC = () => {
                                 window.dispatchEvent(new CustomEvent('system-toast', {
                                     detail: {
                                         title: 'Payment Confirmed',
-                                        message: `M-Pesa payment of KSh ${payload.new.amount} has been successfully reconciled.`,
+                                        message: `M-Pesa payment of ${currencySymbol} ${payload.new.amount} has been successfully reconciled.`,
                                         type: 'success',
                                         attribution: 'BILLING_SENSE'
                                     }
@@ -183,7 +185,7 @@ export const BillingPage: React.FC = () => {
         window.dispatchEvent(new CustomEvent('system-toast', {
             detail: {
                 title: 'M-Pesa STK Push',
-                message: `Initiating KSh ${payAmount} payment on ${payPhone}. Please check your handset.`,
+                message: `Initiating ${currencySymbol} ${payAmount} payment on ${payPhone}. Please check your handset.`,
                 type: 'info',
                 persistent: true, // Stay until cleared or replaced
                 attribution: 'BILLING_SENSE'
@@ -207,7 +209,7 @@ export const BillingPage: React.FC = () => {
                 payment_method: 'MPESA',
                 payment_reference: data.CheckoutRequestID || ref,
                 payment_status: 'pending',
-                description: `M-Pesa STK Push initiated for KSh ${amount}`
+                description: `M-Pesa STK Push initiated for ${currencySymbol} ${amount}`
             });
 
             setPayFeedback(`✅ Request Sent!`);
@@ -260,7 +262,7 @@ export const BillingPage: React.FC = () => {
                 key: publicKey,
                 email: currentUser?.email || 'finance@iotank.com',
                 amount: parseFloat(payAmount) * 100,
-                currency: 'KES',
+                currency: currency,
                 ref: 'PSTK_' + Math.random().toString(36).substring(2, 10).toUpperCase(),
                 callback: (response: any) => {
                     setPaying(true);
@@ -396,7 +398,7 @@ export const BillingPage: React.FC = () => {
                             <span className="stat-card-label">Account Liability</span>
                             <div className="metric-icon-box metric-icon-box--debt"><FaMoneyBillWave /></div>
                         </div>
-                        <h2 className="stat-main-value text-rose-500">KSh {billing.current_debt.toLocaleString()}</h2>
+                        <h2 className="stat-main-value text-rose-500">{currencySymbol} {billing.current_debt.toLocaleString()}</h2>
                         <div className="stat-sub-row">
                             <span className="stat-sub-label">Next Cycle</span>
                             <span className="text-[11px] font-bold text-slate-500 uppercase">{formatDate(billing.next_billing_date)}</span>
@@ -408,7 +410,7 @@ export const BillingPage: React.FC = () => {
                             <span className="stat-card-label">Total Settlements</span>
                             <div className="metric-icon-box metric-icon-box--usage"><FaShieldAlt /></div>
                         </div>
-                        <h2 className="stat-main-value text-emerald-500">KSh {(billing.total_paid || 0).toLocaleString()}</h2>
+                        <h2 className="stat-main-value text-emerald-500">{currencySymbol} {(billing.total_paid || 0).toLocaleString()}</h2>
                         <div className="stat-sub-row">
                             <span className="stat-sub-label">Historical Pay</span>
                             <span className="text-[11px] font-bold text-slate-500 uppercase">Confirmed</span>
@@ -467,7 +469,7 @@ export const BillingPage: React.FC = () => {
                                                 <td className="font-mono text-[10px] text-slate-500 uppercase tracking-tighter">
                                                     {tx.payment_reference || tx.id.slice(0, 8)}
                                                 </td>
-                                                <td className="font-bold text-slate-700">KSh {tx.amount.toLocaleString()}</td>
+                                                <td className="font-bold text-slate-700">{currencySymbol} {tx.amount.toLocaleString()}</td>
                                                 <td>
                                                     <span className={`status-pill-v3 status-pill-v3--${(tx.payment_status || 'pending').toLowerCase()}`}>
                                                         {tx.payment_status || 'Pending'}
@@ -517,7 +519,7 @@ export const BillingPage: React.FC = () => {
                                 <label className="saas-label-v3">Settlement Amount</label>
                                 <div className="relative">
                                     <input type="number" className="saas-input-v3 saas-input-v3--amount" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0.00" />
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">KES</div>
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">{currency}</div>
                                 </div>
                             </div>
 

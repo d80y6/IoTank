@@ -10,12 +10,18 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ initialConfig }) =
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
     const [copied, setCopied] = useState<string | null>(null);
 
+    // Secrets are read from env at build time; key material is never committed.
+    // Public keys are bundle-safe; secret keys should be provisioned server-side
+    // (Supabase Edge Functions / payment service) instead of shipped to the client.
+    const envPublicKey = (import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined) || '';
+    const envSecretKey = (import.meta.env.VITE_PAYSTACK_SECRET_KEY as string | undefined) || '';
+
     // Use provided keys as defaults if no config exists
     const config = initialConfig || {
-        live_secret_key: 'sk_live_0990ad80a228111b436b75bc69cf6238bf3a9024',
-        live_public_key: 'pk_live_0ab87c08f0f6c9d2d21c4335cf235a4cdfe8231f',
-        test_secret_key: 'sk_test_5b798d7c98f20fe5726579c90b01719ec9245cd8',
-        test_public_key: 'pk_test_47a8b8249423ddb3ff5e6bf427019c8a70b7de08'
+        live_secret_key: envSecretKey || 'sk_live_NOT_CONFIGURED_PROVISION_SERVER_SIDE',
+        live_public_key: envPublicKey || 'pk_live_NOT_CONFIGURED',
+        test_secret_key: envSecretKey || 'sk_test_NOT_CONFIGURED_PROVISION_SERVER_SIDE',
+        test_public_key: envPublicKey || 'pk_test_NOT_CONFIGURED'
     };
 
     const copyToClipboard = (text: string, id: string) => {

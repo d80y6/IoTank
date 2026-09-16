@@ -17,6 +17,23 @@ serve(async (req) => {
 
         console.log('[Billing] Starting automated cycle...');
 
+        // Resolve the jurisdiction currency symbol (falls back to a neutral default).
+        const currencyCache = new Map<string, string>();
+        async function currencySymbolFor(regionCode: string | null): Promise<string> {
+            const code = regionCode || 'GLOBAL';
+            if (currencyCache.has(code)) return currencyCache.get(code)!;
+            let symbol = '$';
+            const { data: cfg } = await supabase
+                .rpc('get_jurisdiction_config', { p_code: code });
+            if (cfg) {
+                symbol = cfg.jurisdiction?.currency_symbol ||
+                         cfg.config?.currency_symbol ||
+                         '$';
+            }
+            currencyCache.set(code, symbol);
+            return symbol;
+        }
+
         // 1. Run Monthly Billing RPC
         const { data: billedStations, error: billingError } = await supabase.rpc('apply_monthly_billing');
         if (billingError) throw billingError;
@@ -35,12 +52,16 @@ serve(async (req) => {
                 // Fetch station admin email
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('email, full_name')
+                    .select('email, display_name')
                     .eq('station_id', station.station_id)
                     .eq('role', 'owner')
                     .maybeSingle();
 
                 if (profile?.email) {
+                    const symbol = await currencySymbolFor(station.region_code || null);
+                    const amount = station.current_debt != null
+                        ? `${symbol} ${Number(station.current_debt).toLocaleString()}`
+                        : 'See billing portal';
                     await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/dispatch-critical-alerts`, {
                         method: 'POST',
                         headers: {
@@ -52,9 +73,9 @@ serve(async (req) => {
                             to: profile.email,
                             params: {
                                 type: 'BILLING_NOTICE',
-                                recipientName: profile.full_name || 'Station Manager',
+                                recipientName: profile.display_name || 'Station Manager',
                                 stationName: station.station_name,
-                                billingAmount: 'KSh 5,000.00',
+                                billingAmount: amount,
                                 dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
                                 loginUrl: 'https://the-iotank-project.web.app/billing'
                             }
@@ -69,7 +90,7 @@ serve(async (req) => {
             for (const station of suspendedStations) {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('email, full_name')
+                    .select('email, display_name')
                     .eq('station_id', station.station_id)
                     .eq('role', 'owner')
                     .maybeSingle();
@@ -86,7 +107,7 @@ serve(async (req) => {
                             to: profile.email,
                             params: {
                                 type: 'SUSPENSION_WARNING',
-                                recipientName: profile.full_name || 'Station Manager',
+                                recipientName: profile.display_name || 'Station Manager',
                                 stationName: station.station_name,
                                 loginUrl: 'https://the-iotank-project.web.app/billing'
                             }

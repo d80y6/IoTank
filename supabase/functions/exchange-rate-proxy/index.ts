@@ -24,8 +24,11 @@ Deno.serve(async (req) => {
       throw new Error('ExchangeRate API key not configured')
     }
 
-    // Default to KES/USD parity check
-    const url = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/USD/KES`;
+    const reqUrl = new URL(req.url);
+    const from = (reqUrl.searchParams.get('from') || 'USD').toUpperCase();
+    const to = (reqUrl.searchParams.get('to') || 'EUR').toUpperCase();
+
+    const url = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/${from}/${to}`;
     
     const response = await fetch(url)
     const data = await response.json()

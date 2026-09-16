@@ -12,7 +12,12 @@ export interface TacticalDirective {
  * Analyzes real-time news title/summary against current tank levels, capacities, 
  * and prices to generate exact, actionable business decision recommendations.
  */
-export function generateTacticalDirective(article: any, tanks: Tank[]): TacticalDirective {
+export function generateTacticalDirective(
+    article: any,
+    tanks: Tank[],
+    jurisdiction?: { currencySymbol?: string; locale?: string }
+): TacticalDirective {
+    const symbol = jurisdiction?.currencySymbol || '$';
     if (!article) {
         return {
             status: 'STABLE',
@@ -115,7 +120,7 @@ export function generateTacticalDirective(article: any, tanks: Tank[]): Tactical
 
     if (isPriceImplication) {
         if (isIncrease) {
-            const diffText = priceDiff ? `of KES ${priceDiff.toFixed(2)}/L` : '';
+            const diffText = priceDiff ? `of ${symbol} ${priceDiff.toFixed(2)}/L` : '';
             if (lowestLevelPct < 60) {
                 // Critical procurement order needed
                 const orderVol = Math.round(lowestTank.capacity - lowestVol);
@@ -135,7 +140,7 @@ export function generateTacticalDirective(article: any, tanks: Tank[]): Tactical
                 };
             }
         } else if (isReduction) {
-            const diffText = priceDiff ? `of KES ${priceDiff.toFixed(2)}/L` : '';
+            const diffText = priceDiff ? `of ${symbol} ${priceDiff.toFixed(2)}/L` : '';
             if (lowestLevelPct < 40) {
                 // Defer order
                 return {
@@ -197,7 +202,7 @@ export function generateTacticalDirective(article: any, tanks: Tank[]): Tactical
     return {
         status: 'STABLE',
         recommendation: `Standard market cycle. Your ${lowestTankName} inventory is stable at ${lowestLevelPct}%.`,
-        actionDetails: `No immediate tactical action required. Continue routine operations at current retail price of KES ${(lowestTank as any).metadata?.retailPrice || '---'}/L.`,
+        actionDetails: `No immediate tactical action required. Continue routine operations at current retail price of ${symbol} ${(lowestTank as any).metadata?.retailPrice || '---'}/L.`,
         colorClass: 'mi-directive--stable'
     };
 }

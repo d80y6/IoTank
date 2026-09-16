@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ConfigProvider } from '@/contexts/ConfigContext';
+import { JurisdictionProvider } from '@/contexts/JurisdictionContext';
 import { ProtectedRoute } from '@/components/Auth/ProtectedRoute';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { GlobalToast } from '@/components/Common/GlobalToast';
@@ -102,6 +103,7 @@ function App() {
                     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                         <ThemeProvider>
                             <AuthProvider>
+                                <JurisdictionProvider>
                                 <GlobalToast />
                                 <CookieConsent />
                                 <Routes>
@@ -147,6 +149,7 @@ function App() {
                                     </Route>
                                     <Route path="/unauthorized" element={<Suspense fallback={<PublicLoader />}><InadequateClearancePage /></Suspense>} />
                                 </Routes>
+                                </JurisdictionProvider>
                             </AuthProvider>
                         </ThemeProvider>
                     </BrowserRouter>

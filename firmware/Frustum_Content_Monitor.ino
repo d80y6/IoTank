@@ -5,18 +5,21 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
+// ─── Secrets (from firmware/secrets.h — NOT committed) ──────
+#include "secrets.h"
+
 // ─── WiFi Configuration ──────────────────────────────────────
-const char* WIFI_SSID     = "ESP32";
-const char* WIFI_PASSWORD = "Joseph26";
+const char* WIFI_SSID     = SECRET_WIFI_SSID;
+const char* WIFI_PASSWORD = SECRET_WIFI_PASSWORD;
 
 // ─── Supabase Configuration ─────────────────────────────────
-const char* SUPABASE_URL              = "https://suifvborodwergtrbjez.supabase.co/rest/v1/sensor_readings";
-const char* SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1aWZ2Ym9yb2R3ZXJndHJiamV6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Mzc2MDc0MCwiZXhwIjoyMDg5MzM2NzQwfQ.96AE-5FQpBvOKKjfNmbqWX05x3ND6ifyO4ITP0c-Gvc";
+const char* SUPABASE_URL              = SECRET_SUPABASE_URL;
+const char* SUPABASE_SERVICE_ROLE_KEY = SECRET_SUPABASE_SERVICE_ROLE_KEY;
 
 // ─── ID Configuration ───────────────────────────────────────
 // These will be updated by the user from the Super Admin Portal
-const char* STATION_ID = "9a594b8e-15b2-48a8-b17d-7ef7fa5e9b8a"; 
-const char* TANK_ID    = "613195dd-00a7-48f3-bc46-f66030393106";
+const char* STATION_ID = SECRET_STATION_ID; 
+const char* TANK_ID    = SECRET_TANK_ID;
 
 // Hardware JWT placeholder
 const char* SECURE_DEVICE_TOKEN = "PASTE_YOUR_HARDWARE_JWT_HERE"; 
