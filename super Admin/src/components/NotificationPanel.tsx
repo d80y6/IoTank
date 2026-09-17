@@ -22,17 +22,21 @@ const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchNotifications = async () => {
-        const { data } = await supabase
-            .from('system_notifications')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(20);
-        setNotifications(data || []);
-        setLoading(false);
-    };
-
     useEffect(() => {
+        let isMounted = true;
+
+        const fetchNotifications = async () => {
+            const { data } = await supabase
+                .from('system_notifications')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(20);
+            if (isMounted) {
+                setNotifications(data || []);
+                setLoading(false);
+            }
+        };
+
         fetchNotifications();
 
         // Real-time subscription
@@ -48,6 +52,7 @@ const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             .subscribe();
 
         return () => {
+            isMounted = false;
             supabase.removeChannel(channel);
         };
     }, []);
