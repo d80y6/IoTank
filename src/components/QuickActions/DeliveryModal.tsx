@@ -126,11 +126,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
 
                 if (uploadError) throw uploadError;
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('uploads')
-                    .getPublicUrl(filePath);
-
-                invoiceUrl = publicUrl;
+                invoiceUrl = filePath;
                 setUploadingInvoice(false);
             }
 

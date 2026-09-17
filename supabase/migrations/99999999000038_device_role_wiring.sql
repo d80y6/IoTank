@@ -29,6 +29,13 @@ GRANT INSERT ON public.telemetry_history TO device;
 GRANT SELECT ON public.tanks TO device;
 GRANT SELECT ON public.volume_lookup_tables TO device;
 
+-- The pre-existing command policies are PUBLIC-scoped and reference `profiles`
+-- in their USING/WITH CHECK. When evaluated for the `device` role that subselect
+-- raises "permission denied for table profiles". Users are `authenticated`, so
+-- scope those policies to authenticated and let the device policy below serve devices.
+ALTER POLICY "Users can view their station commands" ON public.device_commands TO authenticated;
+ALTER POLICY "Users can insert station commands" ON public.device_commands TO authenticated;
+
 -- Device may read only the commands targeted at its own station.
 DROP POLICY IF EXISTS "Devices can view their station commands" ON public.device_commands;
 CREATE POLICY "Devices can view their station commands"

@@ -46,6 +46,12 @@
 #define TANK_ID "YOUR_TANK_UUID"
 #endif
 
+// Tank type key into the platform's dip->volume calibration table
+// (volume_lookup_tables.tank_type). Readable by the device role.
+#ifndef TANK_TYPE
+#define TANK_TYPE "diesel"
+#endif
+
 // Pin Definitions
 #define SENSOR_TX 17 // Ultrasonic TX -> ESP32 RX2
 #define SENSOR_RX 16 // Ultrasonic RX -> ESP32 TX2
@@ -72,6 +78,9 @@ void setup() {
   Serial.println("\nConnected to WiFi");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+
+  // Pull the dip->volume strap table for this tank type (falls back to linear).
+  fetchVolumeLookup();
 }
 
 float readUltrasonic() {
@@ -92,11 +101,71 @@ float readUltrasonic() {
 }
 
 // Logic to convert distance to volume should happen here or on ESP32
-// For this template, we assume the user has a calibration function
+// Strap table is fetched from Supabase (volume_lookup_tables) at boot; if it is
+// unavailable we fall back to a simple linear approximation.
+#define LOOKUP_MAX_POINTS 64
+struct VolumePoint { int dipMm; float volumeL; };
+VolumePoint volumeTable[LOOKUP_MAX_POINTS];
+int volumeTableCount = 0;
+
+bool fetchVolumeLookup() {
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  HTTPClient http;
+  String url = String(SUPABASE_URL) +
+    "/rest/v1/volume_lookup_tables?select=dip_mm,volume_liters&tank_type=eq." +
+    String(TANK_TYPE) + "&order=dip_mm.asc";
+
+  http.begin(url);
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", "Bearer " + String(DEVICE_JWT));
+  http.addHeader("Accept", "application/json");
+
+  int code = http.GET();
+  if (code != 200) {
+    Serial.printf("Calibration fetch failed (HTTP %d)\n", code);
+    http.end();
+    return false;
+  }
+
+  String body = http.getString();
+  http.end();
+
+  DynamicJsonDocument doc(8192);
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    Serial.printf("Calibration parse failed: %s\n", err.c_str());
+    return false;
+  }
+
+  volumeTableCount = 0;
+  for (JsonObject row : doc.as<JsonArray>()) {
+    if (volumeTableCount >= LOOKUP_MAX_POINTS) break;
+    volumeTable[volumeTableCount].dipMm = row["dip_mm"].as<int>();
+    volumeTable[volumeTableCount].volumeL = row["volume_liters"].as<float>();
+    volumeTableCount++;
+  }
+  Serial.printf("Loaded %d calibration points for tank_type=%s\n", volumeTableCount, TANK_TYPE);
+  return volumeTableCount > 0;
+}
+
 float calculateVolume(float distCm) {
-    // Placeholder: Implement your tank strapping table logic here
-    // Example: Linear tank where 1cm = 10 Litres
-    return distCm * 10.0; 
+    // Interpolate against the downloaded strap table when available.
+    if (volumeTableCount >= 2) {
+      float mm = distCm * 10.0;
+      if (mm <= volumeTable[0].dipMm) return volumeTable[0].volumeL;
+      for (int i = 1; i < volumeTableCount; i++) {
+        if (mm <= volumeTable[i].dipMm) {
+          float span = volumeTable[i].dipMm - volumeTable[i - 1].dipMm;
+          if (span <= 0) return volumeTable[i].volumeL;
+          float ratio = (mm - volumeTable[i - 1].dipMm) / span;
+          return volumeTable[i - 1].volumeL + ratio * (volumeTable[i].volumeL - volumeTable[i - 1].volumeL);
+        }
+      }
+      return volumeTable[volumeTableCount - 1].volumeL;
+    }
+    // Fallback: linear tank where 1cm = 10 Litres
+    return distCm * 10.0;
 }
 
 void sendTelemetry(float volume, float tempC) {

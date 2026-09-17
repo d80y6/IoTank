@@ -103,11 +103,6 @@ static subscribeToCommands(stationId: string, onUpdate: (payload: any) => void) 
             )
             .subscribe();
     }
-                    onUpdate(payload);
-                }
-            )
-            .subscribe();
-    }
 
     /**
      * Fetches recent commands for a station.

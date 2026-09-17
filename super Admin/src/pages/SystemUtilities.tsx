@@ -78,7 +78,7 @@ const SystemUtilities: React.FC = () => {
         const out: Record<string, ToolResult> = {};
         await Promise.all(PROBE_RPCS.map(async (name) => {
             try {
-                const args = name === 'check_index_exists' ? { p_index_name: 'tank_analytics_30d_pkey' } : {};
+                const args = name === 'check_index_exists' ? { p_index_name: 'tank_analytics_30d_pk' } : {};
                 const { data, error } = await supabase.rpc(name, args);
                 if (error) throw error;
                 out[name] = { name, ok: true, value: data === null || data === undefined ? 'null' : typeof data === 'object' ? JSON.stringify(data) : String(data) };

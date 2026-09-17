@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from '@/config/supabase';
+import { resolveStorageUrl } from '@/utils/storageUrl';
 import { logger } from '@/utils/logger';
 import {
     FileUpload,
@@ -54,11 +55,6 @@ class FileAnalysisService {
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from('uploads')
-            .getPublicUrl(storagePath);
-
         if (onProgress) onProgress(100);
 
         const fileRecord: FileUpload = {
@@ -67,7 +63,7 @@ class FileAnalysisService {
             fileType: file.type.includes('pdf') ? 'pdf' : 'csv',
             fileSize: file.size,
             storageUrl: storagePath,
-            publicUrl: publicUrl,
+            publicUrl: undefined,
             uploadedBy: authUserId,
             uploadedAt: Date.now(),
             stationId: stationId,
@@ -84,7 +80,7 @@ class FileAnalysisService {
                 file_type: file.type.includes('pdf') ? 'pdf' : 'csv',
                 file_size: file.size,
                 storage_path: storagePath,
-                public_url: publicUrl,
+                public_url: null,
                 analysis_status: 'pending'
             });
 
@@ -100,7 +96,8 @@ class FileAnalysisService {
         fileRecord: FileUpload,
         category: CSVAnalysisCategory
     ): Promise<CSVAnalysisResult> {
-        if (!fileRecord.publicUrl) throw new Error('File URL is missing');
+        const signedUrl = await resolveStorageUrl('uploads', fileRecord.storageUrl || fileRecord.publicUrl, 3600);
+        if (!signedUrl) throw new Error('File URL is missing');
 
         const prompt = `
             Analyze this fuel-related CSV document. 
@@ -132,7 +129,7 @@ class FileAnalysisService {
                                 {
                                     fileData: {
                                         mimeType: 'text/csv',
-                                        fileUri: fileRecord.publicUrl
+                                        fileUri: signedUrl
                                     }
                                 }
                             ]
@@ -202,7 +199,8 @@ class FileAnalysisService {
         fileRecord: FileUpload,
         category: PDFAnalysisCategory
     ): Promise<PDFAnalysisResult> {
-        if (!fileRecord.publicUrl) throw new Error('File URL is missing');
+        const signedUrl = await resolveStorageUrl('uploads', fileRecord.storageUrl || fileRecord.publicUrl, 3600);
+        if (!signedUrl) throw new Error('File URL is missing');
 
         const prompt = `
             Analyze this industrial PDF document. 
@@ -234,7 +232,7 @@ class FileAnalysisService {
                                 {
                                     fileData: {
                                         mimeType: 'application/pdf',
-                                        fileUri: fileRecord.publicUrl
+                                        fileUri: signedUrl
                                     }
                                 }
                             ]

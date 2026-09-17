@@ -119,7 +119,7 @@ file_size_limit = "50MiB"
 # objects_path = "./images"
 
 [storage.buckets.uploads]
-public = true
+public = false
 file_size_limit = "50MiB"
 
 [storage.buckets."profile-photos"]
@@ -127,7 +127,7 @@ public = true
 file_size_limit = "10MiB"
 
 [storage.buckets."forensic-attachments"]
-public = true
+public = false
 file_size_limit = "50MiB"
 
 # Allow connections via S3 compatible clients

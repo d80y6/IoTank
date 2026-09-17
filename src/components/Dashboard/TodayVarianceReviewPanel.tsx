@@ -47,8 +47,7 @@ export const TodayVarianceReviewPanel: React.FC<TodayVarianceReviewPanelProps> =
                     .from('forensic-attachments')
                     .upload(path, evidenceFile, { upsert: false });
                 if (!uploadErr) {
-                    const { data: urlData } = supabase.storage.from('forensic-attachments').getPublicUrl(path);
-                    photoUrl = urlData.publicUrl;
+                    photoUrl = path;
                 }
             }
 

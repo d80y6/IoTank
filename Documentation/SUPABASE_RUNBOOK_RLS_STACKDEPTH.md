@@ -54,6 +54,17 @@ Notes & warnings
 - Do not run these changes during a high-traffic production window without a tested rollback plan.
 - Always test in staging. The SQL is intentionally conservative and idempotent, but environment differences (custom policies / functions) can change effects.
 
+Hardware JWT 403 (“permission denied to set role "device"”)
+- `issue-device-token` signs JWTs with `role: device`. PostgREST authenticates as `authenticator` and performs `SET ROLE device`; that fails unless the role exists AND `authenticator` is a member:
+  ```sql
+  CREATE ROLE device NOLOGIN NOINHERIT;
+  GRANT device TO authenticator;
+  ```
+- A device request failing with `permission denied for table profiles` means a **PUBLIC**-scoped policy on the same table references `profiles`. RLS evaluates every permissive policy for the acting role, so scope user-only policies with `ALTER POLICY ... TO authenticated;` and add a dedicated `TO device` policy. Fixed for `device_commands` in migration `99999999000038`.
+
+Orphan RPC 403 after migration `99999999000037`
+- Guarded RPCs (`get_business_kpis_v2`, `cleanup_old_events`, `detect_theft_anomaly`, …) were `REVOKE`d from PUBLIC/anon. If a legitimate caller 403s, confirm the JWT role is `authenticated` (console/client) or that the caller is staff (`check_is_staff()`).
+
 If you want, I can:
 - provide a one-click SQL blob ready to paste into Supabase SQL editor, or
 - prepare a small migration file (already added) you can deploy via your CI/CD pipeline.

@@ -9,6 +9,7 @@ import { useDeliveries } from '@/hooks/useDeliveries';
 import { useOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/hooks/useAuth';
 import { ExportService } from '@/services/ExportService';
+import { resolveStorageUrl } from '@/utils/storageUrl';
 import { useShiftStatus } from '@/hooks/useShiftStatus';
 import { useModals } from '@/contexts/ModalContext';
 import { Toast } from '../Common/Toast';
@@ -376,15 +377,17 @@ export const DeliveriesPage: React.FC = () => {
                                                 <div className="flex items-center gap-2">
                                                     {delivery.product}
                                                     {delivery.bolPhotoUrl && (
-                                                        <a 
-                                                            href={delivery.bolPhotoUrl} 
-                                                            target="_blank" 
-                                                            rel="noopener noreferrer"
+                                                        <button 
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                const url = await resolveStorageUrl('uploads', delivery.bolPhotoUrl);
+                                                                if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                                                            }}
                                                             className="text-indigo-400 hover:text-indigo-600 transition-colors"
                                                             title="View Bill of Lading"
                                                         >
                                                             <FiFileText size={14} />
-                                                        </a>
+                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
