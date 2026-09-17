@@ -21,6 +21,7 @@ export interface IdleValidationResult {
  * Calculates the Estimated Time to Empty (ETE).
  */
 export const calculateETE = (currentVolume: number, capacity: number, rateLhr: number): number | null => {
+    if (!capacity || capacity <= 0) return null;
     const deadStock = capacity * TELEMETRY_CONSTANTS.DEAD_STOCK_PERCENT;
     const usableVolume = Math.max(0, currentVolume - deadStock);
     
@@ -41,8 +42,9 @@ export const calculateRate = (vStart: number, vEnd: number, hours: number): numb
  * Forensic check for fuel change during idle (closed) hours.
  */
 export const validateIdleStability = (vPreviousClose: number, vCurrentOpen: number, hoursClosed: number): IdleValidationResult => {
+    const validHours = Math.max(0.1, Math.abs(hoursClosed));
     const delta = vCurrentOpen - vPreviousClose; // Negative means loss
-    const rate = Math.abs(delta) / Math.max(0.1, hoursClosed);
+    const rate = Math.abs(delta) / validHours;
     
     return {
         delta,

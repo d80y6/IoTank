@@ -191,7 +191,7 @@ export function classifyVolumeChange(
     );
 
     // ── 7. Inflow rate ────────────────────────────────────────────────────
-    const durationMs = last.timestamp - startTimestamp;
+    const durationMs = Math.abs(last.timestamp - startTimestamp);
     const durationMin = Math.max(0.05, durationMs / 60_000);
     const ingressRateLpm = netGain / durationMin;
 
