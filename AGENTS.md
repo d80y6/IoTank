@@ -23,6 +23,8 @@ npm run --prefix "super Admin" lint && npm run --prefix "super Admin" type-check
 
 Root aliases exist: `dev:admin`, `build:admin`, `pre-deploy` (= type-check && test && build), `deploy:client` / `deploy:admin` / `deploy:all` (Firebase hosting). All of lint, type-check (both apps), jest, and `vite build` currently pass.
 
+**Local deployment** (preferred target — Supabase is self-hosted locally, not cloud): `npm run deploy:local` builds both apps and (re)starts the `iotank-web` nginx container via `deploy/local/docker-compose.yml`, serving the client at `http://<host>:8080` and Super Admin at `http://<host>:8081`. Requires `supabase start` for the backend. Config: `deploy/local/nginx.conf`.
+
 - **Tests**: jest with no config file; default discovery covers `__tests__/*.test.js`. The edge-runtime suite is skipped unless `RUN_EDGE_INTEGRATION=1 npm run test:integration:edge`, which requires a local Supabase stack on port 54321 plus `TEST_ADMIN_*` env.
 - **Supabase CLI** is installed and seeded for local work: `supabase start`, then `scripts/dev-setup.sh` provisions `admin@iotank.local` / `test1234` as `super_admin`+`owner` with a test station. `npm run db:migrate` = `supabase db push`, `db:reset`, `db:seed` exist.
 - **`scripts/dev-setup.sh`, `supabase/functions/.env`** hold local-only secrets and are git-ignored — never commit real secrets; never put secrets in committed files.

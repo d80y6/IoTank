@@ -25,6 +25,7 @@
     "deploy:admin:prod": "npm run pre-deploy:admin && npm run deploy:admin",
     "deploy:all": "npm run build && npm run build:admin && firebase deploy --only hosting --project the-iotank-project",
     "deploy:all:prod": "npm run pre-deploy && npm run pre-deploy:admin && npm run deploy:all",
+    "deploy:local": "bash scripts/deploy-local.sh",
     "db:migrate": "supabase db push",
     "db:reset": "supabase db reset",
     "db:seed": "supabase db seed"
