@@ -9,6 +9,7 @@
  * @returns Temperature in Fahrenheit
  */
 export function celsiusToFahrenheit(celsius: number): number {
+    if (typeof celsius !== 'number' || isNaN(celsius)) return 0;
     return Number(((celsius * 9 / 5) + 32).toFixed(1));
 }
 
@@ -18,6 +19,7 @@ export function celsiusToFahrenheit(celsius: number): number {
  * @returns Volume in US gallons
  */
 export function litersToGallons(liters: number): number {
+    if (typeof liters !== 'number' || isNaN(liters)) return 0;
     return Number((liters * 0.264172).toFixed(2));
 }
 
@@ -33,7 +35,8 @@ export function formatVolume(
     unit: 'liters' | 'gallons' = 'liters',
     includeUnit: boolean = true
 ): string {
-    const value = unit === 'gallons' ? litersToGallons(liters) : liters;
+    const safeLiters = typeof liters === 'number' && !isNaN(liters) ? liters : 0;
+    const value = unit === 'gallons' ? litersToGallons(safeLiters) : safeLiters;
     const unitLabel = unit === 'gallons' ? 'gal' : 'L';
     const formatted = value.toLocaleString(undefined, {
         minimumFractionDigits: 0,
