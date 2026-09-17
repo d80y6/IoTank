@@ -16,6 +16,7 @@ import { hardwareService, Device } from '../services/hardwareService';
 import { supabase } from '../config/supabase';
 import type { DashboardStats } from '../services/dashboardService';
 import TacticalMap from './TacticalMap';
+import { formatMoney } from '@shared/lib/jurisdiction';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -70,11 +71,7 @@ const Dashboard = () => {
 
 
     const formatCurrency = (val: number) => {
-        return new Intl.NumberFormat('en-KE', {
-            style: 'currency',
-            currency: 'KES',
-            maximumFractionDigits: 0
-        }).format(val);
+        return formatMoney(val, { currency: 'USD', currencySymbol: '$', locale: 'en' });
     };
 
     if (loading) {

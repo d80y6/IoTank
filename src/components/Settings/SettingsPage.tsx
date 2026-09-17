@@ -614,8 +614,15 @@ currentUser.stationId
         if (!currentUser?.stationId) return;
         setIsSaving(true);
         try {
+            // Station renames are routed through the owner-scoped guard which
+            // enforces immutability once a name is registered (super-admin override only).
+            const nameChanged = orgForm.name && orgForm.name !== currentUser.companyName;
+            if (nameChanged) {
+                const { error: nameError } = await supabase.rpc('emergency_set_station_name', { p_name: orgForm.name });
+                if (nameError) throw nameError;
+            }
+
             const { error: syncError } = await supabase.from('fuel_stations').update({
-                station_name: orgForm.name,
                 billing_address: orgForm.address,
                 tax_id: orgForm.tax_id
             }).eq('station_id', currentUser.stationId);

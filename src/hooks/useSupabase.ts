@@ -867,18 +867,12 @@ export async function deleteTank(tankId: string) {
         .eq('tank_id', tankId);
     if (alertErr) throw new Error(`[deleteTank] Cascade failed on alerts: ${alertErr.message}`);
 
-    // B. Delete sensor readings and partitioned readings
+    // B. Delete sensor readings (partitioned parent cascades to child partitions)
     const { error: readingsErr } = await supabase
         .from('sensor_readings')
         .delete()
         .eq('tank_id', tankId);
     if (readingsErr) throw new Error(`[deleteTank] Cascade failed on sensor_readings: ${readingsErr.message}`);
-
-    const { error: partitionedReadingsErr } = await supabase
-        .from('sensor_readings_partitioned')
-        .delete()
-        .eq('tank_id', tankId);
-    if (partitionedReadingsErr) throw new Error(`[deleteTank] Cascade failed on sensor_readings_partitioned: ${partitionedReadingsErr.message}`);
 
     // B2. Delete daily summaries and device tokens
     const { error: summariesErr } = await supabase

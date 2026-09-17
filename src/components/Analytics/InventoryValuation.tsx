@@ -1,6 +1,8 @@
 import React from 'react';
 import { Tank, TankReading } from '@/types';
 import { FiDollarSign, FiTrendingDown, FiInfo } from 'react-icons/fi';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { formatNumber } from '@/lib/jurisdiction';
 import './InventoryValuation.css';
 
 interface InventoryValuationProps {
@@ -9,6 +11,7 @@ interface InventoryValuationProps {
 }
 
 export const InventoryValuation: React.FC<InventoryValuationProps> = ({ tank, latestReading }) => {
+    const { jurisdiction, currencySymbol } = useJurisdiction();
     // Using station retail prices strictly from settings metadata
     const retailPrice = Number((tank as any).metadata?.retailPrice) || 0;
     const currentVolume = latestReading?.volumeCorrected || latestReading?.volume || 0;
@@ -20,21 +23,23 @@ export const InventoryValuation: React.FC<InventoryValuationProps> = ({ tank, la
     // Use zero-safe utilization percentage
     const utilizationRate = capacityValue > 0 ? (totalValue / capacityValue) * 100 : 0;
 
+    const money = (n: number) => `${currencySymbol} ${formatNumber(n, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
     return (
         <div className="inventory-valuation">
             <div className="valuation-grid">
                 <div className="valuation-card primary">
                     <span className="valuation-label">Current Asset Value</span>
                     <span className="valuation-amount">
-                        Ksh {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {money(totalValue)}
                     </span>
-                    <span className="valuation-subtext">Based on {currentVolume.toLocaleString()}L inventory</span>
+                    <span className="valuation-subtext">Based on {formatNumber(currentVolume, jurisdiction)}L inventory</span>
                 </div>
 
                 <div className="valuation-card">
                     <span className="valuation-label">Estimated Holding Cost</span>
                     <span className="valuation-amount">
-                        Ksh {holdingCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {money(holdingCost)}
                     </span>
                     <span className="valuation-subtext">Monthly insurance & logistics</span>
                 </div>
@@ -43,7 +48,7 @@ export const InventoryValuation: React.FC<InventoryValuationProps> = ({ tank, la
             <div className="valuation-price-row">
                 <FiDollarSign className="text-secondary" />
                 <span className="text-sm text-secondary">Authorized Retail Price: </span>
-                <span className="price-value">Ksh {retailPrice.toFixed(2)}/L</span>
+                <span className="price-value">{money(retailPrice)}/L</span>
                 <div className="incentive-badge ml-auto">
                     <FiTrendingDown />
                     <span>Buy Signal: Low</span>

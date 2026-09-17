@@ -107,7 +107,7 @@ const Layout = ({ children }: LayoutProps) => {
                     </div>
                     <div className="footer-legal">
                         <div className="legal-text">
-                            © 2026 <span className="text-accent-primary">The IoTank</span> | System Command Console [KE-NBO-01]
+                            © 2026 <span className="text-accent-primary">The IoTank</span> | System Command Console [GLOBAL-01]
                         </div>
                         <div className="uptime-index">
                             <span className="pulse-cyan"></span> Platform Status: Operational

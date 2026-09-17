@@ -25,6 +25,8 @@ const AuditCompliance = lazy(() => import('./pages/AuditCompliance'));
 const Announcements = lazy(() => import('./pages/Announcements'));
 const SecurityEvents = lazy(() => import('./pages/SecurityEvents'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
+const JurisdictionRegistryPage = lazy(() => import('./pages/JurisdictionRegistryPage'));
+const SystemUtilities = lazy(() => import('./pages/SystemUtilities'));
 
 // Mission Hubs
 const FleetHub = lazy(() => import('./pages/FleetHub'));
@@ -78,6 +80,8 @@ function App() {
                   <Route path="/announcements" element={<Announcements />} />
                   <Route path="/logs" element={<AdminLogs />} />
                   <Route path="/registrations" element={<PendingRegistrations />} />
+                  <Route path="/jurisdictions" element={<JurisdictionRegistryPage />} />
+                  <Route path="/system" element={<SystemUtilities />} />
 
                   {/* Strategic Hubs (Level 1) */}
                   <Route path="/fleet" element={<FleetHub />} />

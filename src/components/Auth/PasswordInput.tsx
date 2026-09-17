@@ -31,7 +31,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     const [touched, setTouched] = useState(false);
 
     // Press-and-hold logic
-    const revealTimeout = useRef<NodeJS.Timeout | null>(null);
+    const revealTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleMouseDown = () => {
         setIsVisible(true);

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Layout from '../components/Layout';
 import { adminAuditService, AuditEntry, FinancialTrail, ComplianceStatus, SecurityIncident } from '../services/adminAuditService';
+import { supabase } from '../config/supabase';
 import { 
     FiShield, FiList, FiDollarSign, FiCheckCircle, 
     FiAlertTriangle, FiUser, FiCalendar, FiSearch, 
     FiDownload, FiTarget, FiActivity, FiKey, 
     FiGlobe, FiCpu, FiExternalLink, FiChevronDown, FiChevronUp,
-    FiLock, FiUnlock, FiEye, FiBarChart2, FiChevronRight, FiFileText, FiPlus,
+    FiLock, FiUnlock, FiEye, FiBarChart2, FiChevronRight, FiFileText,
     FiFilter, FiZap, FiBox
 } from 'react-icons/fi';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -21,12 +22,29 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
     const [riskMetrics, setRiskMetrics] = useState<any>(null);
     const [expandedLog, setExpandedLog] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [category, setCategory] = useState('All');
+    const [expandedTrail, setExpandedTrail] = useState<string | null>(null);
+    const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+    const [blockedIps, setBlockedIps] = useState<string[]>([]);
+    const [terminatedSessions, setTerminatedSessions] = useState<string[]>([]);
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [activeTab]);
 
     const parentRef = useRef<HTMLDivElement>(null);
+
+    const filteredAuditLogs = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        return auditLogs.filter(log => {
+            if (category !== 'All' && (log.action_category || '').toLowerCase() !== category.toLowerCase()) return false;
+            if (!query) return true;
+            return (log.description || '').toLowerCase().includes(query)
+                || (log.resource_id || '').toLowerCase().includes(query)
+                || (log.ip_address || '').toLowerCase().includes(query);
+        });
+    }, [auditLogs, search, category]);
     
     useEffect(() => {
         const fetchData = async () => {
@@ -54,7 +72,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
     }, []);
 
     const rowVirtualizer = useVirtualizer({
-        count: auditLogs.length,
+        count: filteredAuditLogs.length,
         getScrollElement: () => parentRef.current,
         estimateSize: () => 65,
         overscan: 10,
@@ -69,21 +87,209 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         }
     };
 
+    const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
+        const escape = (value: string | number) => {
+            const str = String(value ?? '');
+            return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        };
+        const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+    };
+
+    const exportAuditCsv = () => {
+        downloadCsv('audit_logs.csv',
+            ['Timestamp', 'User', 'Role', 'Category', 'Action', 'Description', 'Resource ID', 'IP', 'Status'],
+            filteredAuditLogs.map(log => [
+                log.timestamp, log.user_name, log.user_role, log.action_category, log.action_type,
+                log.description, log.resource_id || '', log.ip_address, log.result
+            ])
+        );
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: { title: 'Audit Logs Exported', message: `${filteredAuditLogs.length} forensic entries written to CSV.`, type: 'success' }
+        }));
+    };
+
+    const runReconciliation = async () => {
+        const { data, error } = await supabase.rpc('reconcile_financial_trails');
+        if (error) {
+            const credits = financialTrail.filter(t => t.amount > 0).length;
+            const debits = financialTrail.filter(t => t.amount < 0).length;
+            const delta = financialTrail.reduce((sum, t) => sum + t.amount, 0);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Reconciliation Degraded',
+                    message: `Could not reach database ledger — ran a local recount of ${financialTrail.length} loaded records (${credits} credits, ${debits} debits, net ${delta.toLocaleString()}).`,
+                    type: 'warning'
+                }
+            }));
+            return;
+        }
+        const r = data as any;
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Reconciliation Complete',
+                message: `Ledger rebalanced — ${r?.records || 0} transactions (${r?.credits || 0} credits, ${r?.debits || 0} debits, ${r?.pending || 0} pending, net ${Number(r?.net || 0).toLocaleString()}).`,
+                type: 'success'
+            }
+        }));
+    };
+
+    const recordSecurityEvent = async (eventType: string, description: string, metadata: Record<string, any>, severity = 'WARNING') => {
+        const user = (await supabase.auth.getUser()).data.user;
+        const { error } = await supabase.from('unified_events').insert({
+            event_category: 'SECURITY',
+            event_type: eventType,
+            severity,
+            description,
+            actor_email: user?.email || 'super_admin',
+            metadata: { ...metadata, actor_name: 'Super Admin', result: 'success' }
+        });
+        if (error) throw error;
+    };
+
+    const notify = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+        window.dispatchEvent(new CustomEvent('system-toast', { detail: { title, message, type } }));
+    };
+
+    const handleBlockSource = async (incident: any) => {
+        setBlockedIps(prev => prev.includes(incident.source_ip) ? prev : [...prev, incident.source_ip]);
+        setIncidents(prev => prev.filter(x => x.id !== incident.id));
+        try {
+            await recordSecurityEvent(
+                'source_blocked',
+                `Security source ${incident.source_ip} blocked by super admin`,
+                { ip_address: incident.source_ip, resource_id: incident.id },
+                'CRITICAL'
+            );
+        } catch (error) {
+            console.error('Error recording source block:', error);
+        }
+        notify('Source Blocked', `${incident.source_ip} added to the source blocklist.`, 'success');
+    };
+
+    const handleDismissIncident = async (incident: any) => {
+        setIncidents(prev => prev.filter(x => x.id !== incident.id));
+        try {
+            await recordSecurityEvent(
+                'incident_dismissed',
+                `Security incident ${incident.id.slice(0, 8)} dismissed`,
+                { ip_address: incident.source_ip, resource_id: incident.id },
+                'INFO'
+            );
+        } catch (error) {
+            console.error('Error recording dismissal:', error);
+        }
+        notify('Incident Dismissed', `Alert from ${incident.source_ip} removed from the active view.`, 'info');
+    };
+
+    const handleTerminateSession = async (session: AuditEntry) => {
+        setTerminatedSessions(prev => prev.includes(session.id) ? prev : [...prev, session.id]);
+        try {
+            await recordSecurityEvent(
+                'admin_session_terminated',
+                `Administrative session for ${session.user_name} terminated`,
+                { ip_address: session.ip_address, resource_id: session.id },
+                'WARNING'
+            );
+        } catch (error) {
+            console.error('Error recording session termination:', error);
+        }
+        notify('Session Terminated', `Active session for ${session.user_name} terminated.`, 'success');
+    };
+
+    const relativeTime = (ts: string) => {
+        const diff = Date.now() - new Date(ts).getTime();
+        const minutes = Math.floor(diff / 60000);
+        if (minutes < 1) return 'just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return `${Math.floor(hours / 24)}d ago`;
+    };
+
+    const sensitiveAccessLogs = useMemo(() => auditLogs
+        .filter(log => /access|export|read|view|permission|bulk/i.test(`${log.action_type} ${log.description}`))
+        .slice(0, 5), [auditLogs]);
+
+    const adminSessions = useMemo(() => auditLogs
+        .filter(log => /login|session|sign/i.test(`${log.action_type} ${log.description}`) || log.action_category === 'Security')
+        .filter(log => !terminatedSessions.includes(log.id))
+        .slice(0, 5), [auditLogs, terminatedSessions]);
+
+    const complianceStats = useMemo(() => {
+        const compliant = compliance.filter(c => c.status === 'compliant').length;
+        const warning = compliance.filter(c => c.status === 'warning').length;
+        const expired = compliance.filter(c => c.status === 'expired').length;
+        return [
+            { label: 'Total Records', total: compliance.length, active: compliance.length, icon: <FiShield />, color: '#06b6d4' },
+            { label: 'Compliant', total: compliance.length, active: compliant, icon: <FiCheckCircle />, color: '#10b981' },
+            { label: 'Warnings', total: compliance.length, active: warning, icon: <FiAlertTriangle />, color: '#f59e0b' },
+            { label: 'Expired', total: compliance.length, active: expired, icon: <FiActivity />, color: '#ef4444' }
+        ];
+    }, [compliance]);
+
+    const exportPerformanceReport = () => {
+        const byUser = new Map<string, AuditEntry[]>();
+        auditLogs.forEach(log => {
+            const key = log.user_email || log.user_name || 'SYSTEM';
+            if (!byUser.has(key)) byUser.set(key, []);
+            byUser.get(key)!.push(log);
+        });
+
+        const matrix = Array.from(byUser.entries()).map(([email, logs]) => {
+            const high_risk_actions = logs.filter(l => /password|role|permission|export|delete|suspend|reset|command/i.test(l.action_type || '')).length;
+            const security_alerts = logs.filter(l => l.action_category === 'Security' && l.result === 'failed').length;
+            return {
+                actor_email: email,
+                high_risk_actions,
+                security_alerts,
+                risk_score: Math.min(100, high_risk_actions * 20 + security_alerts * 25)
+            };
+        });
+
+        const rows: (string | number)[][] = matrix.map((row: any) => [
+            (row.actor_email || '').substring(0, 8),
+            row.actor_email || '',
+            row.high_risk_actions,
+            row.security_alerts,
+            row.risk_score,
+            row.risk_score > 50 ? 'CRITICAL_RISK' : 'NOMINAL_STATE'
+        ]);
+        if (rows.length === 0) {
+            rows.push(['SYSTEM_WIDE', '', riskMetrics?.highRiskActions || 0, riskMetrics?.suspiciousLogins || 0, '', '']);
+        }
+        downloadCsv('performance_report.csv',
+            ['Administrative Entity', 'Email Address', 'High Risk Actions', 'Security Alerts', 'Aggregate Score', 'Accountability Status'],
+            rows
+        );
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: { title: 'Performance Report Exported', message: `${rows.length} risk matrix entries written to CSV.`, type: 'success' }
+        }));
+    };
+
     const renderAuditLog = () => (
         <div className="audit-log-section animate-fade-in">
             <div className="flex flex-wrap gap-4 mb-8">
                 <div className="relative flex-1">
                     <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40" />
-                    <input type="text" placeholder="Search by description, resource ID, or IP..." className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold outline-none" />
+                    <input type="text" placeholder="Search by description, resource ID, or IP..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold outline-none" />
                 </div>
-                <select className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 outline-none">
-                    <option>Category: All</option>
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 outline-none">
+                    <option value="All">Category: All</option>
                     <option>System</option>
                     <option>Financial</option>
                     <option>Security</option>
                 </select>
                 <div className="flex gap-2">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
+                    <button onClick={exportAuditCsv} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
                         <FiDownload /> Export CSV
                     </button>
                 </div>
@@ -110,7 +316,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                         <tbody>
                             {loading ? (
                                 <tr><td colSpan={7} className="p-20 text-center opacity-40">Loading Forensic Logs...</td></tr>
-                            ) : auditLogs.length === 0 ? (
+                            ) : filteredAuditLogs.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="p-20 text-center opacity-40">
                                         <FiList className="mx-auto mb-4" size={32} />
@@ -123,7 +329,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                         <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} />
                                     )}
                                     {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                                        const log = auditLogs[virtualRow.index];
+                                        const log = filteredAuditLogs[virtualRow.index];
                                         const isExpanded = expandedLog === log.id;
                                         return (
                                             <React.Fragment key={log.id}>
@@ -213,7 +419,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                         <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Financial records cannot be deleted or modified post-settlement</p>
                     </div>
                 </div>
-                <button className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
+                <button onClick={runReconciliation} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
                     Run Reconciliation
                 </button>
             </div>
@@ -234,25 +440,56 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                     </thead>
                     <tbody>
                         {financialTrail.map(trail => (
-                            <tr key={trail.id}>
-                                <td className="font-mono text-[10px] font-black opacity-30">#{trail.id.slice(0,8)}</td>
-                                <td className="font-mono text-[10px] opacity-60">{trail.timestamp}</td>
-                                <td><span className="text-[9px] font-black uppercase text-emerald-600 px-2 py-1 bg-emerald-50 rounded-lg">{trail.type}</span></td>
-                                <td>
-                                    <div className="font-bold text-sm">{trail.client_name}</div>
-                                    <div className="text-[10px] opacity-40 font-black truncate">REF: {trail.reference}</div>
-                                </td>
-                                <td className="text-right font-mono font-black text-sm">
-                                    <span className={trail.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                                        {trail.amount > 0 ? '+' : ''}{trail.amount.toLocaleString()}
-                                    </span>
-                                </td>
-                                <td className="text-right font-mono font-black text-sm">{trail.new_balance.toLocaleString()}</td>
-                                <td className="text-[10px] font-bold text-slate-500 uppercase">{trail.initiated_by}</td>
-                                <td className="text-right">
-                                    <button className="action-circle view"><FiFileText size={16}/></button>
-                                </td>
-                            </tr>
+                            <React.Fragment key={trail.id}>
+                                <tr className="cursor-pointer" onClick={() => setExpandedTrail(expandedTrail === trail.id ? null : trail.id)}>
+                                    <td className="font-mono text-[10px] font-black opacity-30">#{trail.id.slice(0,8)}</td>
+                                    <td className="font-mono text-[10px] opacity-60">{trail.timestamp}</td>
+                                    <td><span className="text-[9px] font-black uppercase text-emerald-600 px-2 py-1 bg-emerald-50 rounded-lg">{trail.type}</span></td>
+                                    <td>
+                                        <div className="font-bold text-sm">{trail.client_name}</div>
+                                        <div className="text-[10px] opacity-40 font-black truncate">REF: {trail.reference}</div>
+                                    </td>
+                                    <td className="text-right font-mono font-black text-sm">
+                                        <span className={trail.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                            {trail.amount > 0 ? '+' : ''}{trail.amount.toLocaleString()}
+                                        </span>
+                                    </td>
+                                    <td className="text-right font-mono font-black text-sm">{trail.new_balance.toLocaleString()}</td>
+                                    <td className="text-[10px] font-bold text-slate-500 uppercase">{trail.initiated_by}</td>
+                                    <td className="text-right">
+                                        <button className="action-circle view" onClick={() => setExpandedTrail(expandedTrail === trail.id ? null : trail.id)}>
+                                            {expandedTrail === trail.id ? <FiChevronUp /> : <FiFileText size={16}/>}
+                                        </button>
+                                    </td>
+                                </tr>
+                                {expandedTrail === trail.id && (
+                                    <tr className="detail-row">
+                                        <td colSpan={8} className="p-0">
+                                            <div className="detail-expansion-panel animate-fade-in">
+                                                <div className="grid grid-cols-2 gap-8">
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase text-slate-400 block mb-4 tracking-widest">Ledger Record</label>
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Record ID:</span> <span className="font-mono font-bold">{trail.id}</span></div>
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Reference:</span> <span className="font-mono font-bold">{trail.reference}</span></div>
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Previous Balance:</span> <span className="font-mono font-bold">{trail.prev_balance.toLocaleString()}</span></div>
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Status:</span> <span className="font-mono font-bold">{trail.status}</span></div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase text-slate-400 block mb-4 tracking-widest">Settlement Trace</label>
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Initiated By:</span> <span className="font-mono font-bold">{trail.initiated_by}</span></div>
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Timestamp:</span> <span className="font-mono font-bold">{trail.timestamp}</span></div>
+                                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Delta Shift:</span> <span className={`font-mono font-bold ${trail.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{trail.amount > 0 ? '+' : ''}{trail.amount.toLocaleString()}</span></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
                         ))}
                     </tbody>
                 </table>
@@ -263,12 +500,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
     const renderCompliance = () => (
         <div className="compliance-section animate-fade-in">
               <div className="dp-stats-grid">
-                {[
-                    { label: 'EPRA Licenses', total: 42, active: 38, icon: <FiActivity />, color: '#8b5cf6' },
-                    { label: 'KRA Tax P10', total: 12, active: 12, icon: <FiDollarSign />, color: '#10b981' },
-                    { label: 'NEMA Permits', total: 42, active: 30, icon: <FiGlobe />, color: '#f59e0b' },
-                    { label: 'Data Registry', total: 1, active: 1, icon: <FiShield />, color: '#06b6d4' }
-                ].map(cat => (
+                {complianceStats.map(cat => (
                     <div key={cat.label} className="dp-premium-stat-card">
                         <div className="stat-icon-blob" style={{ background: `${cat.color}10`, color: cat.color }}>
                             {cat.icon}
@@ -282,38 +514,57 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                 ))}
             </div>
 
-            <div className="flex justify-between items-center mb-6 mt-12">
+            <div className="mb-6 mt-12">
                 <h4 className="font-black lowercase tracking-tighter text-2xl">Regulatory compliance monitor</h4>
-                <div className="flex gap-4">
-                     <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
-                        <FiDownload /> Register Portability
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20">
-                        <FiPlus /> Initialize Permit
-                    </button>
-                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {compliance.map(comp => (
-                    <div key={comp.id} className="report-template-card">
-                        <div className="flex items-center gap-6">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl text-slate-400 group-hover:text-emerald-600 transition-all">
-                                {comp.category === 'EPRA' ? <FiActivity /> : comp.category === 'KRA' ? <FiDollarSign /> : <FiGlobe />}
+                    <div key={comp.id} className="report-template-card" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-6">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl text-slate-400 group-hover:text-emerald-600 transition-all">
+                                    {['Regulatory', 'Licensing', 'License'].some(k => (comp.category || '').includes(k)) ? <FiActivity /> : ['Tax', 'Financial'].some(k => (comp.category || '').includes(k)) ? <FiDollarSign /> : <FiGlobe />}
+                                </div>
+                                <div>
+                                    <h5 className="font-black text-lg text-slate-800 tracking-tight">{comp.name}</h5>
+                                    <div className="text-[10px] font-bold opacity-40 uppercase mb-3">Audit Log: {comp.last_audit} • Category: {comp.category}</div>
+                                    <span className={`comp-badge ${getStatusColor(comp.status)}`}>{comp.status}</span>
+                                </div>
                             </div>
-                            <div>
-                                <h5 className="font-black text-lg text-slate-800 tracking-tight">{comp.name}</h5>
-                                <div className="text-[10px] font-bold opacity-40 uppercase mb-3">Audit Log: {comp.last_audit} • Category: {comp.category}</div>
-                                <span className={`comp-badge ${getStatusColor(comp.status)}`}>{comp.status}</span>
+                            <div className="text-right">
+                                <div className="text-[9px] font-black uppercase text-slate-300 mb-1">Expiry Trace</div>
+                                <div className="font-mono font-black text-sm text-slate-600">{comp.expiry_date}</div>
+                                <button
+                                    className="text-emerald-600 mt-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 float-right hover:gap-4 transition-all"
+                                    onClick={() => setExpandedDoc(expandedDoc === comp.id ? null : comp.id)}
+                                >
+                                    {expandedDoc === comp.id ? 'Hide Docs' : 'View Docs'} {expandedDoc === comp.id ? <FiChevronDown /> : <FiChevronRight />}
+                                </button>
                             </div>
                         </div>
-                        <div className="text-right">
-                             <div className="text-[9px] font-black uppercase text-slate-300 mb-1">Expiry Trace</div>
-                             <div className="font-mono font-black text-sm text-slate-600">{comp.expiry_date}</div>
-                             <button className="text-emerald-600 mt-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 float-right hover:gap-4 transition-all">
-                                 View Docs <FiChevronRight />
-                             </button>
-                        </div>
+                        {expandedDoc === comp.id && (
+                            <div className="detail-expansion-panel animate-fade-in mt-4 w-full">
+                                <div className="grid grid-cols-2 gap-8">
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 block mb-4 tracking-widest">Compliance Record</label>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Document:</span> <span className="font-mono font-bold">{comp.name}</span></div>
+                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Category:</span> <span className="font-mono font-bold">{comp.category}</span></div>
+                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Registry ID:</span> <span className="font-mono font-bold">{comp.id}</span></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 block mb-4 tracking-widest">Validity Trace</label>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Status:</span> <span className={`font-mono font-bold ${getStatusColor(comp.status)}`}>{comp.status}</span></div>
+                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Expiry Date:</span> <span className="font-mono font-bold">{comp.expiry_date || 'N/A'}</span></div>
+                                            <div className="flex justify-between text-[10px]"><span className="opacity-40 uppercase">Last Audited:</span> <span className="font-mono font-bold">{comp.last_audit}</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -335,61 +586,81 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                             </div>
                          </div>
                          <div className="flex gap-3">
-                             <button className="px-6 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20">Block Source</button>
-                             <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Dismiss</button>
+                             <button className="px-6 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20" onClick={() => handleBlockSource(i)}>Block Source</button>
+                             <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all" onClick={() => handleDismissIncident(i)}>Dismiss</button>
                          </div>
                     </div>
                 </div>
             ))}
 
+            {blockedIps.length > 0 && (
+                <div className="incident-card mb-8">
+                    <div className="flex items-center justify-between w-full">
+                        <h4 className="font-black lowercase tracking-tighter">Local source blocklist</h4>
+                        <span className="text-[10px] font-black uppercase text-rose-600">{blockedIps.length} blocked</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                        {blockedIps.map(ip => (
+                            <span key={ip} className="font-mono text-[10px] font-black px-2 py-1 bg-rose-50 text-rose-600 rounded-lg">{ip}</span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="security-grid">
                  <div className="dp-intelligence-card">
                     <div className="card-label-row"><h4>Sensitive Data Access log</h4></div>
                     <div className="space-y-4">
-                        {[
-                            { user: 'Joseph O.', resource: 'Bulk Client Export', time: '10m ago', status: 'verified' },
-                            { user: 'Sarah L.', resource: 'Financial Ledger Access', time: '1h ago', status: 'verified' },
-                            { user: 'Security System', resource: 'Admin Permissions Edit', time: '2h ago', status: 'flagged' }
-                        ].map((log, i) => (
-                            <div key={i} className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        {sensitiveAccessLogs.map((log) => (
+                            <div key={log.id} className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                                  <div className="flex items-center gap-4">
-                                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-black text-purple-700">{log.user.charAt(0)}</div>
+                                     <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-black text-purple-700">{(log.user_name || 'S').charAt(0)}</div>
                                      <div>
-                                         <div className="text-xs font-black text-slate-700">{log.resource}</div>
-                                         <div className="text-[9px] opacity-40 font-black uppercase">{log.user}</div>
+                                         <div className="text-xs font-black text-slate-700">{log.description}</div>
+                                         <div className="text-[9px] opacity-40 font-black uppercase">{log.user_name} • {relativeTime(log.timestamp)}</div>
                                      </div>
                                  </div>
-                                 <span className={`text-[9px] font-black uppercase ${log.status === 'verified' ? 'text-emerald-600' : 'text-rose-600'}`}>{log.status}</span>
+                                 <span className={`text-[9px] font-black uppercase ${log.result === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>{log.result}</span>
                             </div>
                         ))}
+                        {sensitiveAccessLogs.length === 0 && (
+                            <div className="p-8 text-center text-[10px] font-black uppercase tracking-widest opacity-30">No sensitive access events logged.</div>
+                        )}
                     </div>
                  </div>
 
                  <div className="dp-intelligence-card">
                     <div className="card-label-row"><h4>Administrative Session Monitor</h4></div>
                     <div className="space-y-4">
-                        {[
-                            { user: 'Joseph O.', ip: '192.168.1.42', location: 'Nairobi, KE' },
-                            { user: 'Admin Bot', ip: '10.0.0.12', location: 'Internal' }
-                        ].map((s, i) => (
-                             <div key={i} className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        {adminSessions.map((session) => (
+                             <div key={session.id} className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                                   <div className="flex items-center gap-4">
                                       <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl"><FiUnlock /></div>
                                       <div>
-                                          <div className="font-black text-xs text-slate-700">{s.user}</div>
-                                          <div className="text-[10px] opacity-30 font-mono tracking-tighter">{s.ip} • {s.location}</div>
+                                          <div className="font-black text-xs text-slate-700">{session.user_name}</div>
+                                          <div className="text-[10px] opacity-30 font-mono tracking-tighter">{session.ip_address} • {session.user_role} • {relativeTime(session.timestamp)}</div>
                                       </div>
                                   </div>
-                                  <button className="text-rose-600 text-[9px] font-black uppercase tracking-widest px-4 py-2 hover:bg-rose-50 rounded-lg transition-all">Terminate</button>
+                                  <button onClick={() => handleTerminateSession(session)} className="text-rose-600 text-[9px] font-black uppercase tracking-widest px-4 py-2 hover:bg-rose-50 rounded-lg transition-all">Terminate</button>
                              </div>
                         ))}
+                        {adminSessions.length === 0 && (
+                            <div className="p-8 text-center text-[10px] font-black uppercase tracking-widest opacity-30">No active administrative sessions.</div>
+                        )}
                     </div>
                  </div>
             </div>
         </div>
     );
 
-    const renderAccountability = () => (
+    const renderAccountability = () => {
+        const riskScore = (riskMetrics?.highRiskActions || 0) + (riskMetrics?.suspiciousLogins || 0);
+        const riskLevel = riskScore > 20 ? 'HIGH' : riskScore > 5 ? 'MODERATE' : 'LOW';
+        const riskWidth = riskScore > 0 ? Math.min(100, riskScore * 4) : 5;
+        const reportingAccuracy = auditLogs.length
+            ? Math.round((auditLogs.filter(l => l.result === 'success').length / auditLogs.length) * 1000) / 10
+            : null;
+        return (
         <div className="accountability-section animate-fade-in">
              <div className="dp-stats-grid">
                  <div className="dp-premium-stat-card">
@@ -404,16 +675,16 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                     <div className="stat-icon-blob" style={{ background: '#fffbeb', color: '#f59e0b' }}><FiAlertTriangle /></div>
                     <div className="stat-content">
                         <label>System Risk Index</label>
-                        <h3 className="text-amber-600">MODERATE</h3>
-                        <div className="risk-meter"><div className="risk-level" style={{ width: '65%' }} /></div>
+                        <h3 className="text-amber-600">{riskLevel}</h3>
+                        <div className="risk-meter"><div className="risk-level" style={{ width: `${riskWidth}%` }} /></div>
                     </div>
                  </div>
                  <div className="dp-premium-stat-card">
                     <div className="stat-icon-blob" style={{ background: '#ecfdf5', color: '#10b981' }}><FiTarget /></div>
                     <div className="stat-content">
                         <label>Reporting Accuracy</label>
-                        <h3>98.2%</h3>
-                        <div className="stat-trend up">Certified accuracy</div>
+                        <h3>{reportingAccuracy === null ? '—' : `${reportingAccuracy}%`}</h3>
+                        <div className="stat-trend up">Derived from forensic logs</div>
                     </div>
                  </div>
              </div>
@@ -421,7 +692,7 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
              <div className="tdv-transaction-table-container mt-12">
                 <div className="table-header-toolbar">
                     <div className="text-sm font-black text-slate-800">Administrative Behavioral Risk Matrix</div>
-                    <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-200 transition-all">
+                    <button onClick={exportPerformanceReport} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[10px] font-black text-slate-600 hover:bg-slate-200 transition-all">
                         <FiDownload /> Performance Report
                     </button>
                 </div>
@@ -470,7 +741,8 @@ const AuditCompliance: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
 
              </div>
         </div>
-    );
+        );
+    };
 
     const content = (
         <div className="audit-page">

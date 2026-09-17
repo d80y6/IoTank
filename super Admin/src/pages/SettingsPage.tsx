@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../config/supabase';
+import { systemUsersService } from '../services/systemUsersService';
 import { 
     MdPerson, MdEmail, MdPhone, MdSave, 
     MdPhotoCamera, MdSecurity, MdHistory, 
@@ -17,28 +18,34 @@ import { ApiKeyManager } from '../components/Settings/ApiKeyManager';
 import './SettingsPage.css';
 
 const SettingsPage: React.FC = () => {
-    const { systemUser } = useAuth();
+    const { systemUser, verifySettingsPassword } = useAuth();
     const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'activity' | 'api'>('profile');
     const [isSaving, setIsSaving] = useState(false);
     const [fullName, setFullName] = useState(systemUser?.full_name || '');
-    const [phone, setPhone] = useState('');
+    const [phone, setPhone] = useState((systemUser as any)?.phone || '');
+    const [avatarUrl, setAvatarUrl] = useState('');
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [activityLogs, setActivityLogs] = useState<any[]>([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
 
     useEffect(() => {
         if (systemUser?.full_name) setFullName(systemUser.full_name);
+        if ((systemUser as any)?.phone) setPhone((systemUser as any).phone);
     }, [systemUser]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!systemUser?.id) return;
         setIsSaving(true);
         try {
-            const { error } = await supabase
-                .from('system_users')
-                .update({ full_name: fullName })
-                .eq('auth_user_id', systemUser?.auth_user_id);
-            
-            if (error) throw error;
+            await systemUsersService.updateSystemUser(systemUser.id, {
+                full_name: fullName,
+                phone: phone
+            } as any);
             window.dispatchEvent(new CustomEvent('system-toast', {
                 detail: {
                     title: 'Profile Updated',
@@ -78,7 +85,65 @@ const SettingsPage: React.FC = () => {
         }
     }, [activeTab, systemUser?.auth_user_id]);
 
-    const handleTerminateSessions = async () => {
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setAvatarUrl(URL.createObjectURL(file));
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentPassword || !newPassword) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Incomplete Fields',
+                    message: 'Current and new password are required.',
+                    type: 'error'
+                }
+            }));
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Password Mismatch',
+                    message: 'New password and confirmation do not match.',
+                    type: 'error'
+                }
+            }));
+            return;
+        }
+        setIsChangingPassword(true);
+        try {
+            await verifySettingsPassword(currentPassword);
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Password Updated',
+                    message: 'Your platform access key has been rotated successfully.',
+                    type: 'success'
+                }
+            }));
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setShowPasswordForm(false);
+        } catch (error) {
+            console.error('Error updating password:', error);
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Password Update Failed',
+                    message: 'Failed to rotate platform access key. Verify your current password.',
+                    type: 'error'
+                }
+            }));
+        } finally {
+            setIsChangingPassword(false);
+        }
+    };
+
+    const handleTerminateSessions = () => {
         window.dispatchEvent(new CustomEvent('system-toast', {
             detail: {
                 title: 'Confirm Security Command',
@@ -94,13 +159,18 @@ const SettingsPage: React.FC = () => {
                         label: 'Terminate Sessions',
                         primary: true,
                         onClick: () => {
-                            window.dispatchEvent(new CustomEvent('system-toast', {
-                                detail: {
-                                    title: 'Security Dispatched',
-                                    message: 'Global session termination command has been broadcasted.',
-                                    type: 'success'
-                                }
-                            }));
+                            supabase.auth.signOut().then(() => {
+                                window.dispatchEvent(new CustomEvent('system-toast', {
+                                    detail: {
+                                        title: 'Sessions Invalidated',
+                                        message: 'All sessions invalidated — sign in again',
+                                        type: 'success'
+                                    }
+                                }));
+                                setTimeout(() => {
+                                    window.location.href = '/login';
+                                }, 1000);
+                            });
                         }
                     }
                 ]
@@ -161,11 +231,26 @@ const SettingsPage: React.FC = () => {
                                 <div className="photo-edit-container">
                                     <div className="settings-avatar-wrapper">
                                         <div className="settings-avatar">
-                                            <FiUser />
+                                            {avatarUrl ? (
+                                                <img
+                                                    src={avatarUrl}
+                                                    alt="avatar"
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px' }}
+                                                />
+                                            ) : (
+                                                <FiUser />
+                                            )}
                                         </div>
-                                        <label className="upload-button-pill">
+                                        <label htmlFor="avatar-upload" className="upload-button-pill">
                                             <MdPhotoCamera size={12} />
                                         </label>
+                                        <input
+                                            id="avatar-upload"
+                                            type="file"
+                                            accept="image/png,image/jpeg"
+                                            style={{ display: 'none' }}
+                                            onChange={handleAvatarChange}
+                                        />
                                     </div>
                                     <div className="photo-info">
                                         <h4 className="font-black text-slate-800 tracking-tight">System Node Avatar</h4>
@@ -233,10 +318,30 @@ const SettingsPage: React.FC = () => {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Update your platform access key</p>
                                             </div>
                                         </div>
-                                        <button className="px-4 py-2 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">
-                                            Modify
+                                        <button className="px-4 py-2 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all" onClick={() => setShowPasswordForm(prev => !prev)}>
+                                            {showPasswordForm ? 'Cancel' : 'Modify'}
                                         </button>
                                     </div>
+
+                                    {showPasswordForm && (
+                                        <form onSubmit={handleChangePassword} className="flex flex-wrap gap-4 items-end mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                            <div className="form-group-premium flex-1 min-w-[180px]">
+                                                <label>Current Password</label>
+                                                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="input-premium-v2" />
+                                            </div>
+                                            <div className="form-group-premium flex-1 min-w-[180px]">
+                                                <label>New Password</label>
+                                                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-premium-v2" />
+                                            </div>
+                                            <div className="form-group-premium flex-1 min-w-[180px]">
+                                                <label>Confirm New Password</label>
+                                                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="input-premium-v2" />
+                                            </div>
+                                            <button type="submit" disabled={isChangingPassword} className="px-6 py-2.5 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-lg shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+                                                {isChangingPassword ? 'Rotating...' : 'Update Password'}
+                                            </button>
+                                        </form>
+                                    )}
 
                                     <div className="settings-utility-card">
                                         <div className="flex items-center gap-4">

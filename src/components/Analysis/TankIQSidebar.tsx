@@ -4,6 +4,7 @@ import { FiX, FiSend, FiCpu, FiTrash2, FiShare2, FiFileText, FiPlus, FiChevronLe
 import { ChatMessage } from '@/services/IntelligenceAIService';
 import { TankIQService } from '@/services/TankIQService';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { ExportService } from '@/services/ExportService';
 import { formatDistanceToNow } from 'date-fns';
 import { logger } from '@/utils/logger';
@@ -32,6 +33,7 @@ interface TankIQSidebarProps {
 
 export const TankIQSidebar: React.FC<TankIQSidebarProps> = ({ isOpen, onClose, onToggle }) => {
     const { currentUser } = useAuth();
+    const { jurisdiction } = useJurisdiction();
     const [view, setView] = useState<ChatView>('list');
     
     // Sessions State
@@ -68,7 +70,7 @@ export const TankIQSidebar: React.FC<TankIQSidebarProps> = ({ isOpen, onClose, o
     // Handle session switching
     useEffect(() => {
         if (currentSessionId && currentUser?.stationId) {
-            serviceRef.current = new TankIQService(currentUser.stationId, currentSessionId);
+            serviceRef.current = new TankIQService(currentUser.stationId, currentSessionId, jurisdiction);
             setMessages(serviceRef.current.getHistory());
             setView('chat');
         } else {

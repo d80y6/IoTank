@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { formatMoney } from '@/lib/jurisdiction';
 import { supabase } from '@/config/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NebulaLoader } from '@/components/Common/NebulaLoader';
@@ -52,7 +53,7 @@ interface Transaction {
 
 export const BillingPage: React.FC = () => {
     const { currentUser, canSee } = useAuth();
-    const { currencySymbol, currency } = useJurisdiction();
+    const { jurisdiction, currencySymbol, currency } = useJurisdiction();
     const navigate = useNavigate();
 
     const [billing, setBilling] = useState<BillingInfo | null>(null);
@@ -65,6 +66,11 @@ export const BillingPage: React.FC = () => {
     const [payFeedback, setPayFeedback] = useState('');
     const [stationId, setStationId] = useState<string | null>(null);
     const [readingCount, setReadingCount] = useState(0);
+    const [debtModalOpen, setDebtModalOpen] = useState(false);
+    const [debtAmount, setDebtAmount] = useState('');
+    const [debtReason, setDebtReason] = useState('');
+    const [debtSaving, setDebtSaving] = useState(false);
+    const [debtFeedback, setDebtFeedback] = useState('');
 
     useEffect(() => {
         const fetchBilling = async () => {
@@ -96,7 +102,7 @@ export const BillingPage: React.FC = () => {
                     setLedgerLoading(true);
                     const [txRes, readingRes] = await Promise.all([
                         supabase.from('transactions').select('*').eq('station_id', cbData.station_id).order('created_at', { ascending: false }).limit(20),
-                        supabase.from('sensor_readings_partitioned').select('*', { count: 'exact', head: true }).eq('station_id', cbData.station_id)
+                        supabase.from('sensor_readings').select('*', { count: 'exact', head: true }).eq('station_id', cbData.station_id)
                     ]);
 
                     setTransactions(txRes.data || []);
@@ -297,6 +303,35 @@ export const BillingPage: React.FC = () => {
         }
     };
 
+    const submitAdditionalDebt = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!stationId || !debtAmount || parseFloat(debtAmount) <= 0) {
+            setDebtFeedback('⚠️ Enter a valid positive amount');
+            return;
+        }
+        setDebtSaving(true);
+        setDebtFeedback('');
+        try {
+            const { error } = await supabase.rpc('add_debt_to_client', {
+                p_station_id: stationId,
+                p_amount: parseFloat(debtAmount),
+                p_reason: debtReason || 'Owner-registered liability adjustment',
+            });
+            if (error) throw error;
+            setDebtFeedback('✅ Debt registered.');
+            setDebtAmount('');
+            setDebtReason('');
+            setTimeout(() => {
+                setDebtModalOpen(false);
+                setDebtFeedback('');
+                window.location.reload();
+            }, 1200);
+        } catch (err: any) {
+            setDebtFeedback(`❌ Failed: ${err.message}`);
+            setDebtSaving(false);
+        }
+    };
+
     const formatDate = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-KE', { day: '2-digit', month: 'short' }) : '—';
     const txIcon = (type: string) => ['payment', 'credit', 'MPESA', 'PAYSTACK'].includes(type) ? <FaHistory /> : <FiActivity />;
 
@@ -398,11 +433,14 @@ export const BillingPage: React.FC = () => {
                             <span className="stat-card-label">Account Liability</span>
                             <div className="metric-icon-box metric-icon-box--debt"><FaMoneyBillWave /></div>
                         </div>
-                        <h2 className="stat-main-value text-rose-500">{currencySymbol} {billing.current_debt.toLocaleString()}</h2>
+                        <h2 className="stat-main-value text-rose-500">{formatMoney(billing.current_debt, jurisdiction)}</h2>
                         <div className="stat-sub-row">
                             <span className="stat-sub-label">Next Cycle</span>
                             <span className="text-[11px] font-bold text-slate-500 uppercase">{formatDate(billing.next_billing_date)}</span>
                         </div>
+                        <button onClick={() => setDebtModalOpen(true)} className="mt-3 w-full text-[10px] font-bold uppercase tracking-widest text-rose-500 border border-rose-200 rounded-lg py-2 hover:bg-rose-50 transition-colors">
+                            Register Additional Liability
+                        </button>
                     </motion.div>
 
                     <motion.div variants={itemVariants} className="stat-card-clean">
@@ -410,7 +448,7 @@ export const BillingPage: React.FC = () => {
                             <span className="stat-card-label">Total Settlements</span>
                             <div className="metric-icon-box metric-icon-box--usage"><FaShieldAlt /></div>
                         </div>
-                        <h2 className="stat-main-value text-emerald-500">{currencySymbol} {(billing.total_paid || 0).toLocaleString()}</h2>
+                        <h2 className="stat-main-value text-emerald-500">{formatMoney(billing.total_paid || 0, jurisdiction)}</h2>
                         <div className="stat-sub-row">
                             <span className="stat-sub-label">Historical Pay</span>
                             <span className="text-[11px] font-bold text-slate-500 uppercase">Confirmed</span>
@@ -469,7 +507,7 @@ export const BillingPage: React.FC = () => {
                                                 <td className="font-mono text-[10px] text-slate-500 uppercase tracking-tighter">
                                                     {tx.payment_reference || tx.id.slice(0, 8)}
                                                 </td>
-                                                <td className="font-bold text-slate-700">{currencySymbol} {tx.amount.toLocaleString()}</td>
+                                                <td className="font-bold text-slate-700">{formatMoney(tx.amount, jurisdiction)}</td>
                                                 <td>
                                                     <span className={`status-pill-v3 status-pill-v3--${(tx.payment_status || 'pending').toLowerCase()}`}>
                                                         {tx.payment_status || 'Pending'}
@@ -542,6 +580,36 @@ export const BillingPage: React.FC = () => {
                         </div>
                     </motion.div>
                 </div>
+
+                {debtModalOpen && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDebtModalOpen(false)}>
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-black uppercase tracking-wider text-slate-800 mb-1">Register Additional Liability</h3>
+                            <p className="text-xs text-slate-500 font-medium mb-5">Adds to the outstanding debt on this station ledger. Permanent and audited.</p>
+                            <form onSubmit={submitAdditionalDebt} className="flex flex-col gap-4">
+                                <div>
+                                    <label className="saas-label-v3">Amount ({currency})</label>
+                                    <input type="number" step="0.01" min="0" className="saas-input-v3" value={debtAmount} onChange={e => setDebtAmount(e.target.value)} placeholder="0.00" required />
+                                </div>
+                                <div>
+                                    <label className="saas-label-v3">Reason</label>
+                                    <input type="text" className="saas-input-v3" value={debtReason} onChange={e => setDebtReason(e.target.value)} placeholder="e.g. regulatory top-up" />
+                                </div>
+                                {debtFeedback && (
+                                    <p className={`text-[11px] font-bold uppercase tracking-widest text-center ${debtFeedback.includes('✅') ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        {debtFeedback}
+                                    </p>
+                                )}
+                                <div className="flex gap-3">
+                                    <button type="button" onClick={() => setDebtModalOpen(false)} className="btn-secondary-premium flex-1">CANCEL</button>
+                                    <button type="submit" disabled={debtSaving} className="btn-primary-premium flex-1">
+                                        {debtSaving ? 'REGISTERING...' : 'REGISTER'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </motion.div>
     );

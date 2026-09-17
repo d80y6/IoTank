@@ -5,9 +5,9 @@ import { hardwareService, Device, FirmwareVersion, OTACampaign, DevTask } from '
 import { 
     FiCpu, FiHardDrive, FiActivity, FiMapPin, 
     FiWifi, FiServer, FiSettings, FiRefreshCw, 
-    FiUploadCloud, FiDownload, FiAlertTriangle, FiCheckCircle, FiClock,
-    FiPlus, FiFilter, FiSearch, FiMoreVertical, FiTerminal,
-    FiGitCommit, FiLayers, FiList, FiTrendingUp, FiChevronRight, FiMaximize2,
+    FiDownload, FiAlertTriangle, FiCheckCircle, FiClock,
+    FiFilter, FiSearch, FiMoreVertical, FiTerminal,
+    FiLayers, FiList, FiTrendingUp, FiChevronRight, FiMaximize2,
     FiShield, FiDatabase, FiCloudLightning, FiCode, FiCopy
 } from 'react-icons/fi';
 import { BackendTab } from '../components/Hardware/BackendTab';
@@ -21,9 +21,56 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
     const [campaigns, setCampaigns] = useState<OTACampaign[]>([]);
     const [tasks, setTasks] = useState<DevTask[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+    const [latestReading, setLatestReading] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [safetyArmed, setSafetyArmed] = useState(false);
     const [commandLoading, setCommandLoading] = useState<string | null>(null);
+    const [registrySearch, setRegistrySearch] = useState('');
+
+    const buildTerminalLines = () => {
+        const lines: { text: string; tone: string }[] = [
+            { text: '[SYSTEM] INITIALIZING TELEMETRY STREAM...', tone: '' },
+            { text: '# FETCHING CORE METRICS...', tone: 'opacity-40' }
+        ];
+        devices.slice(0, 4).forEach(d => {
+            const online = d.status === 'online';
+            lines.push({
+                text: `[${d.station_name}] firmware ${d.firmware_version} ${online ? 'online' : d.status}`,
+                tone: `mt-2 ${online ? 'text-neon-emerald' : 'text-neon-rose'}`
+            });
+        });
+        lines.push({ text: '_ EXEC_CMD_0X92... LOADING', tone: 'text-neon-cyan animate-pulse mt-4' });
+        return lines;
+    };
+
+    const handleExportClusterLog = () => {
+        const rows = [
+            'IoTank Fleet Cluster Export',
+            '==========================',
+            `Exported: ${new Date().toLocaleString()}`,
+            '',
+            'UID,NODE_NAME,CLIENT,FIRMWARE,STATUS,LAST_SEEN'
+        ];
+        devices.forEach(d => {
+            rows.push([
+                d.device_id,
+                d.station_name,
+                d.client_name || 'Unknown',
+                d.firmware_version,
+                d.status,
+                d.last_seen || ''
+            ].join(','));
+        });
+        const blob = new Blob([rows.join('\n')], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `cluster-export-${new Date().toISOString().split('T')[0]}.log`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -86,6 +133,18 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
     const handleDeviceClick = (device: Device) => {
         setSelectedDevice(device);
         setActiveTab('detail');
+        if (device.station_id) {
+            supabase
+                .from('sensor_readings')
+                .select('water_level, volume, temperature, captured_at')
+                .eq('station_id', device.station_id as any)
+                .order('captured_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+                .then(({ data }) => setLatestReading(data || null));
+        } else {
+            setLatestReading(null);
+        }
     };
 
     const handleExecuteCommand = async (command: string, label: string, targetType: 'fleet' | 'device' = 'fleet') => {
@@ -110,7 +169,34 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                         onClick: async () => {
                             setCommandLoading(command);
                             try {
-                                if (targetType === 'fleet') {
+                                if (command === 'THEFT_SCAN') {
+                                    const stationIds = [...new Set(devices.map(d => d.station_id).filter((s): s is string => Boolean(s)))];
+                                    const { data: tanks } = await supabase.from('tanks').select('id').in('station_id', stationIds.length ? stationIds : ['00000000-0000-0000-0000-000000000000']);
+                                    const flagged: string[] = [];
+                                    for (const t of tanks || []) {
+                                        const { data: flaggedRes } = await supabase.rpc('detect_theft_anomaly', { p_tank_id: t.id });
+                                        if (flaggedRes === true) flagged.push(t.id);
+                                    }
+                                    window.dispatchEvent(new CustomEvent('system-toast', {
+                                        detail: {
+                                            title: 'Theft Scan Complete',
+                                            message: flagged.length
+                                                ? `${flagged.length} tank(s) show anomalous drop/refill signatures.`
+                                                : 'No anomalous signatures detected across the fleet.',
+                                            type: flagged.length ? 'warning' : 'success'
+                                        }
+                                    }));
+                                } else if (command === 'TELEMETRY') {
+                                    const { count, error: countErr } = await supabase.from('telemetry_history').select('*', { count: 'exact', head: true });
+                                    if (countErr) throw countErr;
+                                    window.dispatchEvent(new CustomEvent('system-toast', {
+                                        detail: {
+                                            title: 'Telemetry Pipeline',
+                                            message: `telemetry_history holds ${count ?? 0} row(s) in the pipeline.`,
+                                            type: 'success'
+                                        }
+                                    }));
+                                } else if (targetType === 'fleet') {
                                     for (const device of devices) {
                                         if (device.status === 'online') {
                                             await hardwareService.sendCommand(device.id, device.device_id, command);
@@ -183,7 +269,7 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                     <div key={i} className={`hw-node-card ${node.status}`}>
                         <div className="flex justify-between items-start mb-4">
                             <span className="text-[10px] font-black uppercase opacity-40 tracking-widest">{node.label}</span>
-                            <FiMaximize2 className="opacity-20 hover:opacity-100 cursor-pointer" />
+                            <FiMaximize2 className="opacity-20" />
                         </div>
                         <h2 className={`text-4xl font-black tracking-tighter mb-1 ${node.color}`}>{node.val}</h2>
                         <div className="text-[9px] font-bold opacity-30 uppercase">{node.total}</div>
@@ -221,7 +307,7 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                                                 </div>
                                             </td>
                                             <td className="font-bold text-xs uppercase opacity-80">{d.station_name}</td>
-                                            <td className="text-[10px] opacity-40 font-bold italic">{new Date().toLocaleTimeString()}</td>
+                                            <td className="text-[10px] opacity-40 font-bold italic">{d.last_seen ? new Date(d.last_seen).toLocaleTimeString() : '—'}</td>
                                             <td>
                                                 <div className={`status-pill ${d.status === 'online' ? 'online' : 'offline'}`}>
                                                     {d.status}
@@ -245,11 +331,9 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                            </div>
                         </div>
                         <div className="hw-terminal-body terminal-view min-h-[300px]">
-                            <div>[SYSTEM] INITIALIZING TELEMETRY STREAM...</div>
-                            <div className="opacity-40"># FETCHING CORE METRICS...</div>
-                            <div className="mt-2 text-neon-emerald">SUCCESS: Link established with HUB_01</div>
-                            <div className="mt-4 text-neon-rose">WARNING: HUB_04 latencies exceeding 400ms</div>
-                            <div className="mt-4 text-neon-cyan animate-pulse">_ EXEC_CMD_0X92... LOADING</div>
+                            {buildTerminalLines().map((line, i) => (
+                                <div key={i} className={line.tone}>{line.text}</div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -262,9 +346,9 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
             <div className="hw-filter-bar mb-8">
                 <div className="relative flex-1">
                     <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40" />
-                    <input type="text" placeholder="Search Node Fleet..." className="hw-search-input pl-12" />
+                    <input type="text" placeholder="Search Node Fleet..." className="hw-search-input pl-12" value={registrySearch} onChange={(e) => setRegistrySearch(e.target.value)} />
                 </div>
-                <button className="hw-action-btn">
+                <button className="hw-action-btn" onClick={handleExportClusterLog}>
                     <FiDownload /> Export Cluster.log
                 </button>
             </div>
@@ -282,7 +366,7 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                         </tr>
                     </thead>
                     <tbody>
-                        {devices.map(d => (
+                        {devices.filter(d => !registrySearch || d.station_name.toLowerCase().includes(registrySearch.toLowerCase()) || d.device_id.toLowerCase().includes(registrySearch.toLowerCase())).map(d => (
                             <tr key={d.id} className="cursor-pointer" onClick={() => handleDeviceClick(d)}>
                                 <td>
                                     <div className="flex flex-col">
@@ -318,7 +402,7 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                                     </div>
                                 </td>
                                 <td className="text-right">
-                                    <button className="icon-btn hover:text-neon-cyan" onClick={(e) => {e.stopPropagation();}}><FiSettings /></button>
+                                    <button className="icon-btn hover:text-neon-cyan" onClick={(e) => {e.stopPropagation(); handleDeviceClick(d);}}><FiSettings /></button>
                                 </td>
                             </tr>
                         ))}
@@ -367,7 +451,7 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                             <div className="flex justify-between items-end border-b border-white border-opacity-5 pb-4">
                                 <div>
                                     <span className="text-[10px] font-black uppercase opacity-30 tracking-widest block mb-1">Dip Distance</span>
-                                    <span className="text-3xl font-black font-mono tracking-tighter">1,245 <small className="text-xs opacity-30 font-bold">mm</small></span>
+                                    <span className="text-3xl font-black font-mono tracking-tighter">{latestReading?.water_level != null ? `${Number(latestReading.water_level).toLocaleString()} ` : '— '}<small className="text-xs opacity-30 font-bold">{latestReading?.water_level != null ? 'mm' : ''}</small></span>
                                 </div>
                             </div>
                             <div className="flex justify-between items-end">
@@ -394,9 +478,6 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                                 <h3 className="text-xs font-black uppercase tracking-widest">Binary Repository / Repository_v2</h3>
                                 <span className="text-[10px] font-bold opacity-30 mt-1 block uppercase font-mono">Rollout Management Console</span>
                             </div>
-                            <button className="hw-action-btn bg-neon-pink">
-                                <FiUploadCloud /> Upload New Binary
-                            </button>
                         </div>
                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             {firmware.map(f => (
@@ -421,9 +502,6 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                                             <div className="h-full bg-neon-cyan w-full opacity-30"></div>
                                         </div>
                                     </div>
-                                    <button className="hw-deploy-btn">
-                                        Initiate Deployment
-                                    </button>
                                 </div>
                             ))}
                         </div>
@@ -484,6 +562,8 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                     { id: 'REBOOT', icon: <FiRefreshCw />, title: 'Bulk System Reboot', desc: 'Propagate graceful restart command across all online nodes in the fleet.', action: 'Broadcast Reboot', risk: 'safe' },
                     { id: 'SYNC', icon: <FiCloudLightning />, title: 'Force Connectivity Sync', desc: 'Interrupt current radio state and perform a full handshake with Supabase edge.', action: 'Force Sync', risk: 'safe' },
                     { id: 'DIAGNOSTIC', icon: <FiTerminal />, title: 'Remote Diagnostic Scan', desc: 'Execute comprehensive sensory and radio diagnostic routine on all nodes.', action: 'Trigger Diagnostic', risk: 'safe' },
+                    { id: 'THEFT_SCAN', icon: <FiAlertTriangle />, title: 'Run Theft Detection', desc: 'Scan all fleet tanks for anomalous drop/refill signatures via detect_theft_anomaly.', action: 'Run Scan', risk: 'safe' },
+                    { id: 'TELEMETRY', icon: <FiDatabase />, title: 'Telemetry History', desc: 'Query the hardware telemetry_history pipeline for the fleet.', action: 'View Pipeline', risk: 'safe' },
                     { id: 'FLUSH', icon: <FiShield />, title: 'Clear Security Buffers', desc: 'Flush all local telemetry cache and security event buffers from node flash.', action: 'Flush Buffers', risk: 'warning' },
                     { id: 'PROVISION', icon: <FiDatabase />, title: 'Node Re-Provisioning', desc: 'Securely re-bind node identity keys and infrastructure parameters.', action: 'Re-Provision', risk: 'warning' },
                     { id: 'FACTORY_RESET', icon: <FiAlertTriangle />, title: 'Fleet Factory Reset', desc: 'CRITICAL: Wipe all flash segments and return entire fleet to base OS binaries.', action: 'Execute Wipe', risk: 'destructive' }
@@ -514,24 +594,20 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
     const renderDev = () => (
         <div className="hw-dev animate-mission-control">
             <div className="flex justify-between items-start mb-12">
-                <div>
+<div>
                    <h2 className="text-3xl font-black lowercase tracking-tighter">Developer Supervision</h2>
                    <p className="text-[10px] font-bold opacity-30 uppercase tracking-[0.2em] mt-1">Environment Health & CI/CD Pipelines</p>
-                </div>
-                <button className="hw-action-btn bg-[var(--bg-surface)] border border-[var(--glass-border)] text-[var(--color-text-primary)]">
-                    <FiGitCommit /> Platform Logs
-                </button>
-            </div>
+                 </div>
+             </div>
 
             <div className="hw-node-card p-0 bg-[var(--bg-surface)] mb-12">
                 <div className="p-6 border-b border-[var(--glass-border)] flex justify-between items-center">
                     <h3 className="text-xs font-black uppercase tracking-widest">System Maintenance Board</h3>
-                    <FiPlus className="opacity-40 hover:opacity-100 cursor-pointer" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 p-6 gap-6">
                     {tasks.length === 0 && <div className="col-span-full text-center py-20 opacity-20">No active system tasks</div>}
                     {tasks.map(t => (
-                        <div key={t.id} className="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-indigo-500/50 transition-all cursor-pointer group">
+                        <div key={t.id} className="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-indigo-500/50 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <span className={`text-[8px] font-black uppercase px-2 py-1 rounded ${t.priority === 'critical' ? 'bg-rose-500 text-white' : 'bg-indigo-500/20 text-indigo-400'}`}>
                                     {t.priority}
@@ -561,12 +637,18 @@ const HardwareMonitoring: React.FC<{ isHubView?: boolean }> = ({ isHubView }) =>
                     </div>
                 </div>
                 <div className="hw-terminal-body min-h-[400px]">
-                    <div className="text-neon-emerald">[09:30:12] KERNEL: BOOT SEQUENCE OK</div>
-                    <div>[09:30:15] SUPABASE: LINK_ESTABLISHED (REGION: EU-WEST)</div>
+                    {devices.slice(0, 3).map((d, i) => (
+                        <div key={i} className={d.status === 'online' ? 'text-neon-emerald' : 'text-neon-rose'}>
+                            [{new Date(d.last_seen || Date.now()).toLocaleTimeString()}] DEVICE_{d.device_id.slice(0, 4)}: {d.station_name} FIRMWARE {d.firmware_version} {d.status.toUpperCase()}
+                        </div>
+                    ))}
                     <div className="opacity-20"># ------------------------------------------------------------</div>
-                    <div>[09:31:05] SENSOR_BUFFER: MAPPING 4 I2C ENDPOINTS...</div>
-                    <div className="text-neon-pink">[09:31:42] ERROR: SPI_BUS_COLLISION DETECTED (AUTO-FIXING)</div>
-                    <div className="text-neon-cyan">[09:32:00] PIPELINE: BUILD_SUCCESS (COMMIT: 8fa2c03)</div>
+                    {devices.slice(3, 6).map((d, i) => (
+                        <div key={`line-${i}`} className={d.status === 'online' ? 'text-neon-emerald' : 'text-neon-rose'}>
+                            [{new Date().toLocaleTimeString()}] TELEMETRY {d.device_id.slice(0, 4)}: {d.station_name} — HEARTBEAT {d.status === 'online' ? 'ACK' : 'LOST'}
+                        </div>
+                    ))}
+                    <div className="text-neon-cyan">[{new Date().toLocaleTimeString()}] PIPELINE: {devices.length} NODES MONITORED — {devices.filter(d => d.status === 'online').length} ONLINE, {devices.filter(d => d.status !== 'online').length} OFFLINE</div>
                     <div className="animate-pulse mt-4 text-neon-cyan">_ SYSTEM_IDLE // LISTENING_FOR_INPUT...</div>
                 </div>
             </div>

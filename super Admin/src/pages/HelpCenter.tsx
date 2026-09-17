@@ -5,7 +5,7 @@ import {
     FiSearch, FiBook, FiShield, FiActivity, 
     FiSettings, FiHelpCircle, FiChevronRight, 
     FiMessageSquare, FiExternalLink, FiFileText,
-    FiZap, FiDownload, FiLoader
+    FiZap, FiDownload, FiLoader, FiChevronDown
 } from 'react-icons/fi';
 import './HelpCenter.css';
 
@@ -37,7 +37,7 @@ const HELP_CATEGORIES = [
     {
         id: 'compliance',
         title: 'Regulatory & Compliance',
-        desc: 'EPRA standards, KRA tax integration, and automated compliance checks.',
+        desc: 'Regulatory standards, tax integration, and automated compliance checks.',
         icon: <FiFileText />
     },
     {
@@ -53,6 +53,8 @@ const HelpCenter: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
     const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
     const [loading, setLoading] = useState(true);
     const [searching, setSearching] = useState(false);
+    const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -127,17 +129,29 @@ const HelpCenter: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                 <div className="p-8 text-center opacity-40 text-xs font-black uppercase tracking-widest">No matching articles found</div>
                             ) : (
                                 articles.map((article, i) => (
-                                    <div key={i} className="help-article-row group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
-                                                <FiFileText />
+                                    <div
+                                        key={article.id || i}
+                                        className="help-article-row group"
+                                        style={expandedArticle === article.id ? { flexDirection: 'column', alignItems: 'stretch' } : undefined}
+                                        onClick={() => setExpandedArticle(expandedArticle === article.id ? null : article.id)}
+                                    >
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
+                                                    <FiFileText />
+                                                </div>
+                                                <div>
+                                                    <span className="article-title">{article.title}</span>
+                                                    <div className="text-[10px] font-bold opacity-30 uppercase">{article.category} • {article.views} views • {article.helpful_count} helpful</div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <span className="article-title">{article.title}</span>
-                                                <div className="text-[10px] font-bold opacity-30 uppercase">{article.category} • {article.views} views</div>
-                                            </div>
+                                            {expandedArticle === article.id ? <FiChevronDown className="opacity-40" /> : <FiChevronRight className="opacity-40 group-hover:translate-x-1 transition-all" />}
                                         </div>
-                                        <FiChevronRight className="opacity-40 group-hover:translate-x-1 transition-all" />
+                                        {expandedArticle === article.id && (
+                                            <div className="mt-4 pt-4 border-t border-slate-100 text-xs font-semibold text-slate-500 leading-relaxed whitespace-pre-wrap w-full">
+                                                {article.content || 'No detail available for this article.'}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             )}
@@ -152,14 +166,14 @@ const HelpCenter: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                 <FiMessageSquare /> Raise Priority Ticket
                             </a>
                             <div className="mt-8 pt-8 border-t border-white/10 space-y-4">
-                                <div className="flex items-center gap-3 text-[10px] font-black uppercase text-slate-400">
-                                    <FiDownload /> 
+                                <a href="../../Documentation/PROJECT_SPEC.md" target="_blank" rel="noreferrer" className="flex items-center gap-3 text-[10px] font-black uppercase text-slate-400 hover:text-emerald-400 transition-all">
+                                    <FiDownload />
                                     <span>System Manifest PDF</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-[10px] font-black uppercase text-slate-400">
-                                    <FiExternalLink /> 
+                                </a>
+                                <a href={supabaseUrl ? `${supabaseUrl}/rest/v1/` : '/help'} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-[10px] font-black uppercase text-slate-400 hover:text-emerald-400 transition-all">
+                                    <FiExternalLink />
                                     <span>Platform Developer API Docs</span>
-                                </div>
+                                </a>
                             </div>
                         </div>
                     </aside>

@@ -26,6 +26,17 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
     const [body, setBody] = useState('');
     const [targetAudience, setTargetAudience] = useState('All Active Clients');
     const [isSending, setIsSending] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewAnnouncement, setPreviewAnnouncement] = useState<any | null>(null);
+    const [contentBlocks, setContentBlocks] = useState<{ id: string; type: string; label: string; text: string }[]>([
+        { id: 'block-header', type: 'Headline', label: 'Headline', text: 'GLOBAL HEADLINE NODE' },
+        { id: 'block-intel', type: 'Copytext', label: 'Copytext', text: 'Intelligence Spotlight: AI Forensics' }
+    ]);
+    const [bannerFormOpen, setBannerFormOpen] = useState(false);
+    const [editingBanner, setEditingBanner] = useState<DashboardBanner | null>(null);
+    const [bannerMessage, setBannerMessage] = useState('');
+    const [bannerType, setBannerType] = useState<DashboardBanner['type']>('info');
+    const [savingBanner, setSavingBanner] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -48,6 +59,11 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const totalRecipients = history.reduce((s, h) => s + (h.recipients_count || 0), 0);
+    const audienceCoverageWidth = totalRecipients > 0
+        ? Math.min(100, Math.round(history.filter(h => (h.recipients_count || 0) > 0).length / Math.max(history.length, 1) * 100))
+        : 0;
 
     const toggleChannel = (channel: string) => {
         setSelectedChannels(prev => 
@@ -112,6 +128,142 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         }
     };
 
+    const handlePreview = () => {
+        if (!subject && !body) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Nothing to Preview',
+                    message: 'Compose a subject or message body before previewing the broadcast.',
+                    type: 'warning'
+                }
+            }));
+            return;
+        }
+        setShowPreview(!showPreview);
+    };
+
+    const blockDefaults: Record<string, { label: string; text: string }> = {
+        'Headline': { label: 'Headline', text: 'YOUR HEADLINE HERE' },
+        'Visual': { label: 'Visual', text: '[Visual asset slot — paste a media URL]' },
+        'Copytext': { label: 'Copytext', text: 'Insert body copy for this section...' },
+        'Action': { label: 'Action', text: '[Call to action — button label]' },
+        'Stat Grid': { label: 'Stat Grid', text: 'Metric 01 — 42% | Metric 02 — 1,240 | Metric 03 — 99.2%' },
+        'Footer': { label: 'Footer', text: '© 2026 The IoTank — Standard Footer' }
+    };
+
+    const makeContentBlock = (type: string): { id: string; type: string; label: string; text: string } => {
+        const preset = blockDefaults[type] || { label: type, text: '' };
+        return {
+            id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type,
+            label: preset.label,
+            text: preset.text
+        };
+    };
+
+    const appendContentBlock = (type?: string) => {
+        setContentBlocks(prev => [...prev, makeContentBlock(type || 'Copytext')]);
+    };
+
+    const updateContentBlock = (id: string, text: string) => {
+        setContentBlocks(prev => prev.map(b => b.id === id ? { ...b, text } : b));
+    };
+
+    const applyTemplate = (t: NewsletterTemplate) => {
+        setContentBlocks(prev => [
+            ...prev,
+            makeContentBlock('Copytext'),
+            { id: `block-${Date.now()}`, type: 'Copytext', label: t.name, text: `${t.category} campaign — populate this section with the ${t.name} briefing.` }
+        ]);
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: {
+                title: 'Preset Applied',
+                message: `Template "${t.name}" staged into the engagement editor.`,
+                type: 'success'
+            }
+        }));
+    };
+
+    const removeContentBlock = (index: number) => {
+        setContentBlocks(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSaveBanner = async () => {
+        if (!bannerMessage.trim()) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Missing Banner Message',
+                    message: 'Provide a message for the dashboard banner.',
+                    type: 'warning'
+                }
+            }));
+            return;
+        }
+        setSavingBanner(true);
+        try {
+            const user = (await supabase.auth.getUser()).data.user;
+            if (editingBanner) {
+                const { error } = await supabase
+                    .from('dashboard_banners')
+                    .update({ message: bannerMessage.trim(), type: bannerType })
+                    .eq('id', editingBanner.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from('dashboard_banners')
+                    .insert({
+                        message: bannerMessage.trim(),
+                        type: bannerType,
+                        target: 'All',
+                        is_dismissible: true,
+                        is_active: true,
+                        created_by: user?.id
+                    });
+                if (error) throw error;
+            }
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: editingBanner ? 'Banner Updated' : 'Banner Initialized',
+                    message: editingBanner ? 'The dashboard banner has been updated.' : 'The dashboard banner is now live across the platform.',
+                    type: 'success'
+                }
+            }));
+            setBannerFormOpen(false);
+            setEditingBanner(null);
+            setBannerMessage('');
+            await fetchData();
+        } catch (error: any) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Banner Operation Failed',
+                    message: error.message || 'An unexpected error occurred while saving the banner.',
+                    type: 'error'
+                }
+            }));
+        } finally {
+            setSavingBanner(false);
+        }
+    };
+
+    const handleDeleteBanner = async (banner: DashboardBanner) => {
+        try {
+            const { error } = await supabase
+                .from('dashboard_banners')
+                .delete()
+                .eq('id', banner.id);
+            if (error) throw error;
+            await fetchData();
+        } catch (error: any) {
+            window.dispatchEvent(new CustomEvent('system-toast', {
+                detail: {
+                    title: 'Banner Removal Failed',
+                    message: error.message || 'An unexpected error occurred while removing the banner.',
+                    type: 'error'
+                }
+            }));
+        }
+    };
+
     const renderBuildAnnouncement = () => (
         <div className="builder-studio animate-fade-in">
             <div className="builder-main">
@@ -142,6 +294,21 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                     </div>
                 </div>
 
+                {showPreview && (
+                    <div className="mb-8 p-6 bg-white border border-slate-200 rounded-2xl">
+                        <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Broadcast Preview</div>
+                        {subject && <div className="text-sm font-black text-slate-800 mb-2">{subject}</div>}
+                        <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{body}</div>
+                        {selectedChannels.length > 0 && (
+                            <div className="flex gap-2 mt-4">
+                                {selectedChannels.map(ch => (
+                                    <span key={ch} className="text-[9px] font-black uppercase text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded-md">{ch}</span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex justify-between items-center gap-6 mt-12 bg-slate-50 p-8 rounded-3xl border border-slate-100">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 text-2xl">
@@ -153,7 +320,7 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                         </div>
                     </div>
                      <div className="flex gap-3">
-                          <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all">Dry Run Preview</button>
+                          <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-white transition-all" onClick={handlePreview}>Dry Run Preview</button>
                           <button 
                             className="px-8 py-3 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20"
                             disabled={isSending}
@@ -197,15 +364,15 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                         >
                             <option>All Active Clients</option>
                             <option>Specific Tier: Enterprise</option>
-                            <option>County: Nairobi</option>
+                            <option>Region: East Africa</option>
                         </select>
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                              <div className="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2">
                                  <span>Audience Coverage</span>
-                                 <span className="text-blue-600">~1,250 Nodes</span>
+                                 <span className="text-blue-600">{totalRecipients > 0 ? `${totalRecipients.toLocaleString()} nodes` : '—'}</span>
                              </div>
                              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                 <div className="h-full bg-blue-600" style={{width: '65%'}}></div>
+                                 <div className="h-full bg-blue-600" style={{width: `${audienceCoverageWidth}%`}}></div>
                              </div>
                         </div>
                     </div>
@@ -214,14 +381,18 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         </div>
     );
 
-    const renderHistory = () => (
+    const renderHistory = () => {
+        const avgOpen = history.length ? history.reduce((s, h) => s + (h.open_rate || 0), 0) / history.length : null;
+        const avgClick = history.length ? history.reduce((s, h) => s + (h.click_rate || 0), 0) / history.length : null;
+        const scheduled = history.filter(h => h.status === 'scheduled').length;
+        return (
         <div className="history-section animate-fade-in">
              <div className="dp-stats-grid">
                  {[
                     { label: 'Total Deployments', val: history.length, icon: <FiSend />, color: '#f59e0b' },
-                    { label: 'Avg Open Rate', val: '58.4%', icon: <FiBarChart2 />, color: '#10b981' },
-                    { label: 'Engagement Index', val: '12.8%', icon: <FiTarget />, color: '#06b6d4' },
-                    { label: 'Scheduled Queue', val: '3', icon: <FiClock />, color: '#8b5cf6' }
+                    { label: 'Avg Open Rate', val: avgOpen === null ? '—' : `${avgOpen.toFixed(1)}%`, icon: <FiBarChart2 />, color: '#10b981' },
+                    { label: 'Engagement Index', val: avgClick === null ? '—' : `${avgClick.toFixed(1)}%`, icon: <FiTarget />, color: '#06b6d4' },
+                    { label: 'Scheduled Queue', val: `${scheduled}`, icon: <FiClock />, color: '#8b5cf6' }
                  ].map(k => (
                     <div key={k.label} className="dp-premium-stat-card">
                          <div className="stat-icon-blob" style={{ background: `${k.color}10`, color: k.color }}>{k.icon}</div>
@@ -276,7 +447,7 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                     </span>
                                 </td>
                                 <td className="text-right">
-                                    <button className="action-circle view"><FiEye size={16}/></button>
+                                    <button className="action-circle view" onClick={() => setPreviewAnnouncement(h)}><FiEye size={16}/></button>
                                 </td>
                             </tr>
                         ))}
@@ -284,7 +455,8 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                 </table>
              </div>
         </div>
-    );
+        );
+    };
 
     const renderBanners = () => (
         <div className="banners-section animate-fade-in">
@@ -293,10 +465,37 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                     <h3 className="text-2xl font-black lowercase tracking-tighter">Live dashboard banners</h3>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">active persistent notifications across the platform ecosystem</p>
                  </div>
-                 <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
-                    <FiPlus /> Initialize Banner
+                 <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2" onClick={() => { setEditingBanner(null); setBannerMessage(''); setBannerType('info'); setBannerFormOpen(!bannerFormOpen); }}>
+                    <FiPlus /> {bannerFormOpen ? 'Close Panel' : 'Initialize Banner'}
                 </button>
             </div>
+
+            {bannerFormOpen && (
+                <div className="mb-6 p-6 bg-white rounded-2xl border border-slate-200">
+                    <label className="info-label">Banner Message</label>
+                    <input
+                        className="support-input font-bold"
+                        placeholder="e.g., Scheduled maintenance on 2026-09-20"
+                        value={bannerMessage}
+                        onChange={(e) => setBannerMessage(e.target.value)}
+                    />
+                    <div className="mt-4 flex items-center gap-4">
+                        <select className="support-input font-bold" value={bannerType} onChange={e => setBannerType(e.target.value as DashboardBanner['type'])}>
+                            <option value="info">Info</option>
+                            <option value="warning">Warning</option>
+                            <option value="error">Error</option>
+                            <option value="success">Success</option>
+                        </select>
+                        <button
+                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all disabled:opacity-50"
+                            disabled={savingBanner}
+                            onClick={handleSaveBanner}
+                        >
+                            {savingBanner ? 'Saving...' : editingBanner ? 'Update Banner' : 'Create Banner'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-3">
                 {banners.map(b => (
@@ -311,8 +510,8 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                             </div>
                          </div>
                          <div className="flex gap-2">
-                             <button className="action-circle view"><FiEdit3 size={14}/></button>
-                             <button className="action-circle delete"><FiTrash2 size={14}/></button>
+                             <button className="action-circle view" onClick={() => { setEditingBanner(b); setBannerMessage(b.message); setBannerType(b.type); setBannerFormOpen(true); }}><FiEdit3 size={14}/></button>
+                             <button className="action-circle delete" onClick={() => handleDeleteBanner(b)}><FiTrash2 size={14}/></button>
                          </div>
                     </div>
                 ))}
@@ -320,26 +519,37 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         </div>
     );
 
-    const renderNewsletters = () => (
+    const renderNewsletters = () => {
+        const blockTypeTag: Record<string, string> = {
+            'Headline': 'text-blue-600 bg-blue-50 border-blue-100',
+            'Visual': 'text-purple-600 bg-purple-50 border-purple-100',
+            'Copytext': 'text-slate-500 bg-slate-50 border-slate-100',
+            'Action': 'text-amber-600 bg-amber-50 border-amber-100',
+            'Stat Grid': 'text-emerald-600 bg-emerald-50 border-emerald-100',
+            'Footer': 'text-slate-400 bg-slate-50 border-slate-100'
+        };
+        return (
         <div className="newsletters-section animate-fade-in">
              <div className="builder-studio">
                  <div className="builder-main">
                       <div className="newsletter-editor-space flex flex-col gap-4">
-                           <div className="newsletter-block flex justify-between items-center group">
-                                <div className="flex items-center gap-4">
-                                    <FiMove className="opacity-20 group-hover:opacity-100 transition-opacity" />
-                                    <div className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Global Header Node</div>
-                                </div>
-                                <FiMinusCircle className="opacity-0 group-hover:opacity-100 text-rose-500 cursor-pointer" />
-                           </div>
-                           <div className="newsletter-block flex justify-between items-center group">
-                                <div className="flex items-center gap-4">
-                                    <FiMove className="opacity-20 group-hover:opacity-100 transition-opacity" />
-                                    <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Intelligence Spotlight: AI Forensics</div>
-                                </div>
-                                <FiMinusCircle className="opacity-0 group-hover:opacity-100 text-rose-500 cursor-pointer" />
-                           </div>
-                           <div className="newsletter-block border-dashed border-2 py-12 flex items-center justify-center opacity-40 hover:opacity-100 transition-all cursor-pointer">
+                           {contentBlocks.map((block, i) => (
+                               <div key={block.id} className="newsletter-block group">
+                                    <div className="flex items-center gap-4 w-full">
+                                        <FiMove className="opacity-20 group-hover:opacity-100 transition-opacity shrink-0" />
+                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${blockTypeTag[block.type] || 'text-slate-400 bg-slate-50 border-slate-100'}`}>{block.type}</span>
+                                        <input
+                                            type="text"
+                                            className="flex-1 min-w-0 bg-transparent text-xs font-bold text-slate-700 outline-none placeholder:text-slate-400"
+                                            value={block.text}
+                                            placeholder="Block content..."
+                                            onChange={(e) => updateContentBlock(block.id, e.target.value)}
+                                        />
+                                    </div>
+                                    <FiMinusCircle className="opacity-0 group-hover:opacity-100 text-rose-500 cursor-pointer shrink-0" onClick={() => removeContentBlock(i)} />
+                               </div>
+                           ))}
+                           <div className="newsletter-block border-dashed border-2 py-12 flex items-center justify-center opacity-40 hover:opacity-100 transition-all cursor-pointer" onClick={() => appendContentBlock()}>
                                 <div className="text-center">
                                      <FiPlus size={24} className="mx-auto mb-2 text-blue-600" />
                                      <span className="text-[10px] font-black uppercase tracking-widest">Append Content Block</span>
@@ -360,10 +570,10 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                     { label: 'Stat Grid', icon: <FiBarChart2 /> },
                                     { label: 'Footer', icon: <FiLayers /> }
                                 ].map(lib => (
-                                    <div key={lib.label} className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center gap-2 cursor-grab hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200">
-                                         <div className="text-xl text-slate-400">{lib.icon}</div>
-                                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{lib.label}</span>
-                                    </div>
+<div key={lib.label} className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200" onClick={() => appendContentBlock(lib.label)}>
+                                     <div className="text-xl text-slate-400">{lib.icon}</div>
+                                     <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{lib.label}</span>
+                                </div>
                                 ))}
                            </div>
                       </div>
@@ -372,7 +582,7 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                            <h5 className="font-black lowercase tracking-tighter text-2xl mb-6">Presets</h5>
                            <div className="space-y-3">
                                 {templates.map(t => (
-                                    <div key={t.id} className="p-4 rounded-2xl border border-slate-100 bg-white hover:border-blue-600 transition-all group cursor-pointer shadow-sm">
+                                    <div key={t.id} className="p-4 rounded-2xl border border-slate-100 bg-white hover:border-blue-600 transition-all group cursor-pointer shadow-sm" onClick={() => applyTemplate(t)}>
                                          <div className="text-xs font-black text-slate-800 tracking-tight lowercase">{t.name}</div>
                                          <div className="flex justify-between items-center mt-3">
                                               <span className="text-[8px] font-black uppercase text-blue-600/50">{t.category}</span>
@@ -385,9 +595,11 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                  </aside>
              </div>
         </div>
-    );
+        );
+    };
 
     const content = (
+        <>
         <div className="announcements-page">
             <header className="dp-header">
                     <div className="dp-title-group">
@@ -427,6 +639,33 @@ const Announcements: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                     </>
                 )}
             </div>
+
+            {previewAnnouncement && (
+                <div className="modal-overlay-premium" onClick={() => setPreviewAnnouncement(null)}>
+                    <div className="modal-content-premium animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header-section">
+                            <div className="modal-header-icon-container"><FiEye /></div>
+                            <div>
+                                <h3 className="font-black text-2xl tracking-tighter">{previewAnnouncement.subject}</h3>
+                                <p className="text-xs font-bold text-slate-400">{new Date(previewAnnouncement.created_at).toLocaleString()}</p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{previewAnnouncement.body}</div>
+                            <div className="flex gap-2">
+                                {(previewAnnouncement.channels || []).map((m: string) => (
+                                    <span key={m} className="text-[9px] font-black uppercase text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded-md">{m}</span>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="modal-actions-premium">
+                            <button type="button" className="btn-premium-primary" onClick={() => setPreviewAnnouncement(null)}>Close Preview</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            </>
     );
 
     if (isHubView) return content;

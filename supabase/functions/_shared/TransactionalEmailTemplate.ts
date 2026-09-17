@@ -7,7 +7,12 @@ export const renderTransactionalEmail = (params: {
     trialEndDate?: string;
     billingAmount?: string;
     dueDate?: string;
+    currencySymbol?: string;
+    trialPrice?: string;
+    locationLabel?: string;
 }) => {
+    const currencySymbol = params.currencySymbol || 'Ksh';
+    const locationLabel = params.locationLabel || 'Cloud Operations';
     const isInvite = params.type === 'INVITATION';
     const isTrial = params.type === 'TRIAL_WELCOME';
     const isBilling = params.type === 'BILLING_NOTICE';
@@ -37,7 +42,7 @@ export const renderTransactionalEmail = (params: {
             case 'INVITATION':
                 return `<b>${params.senderName || 'An administrator'}</b> has invited you to join the team at <b>${params.stationName}</b>. You will have access to real-time telemetry, forensic monitoring, and automated fuel logistics.`;
             case 'TRIAL_WELCOME':
-                return `Your station <b>${params.stationName}</b> is now active on a <b>14-day free trial</b>. Explore full forensic monitoring and AI analytics until <b>${params.trialEndDate}</b>.<br/><br/>After the trial, your monthly subscription of Ksh 5,000 will begin.`;
+                return `Your station <b>${params.stationName}</b> is now active on a <b>14-day free trial</b>. Explore full forensic monitoring and AI analytics until <b>${params.trialEndDate}</b>.<br/><br/>After the trial, your monthly subscription of ${currencySymbol} ${params.trialPrice || params.billingAmount || '5,000'} will begin.`;
             case 'BILLING_NOTICE':
                 return `Your monthly billing statement for <b>${params.stationName}</b> is ready. The total amount due is <b>${params.billingAmount}</b>. Please ensure payment is made by <b>${params.dueDate}</b> to maintain uninterrupted service.`;
             case 'SUSPENSION_WARNING':
@@ -131,7 +136,7 @@ export const renderTransactionalEmail = (params: {
                                         </td>
                                         <td align="right" style="color: #475569; font-size: 11px;">
                                             © 2026 IoTank Intelligence<br/>
-                                            Nairobi • Cloud Operations
+                                            ${locationLabel}
                                         </td>
                                     </tr>
                                 </table>

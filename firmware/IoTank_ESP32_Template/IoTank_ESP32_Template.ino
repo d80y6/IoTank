@@ -114,13 +114,14 @@ void sendTelemetry(float volume, float tempC) {
   http.addHeader("Authorization", "Bearer " + String(DEVICE_JWT));
   http.addHeader("Prefer", "return=minimal");
 
-  // Create JSON payload
+  // Create JSON payload (matches the partitioned sensor_readings schema)
   StaticJsonDocument<256> doc;
   doc["tank_id"] = TANK_ID;
   doc["station_id"] = STATION_ID;
   doc["volume"] = volume; // Direct volume as requested
   doc["temperature"] = tempC;
-  doc["rssi"] = WiFi.RSSI();
+  doc["water_level"] = distance; // Raw distance in cm
+  doc.createNestedObject("metadata")["rssi"] = WiFi.RSSI();
 
   String payload;
   serializeJson(doc, payload);

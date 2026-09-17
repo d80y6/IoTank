@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Tank } from '@/types';
 import { useTanks, useAlerts, useAllLatestReadings, useSites } from '@/hooks/useSupabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useDeliveries } from '@/hooks/useDeliveries';
 
@@ -27,6 +28,7 @@ import './Dashboard.css';
 import { useShiftStatus } from '@/hooks/useShiftStatus';
 
 export const Dashboard: React.FC = () => {
+    useDocumentMeta();
     const { currentUser } = useAuth();
     const { pushEvent } = useTelemetryQueue();
     // const navigate = useNavigate(); // Unused in this build

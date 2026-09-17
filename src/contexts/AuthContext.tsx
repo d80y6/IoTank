@@ -638,6 +638,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             supabase.rpc('log_auth_attempt', { p_email: email, p_is_success: false }).then(({error: rpcErr}) => {
                 if (rpcErr) debugLog('[signIn] log_auth_attempt failed', rpcErr);
             });
+            // Record the failed attempt in the auth_events stream (fire-and-forget)
+            supabase.rpc('log_auth_event', {
+                p_event_type: 'SIGN_IN',
+                p_user_email: email,
+                p_ip_address: null,
+                p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+                p_status: 'failed',
+                p_error_message: error.message,
+                p_detail_json: null,
+            }).then(({ error: authErr }) => {
+                if (authErr) debugLog('[signIn] log_auth_event failed', authErr);
+            });
             updateLoadingState(false);
             throw error;
         }
@@ -646,7 +658,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (data?.user) {
              const userMeta = data.user.user_metadata || {};
              const dbStationId = userMeta.station_id || '';
-             AuditService.log(
+AuditService.log(
                  'SECURITY',
                  'LOGIN',
                  dbStationId,
@@ -654,7 +666,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                  'INFO',
                  { email, auth_id: data.user.id }
              ).catch(err => logger.warn('[Audit Log Failed]', err, 'AUTH_AUDIT'));
-        }
+             // Record the successful sign-in in the auth_events stream (fire-and-forget)
+             supabase.rpc('log_auth_event', {
+                 p_event_type: 'SIGN_IN',
+                 p_user_email: email,
+                 p_ip_address: null,
+                 p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+                 p_status: 'success',
+                 p_error_message: null,
+                 p_detail_json: { auth_id: data.user.id },
+             }).then(({ error: authErr }) => {
+                 if (authErr) debugLog('[signIn] log_auth_event failed', authErr);
+             });
+         }
 
         updateLoadingState(false);
         return data;

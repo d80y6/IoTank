@@ -258,7 +258,8 @@ export interface SupplyRisk {
 
 export interface RegulatoryNotice {
     id: string;
-    authority: 'EPRA' | 'KRA' | 'NEMA' | 'MOT';
+    authority: 'EPRA' | 'KRA' | 'NEMA' | 'MOT' | (string & {});
+    jurisdictionCode?: string;
     noticeType: 'price_cycle' | 'tax_adjustment' | 'safety_mandate' | 'environmental';
     title: string;
     effectiveDate: number;

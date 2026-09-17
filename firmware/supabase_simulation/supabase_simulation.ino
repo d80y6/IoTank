@@ -103,12 +103,13 @@ void pushToSupabase(float vol, float temp, int rssi) {
   http.addHeader("Authorization", authHeader);
   http.addHeader("Prefer", "return=minimal");
 
-  // Payload matches the simplified sensor_readings schema (volume, temperature, rssi)
+  // Payload matches the partitioned sensor_readings schema (volume, temperature;
+  // rssi travels inside metadata since the partitioned table has no rssi column)
   String jsonPayload = "{\"station_id\": \"" + String(STATION_ID) + 
                        "\", \"tank_id\": \"" + String(TANK_ID) + 
                        "\", \"volume\": " + String(vol, 2) + 
                        ", \"temperature\": " + String(temp, 2) + 
-                       ", \"rssi\": " + String(rssi) + "}";
+                       ", \"metadata\": {\"rssi\": " + String(rssi) + "}}";
 
   int httpResponseCode = http.POST(jsonPayload);
 

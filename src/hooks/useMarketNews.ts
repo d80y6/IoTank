@@ -14,6 +14,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { MarketSignal, Tank } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { logger } from '@/utils/logger';
 import { supabase } from '@/config/supabase';
 import { IntelligenceAIService, ArticleAIDirective } from '@/services/IntelligenceAIService';
@@ -46,8 +47,8 @@ const CURRENTS_PROXY = 'currents-proxy';
 const RSS_PARSER = 'rss-parser';
 
 // Google News RSS fallback queries
-const GN_RSS = (query: string) =>
-    `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-KE&gl=KE&ceid=KE:en`;
+const GN_RSS = (query: string, hl = 'en', gl = 'US', ceid = 'US:en') =>
+    `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
 
 
 // ─── Source Credibility Mapping ──────────────────────────────────────────────
@@ -167,6 +168,52 @@ export const NEWS_SOURCES: NewsFeedSource[] = [
     },
 ];
 
+/**
+ * Resolve the active news-source registry from jurisdiction config.
+ * Keeps the static NEWS_SOURCES as the catalog and applies:
+ *  - GN_RSS queries localized via config `market.newsHl/newsGl/newsCeid`
+ *  - a sub-source filter via config `market.sources` (array of shortLabels)
+ *  - jurisdiction-parameterized regulatory/logistics query text
+ */
+export function resolveNewsSources(
+    config: Record<string, unknown>,
+    jurisdiction: { code?: string; name?: string }
+): NewsFeedSource[] {
+    const market = (config.market as Record<string, unknown>) || {};
+    const regulatory = (config.regulatory as Record<string, unknown>) || {};
+    const regulatorySources = (regulatory.sources as string[] | undefined) || [];
+    const code = jurisdiction.code || 'GLOBAL';
+    const regionName = jurisdiction.name || (code === 'KE' ? 'Kenya' : 'Global');
+    const hl = (market.newsHl as string) || (code === 'KE' ? 'en' : 'en');
+    const gl = (market.newsGl as string) || (code === 'KE' ? 'KE' : 'US');
+    const ceid = (market.newsCeid as string) || (code === 'KE' ? 'KE:en' : 'US:en');
+    const body = (regulatory.body as string) || (code === 'KE' ? 'EPRA' : regulatorySources[0] || 'Fuel');
+
+    const localized = NEWS_SOURCES.map(src => {
+        const url = src.url.startsWith('https://news.google.com')
+            ? GN_RSS(gnQueryFor(src.shortLabel, regionName, body), hl, gl, ceid)
+            : src.url;
+        return { ...src, url };
+    });
+
+    const allowed = market.sources as string[] | undefined;
+    return allowed && allowed.length > 0
+        ? localized.filter(src => allowed.includes(src.shortLabel))
+        : localized;
+}
+
+function gnQueryFor(shortLabel: string, regionName: string, body: string): string {
+    switch (shortLabel) {
+        case 'EPRA': return `${body} fuel petroleum price ${regionName}`;
+        case 'CBK': return `Central Bank ${regionName} forex rate fuel`;
+        case 'KPA': return `${regionName} ports fuel supply terminal`;
+        case 'BD Africa': return `Business Daily fuel energy ${regionName}`;
+        case 'Nation': return `${regionName} fuel prices energy`;
+        case 'Standard': return `${regionName} petroleum news`;
+        default: return `${shortLabel} fuel petroleum ${regionName}`;
+    }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type FetchStatus = 'ok' | 'cached-stale' | 'no-signal' | 'source-unavailable' | 'loading';
@@ -256,18 +303,17 @@ export interface PriceDetection {
     currency: string;
 }
 
-export function extractPricesFromText(text: string, basePrices?: Record<string, number>): PriceDetection[] {
+export function extractPricesFromText(text: string, basePrices?: Record<string, number>, currency = 'USD', band: [number, number] = [0, 1000]): PriceDetection[] {
     const results: PriceDetection[] = [];
     
-    // 1. Kenya Pump Prices (Ksh - absolute)
+    // 1. Pump Prices (absolute)
     // Enhanced regex to catch standard news formatting like "petrol at 214.25", "PMS: 214.25", etc.
     const kshRegex = /(?:set at|retail at|price of|to ksh|ksh|shillings|sh|ksh\.|kshs|kshs\.|to|at|:\s*|of\s*|up to\s*)\s*(?:ksh|sh|shs|sh\.)?\s*(\d{2,3}(?:\.\d{2})?)/gi;
     let match;
     
     while ((match = kshRegex.exec(text)) !== null) {
         const val = parseFloat(match[1]);
-        // Valid EPRA prices in Kenya are typically 150-300 KES. 
-        if (val < 100 || val > 300) continue; 
+        if (val < band[0] || val > band[1]) continue; 
         
         const snippet = (text || '').substring(Math.max(0, match.index - 80), Math.min(text.length, match.index + 80)).toLowerCase();
         
@@ -276,12 +322,11 @@ export function extractPricesFromText(text: string, basePrices?: Record<string, 
         else if (snippet.includes('diesel') || snippet.includes('ago')) commodity = 'Diesel';
         else if (snippet.includes('kerosene') || snippet.includes('ik')) commodity = 'Kerosene';
         
-        // Boost confidence if specific regulatory keywords or "Nairobi" (default pricing zone) are nearby
         const isOfficialPhrasing = snippet.includes('set at') || snippet.includes('retail at') || snippet.includes('regulated') || snippet.includes('epra') || snippet.includes('nairobi') || snippet.includes('at');
         if (commodity !== 'General' || isOfficialPhrasing) {
             // Deduplicate: If we found multiple mentions of the same price for the same commodity, keep only one
             if (!results.some(r => r.commodity === commodity && r.value === val)) {
-                results.push({ commodity, value: val, currency: 'KES' });
+                results.push({ commodity, value: val, currency });
             }
         }
     }
@@ -295,9 +340,9 @@ export function extractPricesFromText(text: string, basePrices?: Record<string, 
     ];
 
     const resolvedBase = {
-        Petrol: basePrices?.Petrol || basePrices?.pms || basePrices?.PMS || 206.97,
-        Diesel: basePrices?.Diesel || basePrices?.ago || basePrices?.AGO || 206.84,
-        Kerosene: basePrices?.Kerosene || basePrices?.ik || basePrices?.IK || 152.78
+        Petrol: basePrices?.Petrol ?? basePrices?.pms ?? basePrices?.PMS ?? 0,
+        Diesel: basePrices?.Diesel ?? basePrices?.ago ?? basePrices?.AGO ?? 0,
+        Kerosene: basePrices?.Kerosene ?? basePrices?.ik ?? basePrices?.IK ?? 0
     };
 
     const sentences = lowerText.split(/[.!?;\n]+/);
@@ -323,13 +368,13 @@ export function extractPricesFromText(text: string, basePrices?: Record<string, 
                     const basePrice = resolvedBase[comm.name];
                     const computedPrice = basePrice + (changeVal * directionMultiplier);
                     
-                    if (computedPrice >= 100 && computedPrice <= 300) {
+                    if (computedPrice >= band[0] && computedPrice <= band[1]) {
                         const existingIdx = results.findIndex(r => r.commodity === comm.name);
                         if (existingIdx === -1) {
                             results.push({ 
                                 commodity: comm.name, 
                                 value: parseFloat(computedPrice.toFixed(2)), 
-                                currency: 'KES' 
+                                currency 
                             });
                         }
                     }
@@ -350,14 +395,14 @@ export function extractPricesFromText(text: string, basePrices?: Record<string, 
 }
 
 // Legacy wrapper to keep validatePriceClaim working
-function extractPriceFromText(text: string): number | null {
-    const detections = extractPricesFromText(text);
+function extractPriceFromText(text: string, currency = 'KES', band: [number, number] = [0, 1000]): number | null {
+    const detections = extractPricesFromText(text, undefined, currency, band);
     return detections.length > 0 ? detections[0].value : null;
 }
 
-function validatePriceClaim(article: NewsArticle, currentEPRAPrice: number) {
+function validatePriceClaim(article: NewsArticle, currentEPRAPrice: number, currency = 'KES', band: [number, number] = [0, 1000]) {
     const text = (article.title + ' ' + article.summary);
-    const claimedPrice = extractPriceFromText(text);
+    const claimedPrice = extractPriceFromText(text, currency, band);
 
     if (!claimedPrice) return { status: 'unverifiable' as const };
 
@@ -366,7 +411,7 @@ function validatePriceClaim(article: NewsArticle, currentEPRAPrice: number) {
     if (deviation > 0.20) {
         return {
             status: 'flagged' as const,
-            label: `⚠️ Unverified — exceeds 20% variance from current EPRA data (Ksh ${currentEPRAPrice})`,
+            label: `⚠️ Unverified — exceeds 20% variance from current regulatory data (${currency} ${currentEPRAPrice})`,
             autoHide: true
         };
     }
@@ -542,6 +587,11 @@ export function useMarketNews(): UseMarketNewsReturn {
     });
 
     const { loading: authLoading } = useAuth();
+    const { config, jurisdiction, currency } = useJurisdiction();
+    const activeSources = resolveNewsSources(config, jurisdiction);
+    const regulatoryBody = (config.regulatory as Record<string, unknown>)?.['body'] as string | undefined
+        || (jurisdiction.code === 'KE' ? 'EPRA' : 'regulatory');
+    const priceBandHigh = ((config.regulatory as Record<string, unknown>)?.['priceBand'] as [number, number] | undefined)?.[1] ?? 1000;
     const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const apiCooldowns = useRef<Record<string, number>>({}); // Tracks API -> expiration timestamp
     const initialFetchAttempted = useRef(false);
@@ -626,12 +676,12 @@ export function useMarketNews(): UseMarketNewsReturn {
             }
         }
 
-        // 1. Try Primary: GNews API Proxy (Optimized for EPRA)
+        // 1. Try Primary: GNews API Proxy (prioritizes the active regulatory feed)
         if (isApiAvailable('GNEWS')) {
             try {
-                const query = source.shortLabel === 'EPRA' 
-                    ? 'EPRA petroleum price Kenya news' 
-                    : `${source.shortLabel} fuel petroleum Kenya`;
+                const query = source.shortLabel === 'EPRA'
+                    ? `${regulatoryBody} fuel petroleum ${jurisdiction.name || 'Global'} news`
+                    : `${source.shortLabel} fuel petroleum ${jurisdiction.name || 'Global'}`;
 
                 const { data, error } = await supabase.functions.invoke(GNEWS_PROXY, {
                     method: 'POST',
@@ -652,7 +702,7 @@ export function useMarketNews(): UseMarketNewsReturn {
             try {
                 const { data, error } = await supabase.functions.invoke(NEWSDATA_PROXY, {
                     method: 'POST',
-                    body: { query: source.shortLabel + ' energy Kenya' }
+                    body: { query: source.shortLabel + ' fuel energy ' + (jurisdiction.name || 'Global') }
                 });
                 
                 if (error && (error as any).status === 429) {
@@ -708,7 +758,7 @@ export function useMarketNews(): UseMarketNewsReturn {
             // instantiating one per source (was creating up to 10 instances with 10 separate auth calls).
             const aiService = aiServiceRef.current;
             const enriched = [];
-            const isVerifiedSource = VERIFIED_AI_SOURCES.includes(source.shortLabel.toUpperCase());
+            const isVerifiedSource = activeSources.some(s => s.shortLabel === source.shortLabel);
             const existingHistory = readMasterHistory();
 
             let aiProcessedCount = 0;
@@ -728,7 +778,7 @@ export function useMarketNews(): UseMarketNewsReturn {
                 // [FORENSIC EXTRACTION]: Cap AI processing at 1 article per source fetch cycle to protect API limits and eliminate UI lag
                 if (aiProcessedCount < 1 && ((isVerifiedSource && relevance > 0.65) || (isKenyanNews && ((article.title || '') + (article.summary || '')).toLowerCase().includes('price')))) {
                     try {
-                        const directive = await aiService.generateArticleDirective(article, Array.isArray(tanks) ? tanks : []);
+                        const directive = await aiService.generateArticleDirective(article, Array.isArray(tanks) ? tanks : [], jurisdiction);
                         enriched.push({ ...article, aiDirective: directive });
                         aiProcessedCount++;
                         // [Rate Limit Shield]: Increased stagger delay between source requests to prevent gateway 429s
@@ -757,7 +807,7 @@ export function useMarketNews(): UseMarketNewsReturn {
                             (article.aiDirective?.confidence ?? 0) >= 0.80 &&
                             (article.topicTags?.includes('EPRA') || article.feedSource === 'EPRA' || article.attribution === 'EPRA' || article.isOfficial) &&
                             p.price > 0 &&
-                            p.price < 500; // Sanity check: KES fuel prices are always < 500/L
+                            p.price < priceBandHigh;
 
                         if (!isHighConfidenceEPRA) {
                             logger.warn(
@@ -781,15 +831,15 @@ export function useMarketNews(): UseMarketNewsReturn {
                             // Premium Global Notification for Price Shift
                             window.dispatchEvent(new CustomEvent('system-toast', {
                                 detail: {
-                                    title: `EPRA Price Shift: ${p.fuelType}`,
-                                    message: `New regulated price detected: ${p.currency || 'KES'} ${p.price}/L. Market intelligence has updated your local reference.`,
+                                    title: `Regulated Price Shift: ${p.fuelType}`,
+                                    message: `New regulated price detected: ${p.currency || currency} ${p.price}/L. Market intelligence has updated your local reference.`,
                                     type: 'warning',
                                     attribution: 'MARKET_SENSE'
                                 }
                             }));
 
                             const stationIdVal = (Array.isArray(tanks) && tanks.length > 0) ? (tanks[0] as any).station_id || (tanks[0] as any).stationId : null;
-                            await AuditService.log('FINANCE', 'PRICE_UPDATE', stationIdVal || 'SYSTEM', `EPRA Auto-Sync: ${p.fuelType} price adjusted to ${p.price} ${p.currency || 'KES'}`, 'INFO', { fuelType: p.fuelType, price: p.price });
+                            await AuditService.log('FINANCE', 'PRICE_UPDATE', stationIdVal || 'SYSTEM', `Regulatory Auto-Sync: ${p.fuelType} price adjusted to ${p.price} ${p.currency || currency}`, 'INFO', { fuelType: p.fuelType, price: p.price });
                             
                             logger.info(`[useMarketNews] Auto-updated price for ${p.fuelType}: ${p.price}`, null, 'MARKET_SENSE');
                         } catch (err) {
@@ -803,7 +853,7 @@ export function useMarketNews(): UseMarketNewsReturn {
             writeMasterHistory(enriched);
             updateSyncTime(source.shortLabel);
             
-            // [MARKET INTELLIGENCE]: Notify user of High-Relevance EPRA shifts
+            // [MARKET INTELLIGENCE]: Notify user of high-relevance regulatory shifts
             if (source.shortLabel === 'EPRA') {
                 const topSignal = enriched.find(a => (a.relevanceScore ?? 0) >= 0.90);
                 const stationIdVal = (Array.isArray(tanks) && tanks.length > 0) ? (tanks[0] as any).station_id || (tanks[0] as any).stationId : null;
@@ -811,7 +861,7 @@ export function useMarketNews(): UseMarketNewsReturn {
                 if (topSignal) {
                     window.dispatchEvent(new CustomEvent('system-toast', {
                         detail: {
-                            title: 'EPRA: New Pricing/Regulatory Signal',
+                            title: `${regulatoryBody}: New Pricing/Regulatory Signal`,
                             message: topSignal.title,
                             type: 'info',
                             attribution: 'MARKET_SENSE'
@@ -823,7 +873,7 @@ export function useMarketNews(): UseMarketNewsReturn {
                             p_station_id: stationIdVal,
                             p_tank_id: (Array.isArray(tanks) && tanks.length > 0) ? tanks[0].id : null,
                             p_alert_type: 'regulatory_update',
-                            p_title: 'EPRA Regulatory Signal',
+                            p_title: `${regulatoryBody} Regulatory Signal`,
                             p_message: topSignal.title,
                             p_severity: 'info',
                             p_metadata: { article_id: topSignal.id, source: 'EPRA' }
@@ -859,7 +909,7 @@ export function useMarketNews(): UseMarketNewsReturn {
         try {
             let anySuccess = false;
 
-            for (const src of NEWS_SOURCES) {
+            for (const src of activeSources) {
                 try {
                     const articles = await fetchFromSource(src, tanks, force);
                     if (articles.length > 0) {
@@ -888,7 +938,7 @@ export function useMarketNews(): UseMarketNewsReturn {
 
             // MED-07 FIX: Prevent setting status to 'cached-stale' if the cache is actually fresh.
             // Also prevent falsely updating `lastUpdated` timestamp if we didn't fetch new items.
-            const isCacheFresh = NEWS_SOURCES.some(src => Date.now() - getSyncTime(src.shortLabel) < (src.cacheTTL ?? CACHE_TTL_MS));
+            const isCacheFresh = activeSources.some(src => Date.now() - getSyncTime(src.shortLabel) < (src.cacheTTL ?? CACHE_TTL_MS));
 
             if (anySuccess) {
                 setStatus('ok');
@@ -956,7 +1006,7 @@ export function useMarketNews(): UseMarketNewsReturn {
 
     const validateAgainstEPRA = useCallback((articles: NewsArticle[], epraPrice: number) => {
         return articles.map(a => {
-            const validation = validatePriceClaim(a, epraPrice);
+            const validation = validatePriceClaim(a, epraPrice, currency, [0, priceBandHigh]);
             return {
                 ...a,
                 verificationStatus: validation.status === 'flagged' ? 'flagged' : a.verificationStatus,
@@ -964,7 +1014,7 @@ export function useMarketNews(): UseMarketNewsReturn {
                 isUnhighlighted: (validation as any).autoHide || false
             };
         });
-    }, []);
+    }, [currency, priceBandHigh]);
 
     return {
         articles: allArticles,

@@ -12,6 +12,7 @@ import {
   FiLoader
 } from 'react-icons/fi';
 import './RegistrationRequestForm.css';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 
 interface RegistrationRequestFormProps {
   onBack: () => void;
@@ -48,6 +49,12 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showRecaptchaModal, setShowRecaptchaModal] = useState(false);
+
+  const { jurisdiction, phonePrefix } = useJurisdiction();
+  const configuredRegions: unknown = jurisdiction?.config?.regions;
+  const counties = (Array.isArray(configuredRegions) && configuredRegions.length
+    ? configuredRegions
+    : ['Metropolitan', 'Coastal', 'Inland', 'Highland', 'Other']) as string[];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData((prev: FormData) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -204,11 +211,6 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
     );
   }
 
-  const counties = [
-    'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Kiambu', 'Machakos',
-    'Nyeri', 'Meru', 'Kakamega', 'Kisii', 'Kilifi', 'Garissa', 'Other',
-  ];
-
   return (
     <div className="registration-overlay">
       {showRecaptchaModal && (
@@ -309,7 +311,7 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
                       type="tel"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="+254..."
+                      placeholder={phonePrefix ? `${phonePrefix}...` : '+000...'}
                     />
                   </div>
                   <div className="form-group">
@@ -319,7 +321,7 @@ export const RegistrationRequestForm: React.FC<RegistrationRequestFormProps> = (
                       type="text"
                       value={formData.station_name}
                       onChange={handleChange}
-                      placeholder="e.g. Nairobi Central Station"
+                      placeholder="e.g. Central Depot"
                       required
                     />
                   </div>

@@ -34,7 +34,7 @@ export interface ScheduledReport {
 
 export const analyticsService = {
     async getBusinessKPIs(): Promise<BusinessKPIs> {
-        const { data, error } = await supabase.rpc('get_business_kpis');
+        const { data, error } = await supabase.rpc('get_business_kpis_v2');
         if (error) {
             console.error("KPI Sync Error:", error);
             throw error;

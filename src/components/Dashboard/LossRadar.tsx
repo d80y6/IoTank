@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { FiCrosshair, FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
 import { TodayVarianceReviewPanel } from './TodayVarianceReviewPanel';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { formatMoney } from '@/lib/jurisdiction';
 import '../Common/DesignSystemCards.css';
 
 export const LossRadar: React.FC = () => {
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const { jurisdiction } = useJurisdiction();
     const [lossData, setLossData] = useState(() => {
         try {
             const stored = localStorage.getItem('iotank_latest_loss_data');
@@ -64,7 +67,7 @@ export const LossRadar: React.FC = () => {
                             <div className="p-4 bg-white rounded-2xl border-2 border-slate-50 shadow-inner flex flex-col items-end">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Value Impact</span>
                                 <span className="text-xl font-black text-slate-800 tabular-nums uppercase">
-                                    Ksh {Math.abs(dataToUse.estimatedValueKes || 0).toLocaleString()}
+                                    {formatMoney(Math.abs(dataToUse.estimatedValueKes || 0), jurisdiction)}
                                 </span>
                             </div>
                         </div>

@@ -149,7 +149,7 @@ export class ExportService {
     }
 
     /**
-     * Generates a stylized EPRA Compliance Pack PDF
+     * Generates a stylized regulatory Compliance Pack PDF
      */
     public static generateCompliancePack(
         orgName: string,
@@ -161,14 +161,17 @@ export class ExportService {
             averageVariancePct: number;
             incidents: number;
         },
-        dailyLogs: any[] // Would be strongly typed in prod
+        dailyLogs: any[], // Would be strongly typed in prod
+        jurisdiction?: { regulatoryBody?: string | null; complianceDays?: number }
     ) {
+        const regBody = jurisdiction?.regulatoryBody || 'EPRA';
+        const complianceDays = jurisdiction?.complianceDays || 90;
         const doc = new jsPDF() as jsPDFWithAutoTable;
 
-        // Header (EPRA style, rigorous)
+        // Header
         doc.setFontSize(24);
         doc.setTextColor(30, 58, 138); // Deep blue
-        doc.text('EPRA Compliance Pack', 14, 25);
+        doc.text(`${regBody} Compliance Pack`, 14, 25);
 
         doc.setFontSize(10);
         doc.setTextColor(71, 85, 105);
@@ -176,7 +179,7 @@ export class ExportService {
 
         doc.setFontSize(12);
         doc.setTextColor(71, 85, 105);
-        doc.text('90-Day Inventory & Reconciliation Log', 14, 33);
+        doc.text(`${complianceDays}-Day Inventory & Reconciliation Log`, 14, 33);
 
         doc.setFontSize(10);
         doc.text(`Organization: ${orgName}`, 14, 42);
@@ -193,7 +196,7 @@ export class ExportService {
         doc.text('Facility Overview', 14, 70);
 
         const metricsData = [
-            ['Total Throughput (90 Days)', `${summaryMetrics.totalThroughput.toLocaleString()} L`],
+            ['Total Throughput (' + complianceDays + ' Days)', `${summaryMetrics.totalThroughput.toLocaleString()} L`],
             ['Verified Deliveries', summaryMetrics.totalDeliveries.toString()],
             ['Average Variance', `${summaryMetrics.averageVariancePct.toFixed(2)}%`],
             ['Recorded Exceptions', summaryMetrics.incidents.toString()]
@@ -260,7 +263,7 @@ export class ExportService {
             doc.text(`Page ${i} of ${pageCount}`, 185, 285);
         }
 
-        doc.save(`EPRA_Report_${orgName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        doc.save(`${regBody.replace(/\s+/g, '_')}_Report_${orgName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
     }
 
     /**
@@ -270,7 +273,8 @@ export class ExportService {
         reportName: string,
         orgName: string,
         data: any,
-        fmt: 'PDF' | 'CSV' | 'Excel' | 'ZIP'
+        fmt: 'PDF' | 'CSV' | 'Excel' | 'ZIP',
+        jurisdiction?: { regulatoryBody?: string | null; complianceDays?: number }
     ) {
         if (fmt === 'PDF') {
             // Specialized reconstruction for Compliance Packs
@@ -285,7 +289,8 @@ export class ExportService {
                         averageVariancePct: data.metrics?.avgVariancePct || 0,
                         incidents: data.metrics?.incidentCount || 0
                     },
-                    data.logs || []
+                    data.logs || [],
+                    jurisdiction
                 );
             } else {
                 // Generalized Forensic PDF reconstruction

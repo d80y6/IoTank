@@ -74,7 +74,14 @@ export const systemUsersService = {
       return error;
     };
 
-    let error = await attemptDeletion();
+    // Prefer the guarded RPC: it closes out related rows (profiles,
+    // financial_trails, auth) atomically and never hits a raw FK wall.
+    const { error: rpcError } = await supabase.rpc('delete_user_safely', {
+      target_user_id: id
+    });
+    if (!rpcError) return true;
+
+    let error: { message: string } | null = rpcError;
 
     if (error) {
       const message = (error.message || '').toLowerCase();

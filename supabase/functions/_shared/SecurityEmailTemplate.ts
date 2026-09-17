@@ -11,7 +11,11 @@ export const renderSecurityEmail = (params: {
     totalLiters?: number;
     totalSales?: number;
     duration?: string;
+    currencySymbol?: string;
+    locale?: string;
 }) => {
+    const currencySymbol = params.currencySymbol || 'Ksh';
+    const locale = params.locale || 'en-US';
     const isCritical = params.type === 'THEFT' || params.type === 'COLLUSION' || params.type === 'SYSTEM_CRITICAL' || params.type === 'UNAUTHORIZED_REFILL' || params.type === 'DISCONNECT';
     const accentColor = isCritical ? '#ef4444' : (params.type === 'REFILL' || params.type === 'SHIFT_REPORT' ? '#10b981' : '#f59e0b');
     const title = params.type === 'THEFT' ? 'SECURITY BREACH: THEFT DETECTED' : 
@@ -42,11 +46,11 @@ export const renderSecurityEmail = (params: {
                 <tr>
                     <td style="padding: 16px; background: #1e293b; border-radius: 12px 0 0 12px; border: 1px solid #334155;">
                         <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">${params.type === 'SHIFT_REPORT' ? 'Liters Sold' : (params.type === 'SYSTEM_CRITICAL' ? 'Downtime' : 'Impact')}</span><br/>
-                        <b style="font-size: 18px; color: ${accentColor};">${params.type === 'SHIFT_REPORT' ? `${params.totalLiters?.toFixed(1)}L` : (params.type === 'SYSTEM_CRITICAL' ? '72+ Hours' : (params.lossVolume ? `${params.lossVolume.toFixed(1)}L Change` : params.varianceValue ? `$${params.varianceValue.toFixed(2)} Volumetric Gap` : 'Potential Breach'))}</b>
+                        <b style="font-size: 18px; color: ${accentColor};">${params.type === 'SHIFT_REPORT' ? `${params.totalLiters?.toFixed(1)}L` : (params.type === 'SYSTEM_CRITICAL' ? '72+ Hours' : (params.lossVolume ? `${params.lossVolume.toFixed(1)}L Change` : params.varianceValue ? `${currencySymbol}${params.varianceValue.toFixed(2)} Volumetric Gap` : 'Potential Breach'))}</b>
                     </td>
                     <td style="padding: 16px; background: #1e293b; border-radius: 0 12px 12px 0; border: 1px solid #334155; border-left: 0;">
                         <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">${params.type === 'SHIFT_REPORT' ? 'Revenue' : 'Last Check-in'}</span><br/>
-                        <b style="font-size: 14px;">${params.type === 'SHIFT_REPORT' ? `Ksh ${params.totalSales?.toLocaleString()}` : new Date(params.timestamp).toLocaleString()}</b>
+                        <b style="font-size: 14px;">${params.type === 'SHIFT_REPORT' ? `${currencySymbol} ${params.totalSales?.toLocaleString(locale)}` : new Date(params.timestamp).toLocaleString(locale)}</b>
                     </td>
                 </tr>
             </table>
@@ -65,7 +69,7 @@ export const renderSecurityEmail = (params: {
                   params.type === 'SYSTEM_CRITICAL' ? '<b>CRITICAL SYSTEM FAILURE:</b> This terminal has been completely dark for over 3 consecutive days. This exceeds normal intermittent offline behavior and indicates a total power loss, hardware destruction, or network disconnection. Support has been notified.' :
                   params.type === 'LOW_FUEL' ? 'Tank level has dropped below the reorder threshold. Schedule fuel delivery to prevent air-lock in pumps and operational downtime.' :
                   params.type === 'OVERFILL' ? 'Tank level has reached a critical high point. Halt all delivery operations immediately to prevent environmental contamination and spill damage.' :
-                  params.type === 'SHIFT_REPORT' ? `Operational cycle complete. Duration: <b>${params.duration || 'N/A'}</b>. Operator: <b>${params.operator || 'System'}</b>. Reconciliation variance: <b>Ksh ${params.varianceValue?.toFixed(2) || '0.00'}</b>.` :
+                  params.type === 'SHIFT_REPORT' ? `Operational cycle complete. Duration: <b>${params.duration || 'N/A'}</b>. Operator: <b>${params.operator || 'System'}</b>. Reconciliation variance: <b>${currencySymbol} ${params.varianceValue?.toFixed(2) || '0.00'}</b>.` :
                   'Persistent low-rate loss detected during quiet hours. Discrepancy matches leakage signature rather than operational draw. Schedule mechanical inspection.'}
             </span>
         </div>

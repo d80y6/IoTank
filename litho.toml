@@ -1,0 +1,40 @@
+[knowledge.local_docs]
+enabled = true
+cache_dir = ".litho/cache/knowledge/local_docs"
+watch_for_changes = true
+
+# Default chunking for large documents
+[knowledge.local_docs.default_chunking]
+enabled = true
+max_chunk_size = 8000
+chunk_overlap = 200
+strategy = "semantic"  # Options: semantic, paragraph, fixed
+min_size_for_chunking = 10000
+
+# Architecture documentation category
+[[knowledge.local_docs.categories]]
+name = "architecture"
+description = "System architecture documentation"
+paths = [
+    "docs/architecture/**/*.md",
+    "docs/design/**/*.pdf"
+]
+target_agents = [
+    "SystemContextResearcher",
+    "ArchitectureResearcher",
+    "ArchitectureEditor"
+]
+
+# Database documentation category
+[[knowledge.local_docs.categories]]
+name = "database"
+description = "Database schema documentation"
+paths = [
+    "docs/database/**/*.md",
+    "docs/schema/**/*.sql"
+]
+target_agents = [
+    "ArchitectureResearcher",
+    "DomainModulesDetector",
+    "KeyModulesInsight"
+]

@@ -9,7 +9,11 @@ const EPRA_SNOOZE_DURATION = 60 * 60 * 1000; // 1 hour snooze
 
 export const useEPRANotifier = () => {
     const { currentUser } = useAuth();
-    const { currencySymbol } = useJurisdiction();
+    const { currencySymbol, jurisdiction, config } = useJurisdiction();
+    const regulatoryBody = jurisdiction.regulatoryBody || 'EPRA';
+    const priceSource = String(
+        (config?.regulatory as Record<string, unknown> | undefined)?.adapter || 'epra'
+    );
 
     useEffect(() => {
         if (!currentUser) return;
@@ -28,7 +32,7 @@ export const useEPRANotifier = () => {
                 const { data, error } = await supabase
                     .from('market_prices')
                     .select('effective_date, fuel_type, price_per_liter')
-                    .eq('source', 'epra')
+                    .eq('source', priceSource)
                     .order('effective_date', { ascending: false })
                     .limit(1)
                     .single();
@@ -53,7 +57,7 @@ export const useEPRANotifier = () => {
                 // If we reach here, we have an unacknowledged EPRA alert and we're not snoozing!
                 window.dispatchEvent(new CustomEvent('system-toast', {
                     detail: {
-                        title: '⚠️ EPRA MANDATE: RETAIL PRICE UPDATE REQUIRED',
+                        title: `⚠️ ${regulatoryBody.toUpperCase()} MANDATE: RETAIL PRICE UPDATE REQUIRED`,
                         message: `The system detected new official regulatory price limits for ${data.fuel_type} (${currencySymbol} ${data.price_per_liter}).\n\nYou must update your local retail pump prices immediately to maintain operational margin tracking.`,
                         type: 'error',
                         persistent: true,

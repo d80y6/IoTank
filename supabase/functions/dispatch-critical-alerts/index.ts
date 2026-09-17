@@ -149,6 +149,34 @@ Deno.serve(async (req: Request) => {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  const jurCache = new Map<string, { currencySymbol: string; locale: string }>();
+  async function jurisdictionInfoFor(stationId: string | null) {
+    const key = stationId || 'GLOBAL';
+    if (jurCache.has(key)) return jurCache.get(key)!;
+    const fallback = { currencySymbol: 'Ksh', locale: 'en-US' };
+    try {
+      let code = 'GLOBAL';
+      if (stationId) {
+        const { data: station } = await supabaseAdmin
+          .from('fuel_stations')
+          .select('jurisdiction_code')
+          .eq('station_id', stationId)
+          .maybeSingle();
+        if (station?.jurisdiction_code) code = station.jurisdiction_code;
+      }
+      const { data: cfg } = await supabaseAdmin.rpc('get_jurisdiction_config', { p_code: code });
+      const info = {
+        currencySymbol: cfg?.jurisdiction?.currency_symbol || cfg?.config?.currency_symbol || fallback.currencySymbol,
+        locale: cfg?.jurisdiction?.locale || fallback.locale,
+      };
+      jurCache.set(key, info);
+      return info;
+    } catch (err) {
+      console.warn('[dispatch] jurisdiction resolution failed, using defaults:', err?.message);
+      return fallback;
+    }
+  }
+
   if (!(await isAuthorized(req, supabaseAdmin))) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
@@ -319,12 +347,14 @@ Deno.serve(async (req: Request) => {
     for (const event of events) {
       try {
         // 1. Send Email (Rich HTML instead of plain text)
+        const resolvedJur = await jurisdictionInfoFor(event.station_id);
         const generatedHtml = renderSecurityEmail({
           type: event.event_type as any,
           siteName: event.station_id || 'Unknown Facility',
           tankName: event.scope_key || 'Facility-wide',
           timestamp: event.created_at,
           details: event.reason || 'An anomaly was detected. Review telemetry for more details.',
+          ...resolvedJur,
         });
         
         const rawSubject = `🚨 CRITICAL SECURITY: ${event.event_type.replace('_', ' ')} at ${event.station_id || 'Facility'}`;

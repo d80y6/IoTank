@@ -26,7 +26,7 @@ import { useTanks, updateTank } from '@/hooks/useSupabase';
 import { useMarketIntelligence } from '@/hooks/useMarketIntelligence';
 import { useGeminiInsights } from '@/hooks/useGeminiInsights';
 import { useMarketNews, NewsArticle } from '@/hooks/useMarketNews';
-import { STRATEGIC_CAPABILITIES, OPERATIONAL_BOUNDARIES } from './MarketConstants';
+import { STRATEGIC_CAPABILITIES, getOperationalBoundaries } from './MarketConstants';
 import { calculateCommandOverviewMetrics } from '@/utils/strategicIntelligence';
 import { TelemetryErrorBoundary, useTelemetryErrorHandling } from '@/components/Common/TelemetryErrorBoundary';
 import { supabase } from '@/config/supabase';
@@ -359,7 +359,7 @@ const StatusBanner: React.FC<{
 
 export const MarketPage: React.FC = () => {
     const { currentUser } = useAuth();
-    const { currencySymbol } = useJurisdiction();
+    const { currencySymbol, jurisdiction } = useJurisdiction();
     const location = useLocation();
     const stationId = currentUser?.stationId || '00000000-0000-0000-0000-000000000000'; // Prevents PostgREST UUID syntax error during provisional boot
 
@@ -1095,7 +1095,7 @@ export const MarketPage: React.FC = () => {
                                     <FiShield className="text-indigo-500/40" size={16} />
                                 </div>
                                 <div className="space-y-4">
-                                    {OPERATIONAL_BOUNDARIES.slice(0, 4).map((b, i) => (
+                                    {getOperationalBoundaries(jurisdiction?.regulatoryBody ?? 'regulator').slice(0, 4).map((b, i) => (
                                         <div key={i} className="flex items-center gap-4 group">
                                             <div className="w-8 h-8 rounded-xl bg-[#F8F9FF] border border-[#E8E9F5] flex items-center justify-center text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white transition-all">
                                                 <FiCheckCircle size={14} />

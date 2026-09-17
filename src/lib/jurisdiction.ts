@@ -61,12 +61,24 @@ export function phonePrefixOf(config: JurisdictionConfig | null | undefined): st
   return normalizeJurisdiction(config).phonePrefix || '+1';
 }
 
+export function formatNumber(
+  amount: number,
+  config: JurisdictionConfig | null | undefined,
+  options: Intl.NumberFormatOptions = {}
+): string {
+  const locale = localeOf(config);
+  try {
+    return new Intl.NumberFormat(locale, options).format(amount);
+  } catch {
+    return amount.toLocaleString();
+  }
+}
+
 export function formatMoney(amount: number, config: JurisdictionConfig | null | undefined): string {
   const norm = normalizeJurisdiction(config);
   const symbol = norm.currencySymbol || norm.currency || '$';
-  const locale = norm.locale || 'en';
   try {
-    return `${symbol} ${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(amount)}`;
+    return `${symbol} ${formatNumber(amount, config, { maximumFractionDigits: 0 })}`;
   } catch {
     return `${symbol} ${Math.round(amount)}`;
   }

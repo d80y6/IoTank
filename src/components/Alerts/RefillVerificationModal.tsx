@@ -8,6 +8,7 @@ import {
 import { Alert } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { localeOf, formatNumber } from '@/lib/jurisdiction';
 import { NotificationService } from '@/services/NotificationService';
 import { validateUUID } from '@/utils/sanitization';
 import { logger } from '@/utils/logger';
@@ -70,7 +71,7 @@ export const RefillVerificationModal: React.FC<RefillVerificationModalProps> = (
     const unitPrice = (invoiceVolume > 0 && typeof totalCost === 'number') ? (totalCost / invoiceVolume) : 0;
 
     const formatTs = (ts: number | null) => ts
-        ? new Date(ts).toLocaleString('en-KE', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+        ? new Date(ts).toLocaleString(localeOf(jurisdiction), { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
         : '--';
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -302,7 +303,7 @@ export const RefillVerificationModal: React.FC<RefillVerificationModalProps> = (
                                     <label>Derived Unit Price ({jurisdiction.currency}/L)</label>
                                     <input
                                         readOnly
-                                        value={`${currencySymbol} ${unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                                        value={`${currencySymbol} ${formatNumber(unitPrice, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                         className="bg-slate-50 font-black text-slate-500 !border-slate-200 cursor-default"
                                     />
                                 </div>

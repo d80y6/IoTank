@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Tank } from '@/types';
 import { useHistoricalReadings, updateTank } from '@/hooks/useSupabase';
+import { supabase } from '@/config/supabase';
 import { useConsumptionAnalytics } from '@/hooks/useConsumptionAnalytics';
 import { TankVisual2D } from '../Common/TankVisual2D';
 import { TimeSeriesChart } from '../Analytics/TimeSeriesChart';
@@ -37,6 +38,27 @@ export const TankDetailModal: React.FC<TankDetailModalProps> = ({
 
     const [saving, setSaving] = useState(false);
     const [exporting, setExporting] = useState<'download' | 'share' | null>(null);
+    const [standardVolume, setStandardVolume] = useState<number | null>(null);
+
+    useEffect(() => {
+        const ambient = latestReading?.volume ?? latestReading?.volumeCorrected ?? 0;
+        const temp = latestReading?.temperature ?? 0;
+        if (!latestReading || !tank.fuelType) {
+            setStandardVolume(null);
+            return;
+        }
+        let cancelled = false;
+        supabase.rpc('calculate_standard_volume', {
+            ambient_volume: ambient,
+            current_temp: temp,
+            fuel_type: tank.fuelType
+        }).then(({ data, error }) => {
+            if (!cancelled && !error && data !== null && data !== undefined) {
+                setStandardVolume(Number(data));
+            }
+        });
+        return () => { cancelled = true; };
+    }, [latestReading?.id, tank.fuelType]);
 
     const handleExport = async (type: 'download' | 'share') => {
         setExporting(type);
@@ -181,6 +203,11 @@ export const TankDetailModal: React.FC<TankDetailModalProps> = ({
                                         <span className="stat-label">Corrected Volume</span>
                                         <span className="stat-value">{formatVolume(latestReading?.volumeCorrected || 0)}</span>
                                         <span className="stat-trend text-success">Total Inventory</span>
+                                    </div>
+                                    <div className="stat-card">
+                                        <span className="stat-label">Standard Volume</span>
+                                        <span className="stat-value">{standardVolume === null ? '—' : formatVolume(standardVolume)}</span>
+                                        <span className="stat-trend text-slate-400">Temp-Compensated (15°C)</span>
                                     </div>
                                     <div className="stat-card">
                                         <span className="stat-label">Consumption Rate</span>

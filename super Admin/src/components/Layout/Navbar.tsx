@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../config/supabase';
 import {
-    MdSearch,
-    MdNotifications,
     MdPerson,
     MdLogout,
     MdMenu,
@@ -101,13 +99,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, children }) => 
 
             <div className="navbar-right">
                 {children}
-                <div className="command-palette-trigger hidden md:flex" onClick={() => {/* Future: Open Command Palette */}}>
-
-                    <MdSearch className="search-icon-modern" />
-                    <span className="search-placeholder">Execute command...</span>
-                    <span className="command-shortcut">Ctrl K</span>
-                </div>
-
                 <div className="navbar-item-relative system-health hidden lg:flex">
                     <div className={`mission-control-badge ${!isOnline ? 'offline' : ''}`}>
                         <div className="indicator-wrapper">
@@ -121,12 +112,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, children }) => 
                             <span className="telemetry-time">{formattedTime}</span>
                         </div>
                     </div>
-                </div>
-
-                <div className="navbar-item-relative">
-                    <button className="navbar-btn" aria-label="Notifications">
-                        <MdNotifications />
-                    </button>
                 </div>
 
                 {canSee(1) && (

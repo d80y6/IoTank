@@ -3,6 +3,7 @@
  * Enhanced Tank-Aware Intelligence Service
  * Provides AI analytics that specifically address different tanks in the fleet
  */
+import { JurisdictionConfig } from '@/lib/jurisdiction';
 
 import { Tank, MarketSignal, SupplyRisk, GeminiInsight } from '@/types';
 import { IntelligenceAIService } from '@/services/IntelligenceAIService';
@@ -48,7 +49,8 @@ export function generateTankSpecificAnalysis(
   tanks: Tank[],
   signals: MarketSignal[],
   risks: SupplyRisk[],
-  currentMarketPrice: number = 178.50
+  currentMarketPrice: number = 0,
+  jurisdiction?: JurisdictionConfig
 ): TankSpecificAnalysis[] {
   return tanks.map(tank => {
     if (!tank) return null as any; // Safe skip
@@ -99,7 +101,7 @@ export function generateTankSpecificAnalysis(
     const savingsPotential = (projectedPrice - currentMarketPrice) * volumeToProcure;
 
     // Extract market factors
-    const marketFactors = extractMarketFactors(signals, risks);
+    const marketFactors = extractMarketFactors(signals, risks, jurisdiction?.regulatoryBody?.toLowerCase() || 'epra');
 
     return {
       tankId: tank?.id || 'unknown',
@@ -125,7 +127,8 @@ export function generateTankSpecificAnalysis(
  * Generate fleet-wide intelligence summary
  */
 export function generateFleetIntelligenceSummary(
-  tankAnalyses: TankSpecificAnalysis[]
+  tankAnalyses: TankSpecificAnalysis[],
+  jurisdiction?: JurisdictionConfig
 ): FleetIntelligenceSummary {
   const criticalTanks = tankAnalyses.filter(t => t.procurementUrgency === 'CRITICAL').length;
   const highRiskTanks = tankAnalyses.filter(t => t.riskScore > 70).length;
@@ -143,8 +146,8 @@ export function generateFleetIntelligenceSummary(
     .map(t => `Immediate refill required for ${t.tankName} (${t.timeToEmpty.toFixed(1)} days remaining)`);
 
   const strategicPriorities = [
-    'Monitor EPRA price cycle announcements',
-    'Track Mombasa port congestion status',
+    `Monitor ${jurisdiction?.regulatoryBody || 'EPRA'} price cycle announcements`,
+    `Track ${jurisdiction?.logisticsNode || 'port'} congestion status`,
     'Maintain 15-day buffer across all tanks',
     'Optimize procurement timing based on market sentiment'
   ];
@@ -177,11 +180,11 @@ export async function generateTankAwareInsights(
   risks: SupplyRisk[],
   notices: any[],
   aiService: IntelligenceAIService,
-  jurisdiction?: { currencySymbol?: string; locale?: string }
+  jurisdiction?: JurisdictionConfig
 ): Promise<GeminiInsight[]> {
   const symbol = jurisdiction?.currencySymbol || '$';
-  const tankAnalyses = generateTankSpecificAnalysis(tanks, signals, risks);
-  const fleetSummary = generateFleetIntelligenceSummary(tankAnalyses);
+  const tankAnalyses = generateTankSpecificAnalysis(tanks, signals, risks, 0, jurisdiction);
+  const fleetSummary = generateFleetIntelligenceSummary(tankAnalyses, jurisdiction);
 
   // 1. Create individual tank insights for critical tanks (Heuristic-based for speed/reliability)
   const criticalTankInsights: GeminiInsight[] = tankAnalyses
@@ -206,7 +209,7 @@ export async function generateTankAwareInsights(
 
   // 2. Create fleet-level strategic insight (AI-Powered reasoning)
   try {
-    const aiFleetInsight = await aiService.generateInsight(signals, risks, notices, tanks);
+    const aiFleetInsight = await aiService.generateInsight(signals, risks, notices, tanks, 'fleet', jurisdiction);
     
     // Enrich AI insight with fleet summary data if needed
     const fleetInsight: GeminiInsight = {
@@ -291,9 +294,9 @@ function generateTankRecommendation(
 /**
  * Extract market factors from signals
  */
-function extractMarketFactors(signals: MarketSignal[], risks: SupplyRisk[]) {
+function extractMarketFactors(signals: MarketSignal[], risks: SupplyRisk[], regulatorKeyword = 'epra') {
   const priceSignals = signals.filter(s => (s.title || '').toLowerCase().includes('price'));
-  const regulatorySignals = signals.filter(s => s.source === 'EPRA' || (s.title || '').toLowerCase().includes('epra'));
+  const regulatorySignals = signals.filter(s => s.source?.toLowerCase() === regulatorKeyword || (s.title || '').toLowerCase().includes(regulatorKeyword));
 
   // Determine sentiment
   const bullishKeywords = ['increase', 'rise', 'bullish', 'upward'];

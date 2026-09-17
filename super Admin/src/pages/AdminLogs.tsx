@@ -35,6 +35,35 @@ const AdminLogs: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         return <FiActivity />;
     };
 
+    const exportLogsArchive = () => {
+        const headers = ['Timestamp', 'Authority', 'Role', 'Action Type', 'Event Description', 'Subject'];
+        const rows = logs.map(log => [
+            new Date(log.created_at).toLocaleString([], { hour12: false }),
+            log.system_users?.full_name || 'Anonymous Authority',
+            log.system_users?.role || 'SYSTEM',
+            log.action_type.replace('_', ' '),
+            log.description,
+            log.fuel_stations?.station_name || 'Global Scope'
+        ]);
+        const escape = (value: string | number) => {
+            const str = String(value ?? '');
+            return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        };
+        const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'admin_logs_archive.csv';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+        window.dispatchEvent(new CustomEvent('system-toast', {
+            detail: { title: 'Archive Extracted', message: `${logs.length} log entries written to CSV.`, type: 'success' }
+        }));
+    };
+
     const content = (
         <div className="logs-container animate-fade-in">
             <header className="dp-header">
@@ -44,7 +73,7 @@ const AdminLogs: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                 </div>
                 
                 <div className="dp-header-actions">
-                     <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
+                     <button onClick={exportLogsArchive} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
                         <FiDownload /> Archive Extraction
                     </button>
                 </div>

@@ -49,9 +49,9 @@ Deno.serve(async (req) => {
 
        let systemPrompt;
        if (context?.signal) {
-         systemPrompt = buildDirectivePrompt(context.signal, safeInventory);
+         systemPrompt = buildDirectivePrompt(context.signal, safeInventory, context?.jurisdiction);
        } else {
-         systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices, safeInventory);
+         systemPrompt = buildIntelligencePrompt(safeSignals, safeRisks, safeNotices, safeInventory, context?.jurisdiction);
        }
        body.messages = [{ role: 'user', content: systemPrompt }];
     }

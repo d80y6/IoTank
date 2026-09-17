@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTanks, useLatestReading, resolveAlert, updateTank } from '@/hooks/useSupabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { AuditService } from '@/services/AuditService';
 import { supabase } from '@/config/supabase';
 import { validateUUID } from '@/utils/sanitization';
@@ -23,6 +24,7 @@ interface DeliveryModalProps {
 
 export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const { currentUser } = useAuth();
+    const { currencySymbol } = useJurisdiction();
     const stationId = currentUser?.stationId || '';
     const { tanks } = useTanks(stationId);
     const { activeModal, modalData } = useModals();
@@ -425,7 +427,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ isOpen, onClose, o
                                                 value={formData.deliveryPriceType}
                                                 onChange={e => setFormData({ ...formData, deliveryPriceType: e.target.value as any })}
                                             >
-                                                <option value="per_litre">Ksh/Litre</option>
+                                                <option value="per_litre">{currencySymbol}/Litre</option>
                                                 <option value="total">Stock Value</option>
                                             </select>
                                             <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

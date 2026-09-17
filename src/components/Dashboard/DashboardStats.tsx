@@ -4,6 +4,8 @@ import { useAllLatestReadings, useLatestMarketPrices } from '@/hooks/useSupabase
 import { ShiftCloseCard } from './ShiftCloseCard';
 import { FiTrendingUp, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { localeOf } from '@/lib/jurisdiction';
 import { useNavigate } from 'react-router-dom';
 import '../Common/DesignSystemCards.css';
 import './DashboardStats.css';
@@ -20,6 +22,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
 }) => {
     const navigate = useNavigate();
     const { canSee } = useAuth();
+    const { jurisdiction, currencySymbol } = useJurisdiction();
     
     // Fetch live market prices for fallback valuation
     const { data: marketPrices } = useLatestMarketPrices();
@@ -137,8 +140,8 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
                                     <span className="text-amber-600 text-sm font-semibold">SET PRICES</span>
                                 ) : (
                                     <>
-                                        <span className="stat-main-unit mr-1">Ksh</span>
-                                        {totalAssetValue.toLocaleString(undefined, {
+                                        <span className="stat-main-unit mr-1">{currencySymbol}</span>
+                                        {totalAssetValue.toLocaleString(localeOf(jurisdiction), {
                                             minimumFractionDigits: 0,
                                             maximumFractionDigits: 0
                                         })}

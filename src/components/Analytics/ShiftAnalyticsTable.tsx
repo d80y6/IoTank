@@ -1,11 +1,13 @@
 import React from 'react';
 import { useShifts, useActiveShift } from '@/hooks/useShifts';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { FiUser, FiAlertCircle, FiClipboard, FiAlertTriangle, FiFileText } from 'react-icons/fi';
 import { format } from 'date-fns';
 
 export const ShiftAnalyticsTable: React.FC = () => {
     const { currentUser } = useAuth();
+    const { currencySymbol, locale } = useJurisdiction();
     const stationId = currentUser?.stationId || '';
     const { shifts, loading: historyLoading, error: historyError } = useShifts(stationId);
     const { activeShift, loading: activeLoading } = useActiveShift(stationId);
@@ -164,7 +166,7 @@ export const ShiftAnalyticsTable: React.FC = () => {
                                     {/* Revenue */}
                                     <td>
                                         <div className="td-number">
-                                            {isOpening ? '—' : `Ksh ${revenue.toLocaleString()}`}
+                                            {isOpening ? '—' : `${currencySymbol} ${revenue.toLocaleString(locale)}`}
                                         </div>
                                         {!isOpening && <span className="td-number-sub">Collected</span>}
                                     </td>
@@ -176,7 +178,7 @@ export const ShiftAnalyticsTable: React.FC = () => {
                                                 ? 'Initialization'
                                                 : varAmt === 0
                                                 ? '✓ Balanced'
-                                                : `${varAmt > 0 ? '-' : '+'}Ksh ${Math.abs(varAmt).toLocaleString()}`
+                                                : `${varAmt > 0 ? '-' : '+'}${currencySymbol} ${Math.abs(varAmt).toLocaleString(locale)}`
                                             }
                                             {isCritical && <FiAlertTriangle size={11} />}
                                         </span>

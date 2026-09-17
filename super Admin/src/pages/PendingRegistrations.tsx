@@ -207,6 +207,16 @@ const PendingRegistrations: React.FC<{ isHubView?: boolean }> = ({ isHubView }) 
           title: 'Provisioning Success',
           message: `${reg.full_name} has been synchronized as Executive Administrator.`
       });
+      // Record the registration decision in unified_events (registration_events stream)
+      supabase.rpc('log_registration_event', {
+          p_registration_id: reg.id,
+          p_event_type: 'approved',
+          p_actor_email: session.user.email || 'unknown',
+          p_notes: `Registration approved for ${reg.station_name} (${reg.full_name})`,
+          p_detail_json: { registration_id: reg.id }
+      }).then(({ error: logErr }) => {
+          if (logErr) console.error('[log_registration_event] failed', logErr);
+      });
       setSelectedReg(null); // Close modal IMMEDIATELY on success
       await fetchRegistrations();
     } catch (err: any) {
@@ -223,6 +233,18 @@ const PendingRegistrations: React.FC<{ isHubView?: boolean }> = ({ isHubView }) 
     try {
       const { error } = await supabase.from('pending_registrations').update({ status: 'rejected' }).eq('id', reg.id);
       if (error) throw error;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      // Record the registration decision in unified_events (registration_events stream)
+      supabase.rpc('log_registration_event', {
+          p_registration_id: reg.id,
+          p_event_type: 'rejected',
+          p_actor_email: session?.user?.email || 'unknown',
+          p_notes: `Registration rejected for ${reg.station_name} (${reg.full_name})`,
+          p_detail_json: { registration_id: reg.id }
+      }).then(({ error: logErr }) => {
+          if (logErr) console.error('[log_registration_event] failed', logErr);
+      });
       
       setToast({ 
           show: true, 
@@ -293,8 +315,7 @@ const PendingRegistrations: React.FC<{ isHubView?: boolean }> = ({ isHubView }) 
     const [localError, setLocalError] = useState('');
 
     const counties = [
-        'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Kiambu', 'Machakos',
-        'Nyeri', 'Meru', 'Kakamega', 'Kisii', 'Kilifi', 'Garissa', 'Other',
+        'Metropolitan', 'Coastal', 'Inland', 'Highland', 'Other',
     ];
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -375,11 +396,11 @@ const PendingRegistrations: React.FC<{ isHubView?: boolean }> = ({ isHubView }) 
                                 </div>
                                 <div className="form-group flex flex-col gap-1.5">
                                     <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Official Contact Number</label>
-                                    <input required type="tel" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all outline-none" placeholder="+254..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                                    <input required type="tel" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all outline-none" placeholder="+000..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                                 </div>
                                 <div className="form-group flex flex-col gap-1.5">
                                     <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Station / Company Name</label>
-                                    <input required type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all outline-none" placeholder="e.g. Nairobi Central Station" value={formData.station_name} onChange={e => setFormData({...formData, station_name: e.target.value})} />
+                                    <input required type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all outline-none" placeholder="e.g. Central Depot" value={formData.station_name} onChange={e => setFormData({...formData, station_name: e.target.value})} />
                                 </div>
                             </div>
                         </div>

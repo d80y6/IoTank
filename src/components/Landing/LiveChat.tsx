@@ -4,6 +4,7 @@ import { FiX, FiSend, FiUser, FiInfo, FiSmartphone, FiAtSign, FiPlus, FiChevronL
 import { FaWhatsapp } from 'react-icons/fa';
 import './LiveChat.css';
 import { ChatAIService, RateLimitError } from '../../services/ChatAIService';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { formatDistanceToNow } from 'date-fns';
 import { logger } from '@/utils/logger';
 
@@ -35,6 +36,7 @@ interface ChatSession {
 type ChatView = 'list' | 'chat' | 'form';
 
 export const LiveChat: React.FC = () => {
+    const { jurisdiction } = useJurisdiction();
     const [isOpen, setIsOpen] = useState(false);
     const [view, setView] = useState<ChatView>('list');
 
@@ -167,7 +169,7 @@ export const LiveChat: React.FC = () => {
                 content: m.text
             })) || [];
 
-            const response = await ChatAIService.getChatResponse(inputValue, history);
+            const response = await ChatAIService.getChatResponse(inputValue, history, jurisdiction);
 
             const aiMsg: Message = {
                 id: `ai-${Date.now()}`,

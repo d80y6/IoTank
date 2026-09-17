@@ -64,13 +64,19 @@ void updateCommandStatus(String id, String status, String errorMsg) {
     StaticJsonDocument<256> doc;
     doc["status"] = status;
     if (errorMsg != "") doc["error_message"] = errorMsg;
-    doc["processed_at"] = "now()"; 
+
+    // processed_at is backfilled server-side by a DB trigger; do not send "now()".
 
     String json;
     serializeJson(doc, json);
 
-    // Patch the record
-    // client.from("device_commands").update(json).eq("id", id).execute();
+    // Patch the record. This requires the device JWT (role=device) whose station_id
+    // matches the command's station_id.
+    SupabaseResult res = client.from("device_commands").update(json).eq("id", id).execute();
+    if (!res.ok()) {
+        Serial.printf("C2: Status patch failed (HTTP %d): %s\n", res.status_code, res.error_message.c_str());
+        return;
+    }
     Serial.printf("C2: Status Updated -> %s\n", status.c_str());
 }
 

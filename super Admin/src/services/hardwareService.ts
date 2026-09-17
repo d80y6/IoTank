@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase';
 export interface Device {
     id: string;
     device_id: string;
+    station_id?: string;
     station_name: string;
     client_name: string;
     model: 'ESP32-S3' | 'ESP32-WROOM';
@@ -65,16 +66,19 @@ export const hardwareService = {
         const total = devices.length;
         const online = devices.filter(d => d.status === 'online').length;
         const offline = devices.filter(d => d.status === 'offline' || d.status === 'error').length;
+        const maintenance = devices.filter(d => d.status === 'maintenance').length;
         
         // Example logic for needing update: version != '2.6.0'
         const needingUpdate = devices.filter(d => d.firmware_version !== '2.6.0').length;
+
+        const avgUptime = total > 0 ? Math.round(((online + maintenance) / total) * 1000) / 10 : 0;
 
         return {
             total,
             online,
             offline,
             needingUpdate,
-            avgUptime: 99.4, // Placeholder
+            avgUptime,
             dataRate: 4500
         };
     },

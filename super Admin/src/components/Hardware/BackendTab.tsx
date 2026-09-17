@@ -247,7 +247,7 @@ export const BackendTab: React.FC = () => {
                                 <div className="flex flex-col items-center justify-center h-full opacity-20 text-center p-12">
                                     <FiDatabase size={48} className="mb-4" />
                                     <p className="font-black uppercase tracking-widest text-xs">No Data Synchronized</p>
-                                    <p className="text-[10px] mt-2">Upload the 'Kenya_UST_LookupTables' Excel file to begin.</p>
+                                    <p className="text-[10px] mt-2">Upload the regional fuel lookup tables Excel file to begin.</p>
                                 </div>
                             )}
                         </div>

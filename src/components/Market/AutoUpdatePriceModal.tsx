@@ -3,11 +3,13 @@ import { supabase } from '@/config/supabase';
 import { FiCpu, FiX } from 'react-icons/fi';
 import { useTanks, updateTank } from '@/hooks/useSupabase';
 import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { formatNumber } from '@/lib/jurisdiction';
 import { logger } from '@/utils/logger';
 
 export const AutoUpdatePriceModal: React.FC<{ stationId: string }> = ({ stationId }) => {
     const [pendingAction, setPendingAction] = useState<any>(null);
-    const { currencySymbol } = useJurisdiction();
+    const { jurisdiction, currencySymbol } = useJurisdiction();
+    const regBody = jurisdiction?.regulatoryBody || 'regulator';
     const { tanks } = useTanks(stationId);
     // Keep a ref so the polling closure always sees the latest tanks without re-running the effect
     const tanksRef = React.useRef(tanks);
@@ -68,7 +70,7 @@ export const AutoUpdatePriceModal: React.FC<{ stationId: string }> = ({ stationI
                             window.dispatchEvent(new CustomEvent('system-toast', {
                                 detail: {
                                     title: 'Regulated Price Sync Stale',
-                                    message: `It has been over 1 hour since EPRA updated ${action.fuel_type} rates to ${currencySymbol} ${action.new_price.toFixed(2)}. Your station's retail price is still out of sync!`,
+                                    message: `It has been over 1 hour since ${regBody} updated ${action.fuel_type} rates to ${currencySymbol} ${formatNumber(action.new_price, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Your station's retail price is still out of sync!`,
                                     type: 'warning',
                                     persistent: true
                                 }
@@ -119,7 +121,7 @@ export const AutoUpdatePriceModal: React.FC<{ stationId: string }> = ({ stationI
                 window.dispatchEvent(new CustomEvent('system-toast', {
                     detail: {
                         title: 'Retail Prices Updated',
-                        message: `Successfully adjusted retail prices for all ${pendingAction.fuel_type} tanks to ${currencySymbol} ${pendingAction.new_price.toFixed(2)}/L.`,
+                        message: `Successfully adjusted retail prices for all ${pendingAction.fuel_type} tanks to ${currencySymbol} ${formatNumber(pendingAction.new_price, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/L.`,
                         type: 'success'
                     }
                 }));
@@ -129,7 +131,7 @@ export const AutoUpdatePriceModal: React.FC<{ stationId: string }> = ({ stationI
                     'FINANCE',
                     'PRICE_UPDATE',
                     stationId,
-                    `Forensic Price Adjustment: Auto-updated retail prices for ${pendingAction.fuel_type} to ${currencySymbol} ${pendingAction.new_price.toFixed(2)}`,
+                    `Forensic Price Adjustment: Auto-updated retail prices for ${pendingAction.fuel_type} to ${currencySymbol} ${formatNumber(pendingAction.new_price, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     'INFO',
                     { fuelType: pendingAction.fuel_type, price: pendingAction.new_price, tanksCount: targetTanks.length }
                 );
@@ -190,7 +192,7 @@ export const AutoUpdatePriceModal: React.FC<{ stationId: string }> = ({ stationI
                 <div className="space-y-4 mb-6">
                     <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/50 to-[#00D4FF]/5 border border-blue-100/50">
                         <p className="text-xs text-[#4A4A65] leading-relaxed">
-                            EPRA has revised <span className="font-bold text-[#323264]">{pendingAction.fuel_type}</span> regulated rates to <span className="font-bold text-[#323264]">{currencySymbol} {pendingAction.new_price.toFixed(2)}/L</span>.
+                            {regBody} has revised <span className="font-bold text-[#323264]">{pendingAction.fuel_type}</span> regulated rates to <span className="font-bold text-[#323264]">{currencySymbol} {formatNumber(pendingAction.new_price, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/L</span>.
                         </p>
                         <p className="text-[11px] text-[#7A7A95] mt-2">
                             Do you want to automatically adjust the retail price for all <span className="font-semibold">{pendingAction.fuel_type}</span> tanks at your station to match this rate?
@@ -219,7 +221,7 @@ export const AutoUpdatePriceModal: React.FC<{ stationId: string }> = ({ stationI
                                     <div key={t.id} className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                                         <span className="font-bold text-[#323264] truncate max-w-[80px]">{t.name}</span>
                                         <span className="text-gray-400">
-                                            {t.metadata?.retailPrice ? `${currencySymbol} ${t.metadata.retailPrice}` : 'Not set'}
+                                            {t.metadata?.retailPrice ? `${currencySymbol} ${formatNumber(Number(t.metadata.retailPrice), jurisdiction, { maximumFractionDigits: 2 })}` : 'Not set'}
                                         </span>
                                     </div>
                                 ))}

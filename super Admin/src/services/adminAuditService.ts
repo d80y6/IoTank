@@ -32,7 +32,7 @@ export interface FinancialTrail {
 export interface ComplianceStatus {
     id: string;
     name: string;
-    category: 'EPRA' | 'NEMA' | 'KRA' | 'Data Protection';
+    category: 'EPRA' | 'NEMA' | 'KRA' | 'Data Protection' | 'Regulatory' | 'Tax' | (string & {});
     status: 'compliant' | 'warning' | 'expired';
     expiry_date?: string;
     last_audit: string;

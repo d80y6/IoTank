@@ -1,4 +1,5 @@
 import { Tank } from '@/types';
+import { JurisdictionConfig } from '@/lib/jurisdiction';
 
 export interface TacticalDirective {
     status: 'CRITICAL' | 'CAUTION' | 'STABLE';
@@ -15,9 +16,12 @@ export interface TacticalDirective {
 export function generateTacticalDirective(
     article: any,
     tanks: Tank[],
-    jurisdiction?: { currencySymbol?: string; locale?: string }
+    jurisdiction?: JurisdictionConfig
 ): TacticalDirective {
     const symbol = jurisdiction?.currencySymbol || '$';
+    const currencyCode = (jurisdiction?.currency || 'USD').toLowerCase();
+    const regulatoryBody = (jurisdiction?.regulatoryBody || 'EPRA').toLowerCase();
+    const regBody = jurisdiction?.regulatoryBody || 'EPRA';
     if (!article) {
         return {
             status: 'STABLE',
@@ -58,8 +62,10 @@ export function generateTacticalDirective(
     const isPriceImplication = article.implicationCategory?.toLowerCase() === 'price' || 
                                titleAndSummary.includes('price') || 
                                titleAndSummary.includes('rate') ||
-                               titleAndSummary.includes('epra') || 
-                               titleAndSummary.includes('ksh') ||
+                               titleAndSummary.includes(regulatoryBody) || 
+                               titleAndSummary.includes(currencyCode) ||
+                               titleAndSummary.includes('shillings') ||
+                               titleAndSummary.includes('currency') || 
                                titleAndSummary.includes('sh.');
 
     const isSupplyImplication = article.implicationCategory?.toLowerCase() === 'supply' ||
@@ -93,8 +99,9 @@ export function generateTacticalDirective(
                         titleAndSummary.includes('drop');
 
     // Extract numerical price change if present
-    const priceChangeMatch = titleAndSummary.match(/(?:sh|ksh|shillings)?\.?\s*(\d+(?:\.\d+)?)\s*(?:increase|reduction|decrease|hike|drop|slash|cut|slashed|reduced|increased|up|down)/i) || 
-                             titleAndSummary.match(/(?:increase|reduction|decrease|hike|drop|slash|cut|slashed|reduced|increased|up|down)\s+(?:by|of)?\s*(?:sh|ksh|shillings)?\.?\s*(\d+(?:\.\d+)?)/i);
+    const currencyMarkers = `(?:ksh|shillings|${currencyCode})`;
+    const priceChangeMatch = titleAndSummary.match(new RegExp(`(?:${currencyMarkers})?\\.?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:increase|reduction|decrease|hike|drop|slash|cut|slashed|reduced|increased|up|down)`, 'i')) || 
+                             titleAndSummary.match(new RegExp(`(?:increase|reduction|decrease|hike|drop|slash|cut|slashed|reduced|increased|up|down)\\s+(?:by|of)?\\s*(?:${currencyMarkers})?\\.?\\s*(\\d+(?:\\.\\d+)?)`, 'i'));
     const priceDiff = priceChangeMatch ? parseFloat(priceChangeMatch[1]) : null;
 
     // Default stable directive if no relevant tanks or standard news
@@ -126,7 +133,7 @@ export function generateTacticalDirective(
                 const orderVol = Math.round(lowestTank.capacity - lowestVol);
                 return {
                     status: 'CRITICAL',
-                    recommendation: `EPRA price hike notice ${diffText} detected. Your ${lowestTankName} inventory is low at ${lowestLevelPct}%. Dispatch a major restocking order immediately.`,
+                    recommendation: `${regBody} price hike notice ${diffText} detected. Your ${lowestTankName} inventory is low at ${lowestLevelPct}%. Dispatch a major restocking order immediately.`,
                     actionDetails: `Trigger a replenishment order of ${orderVol.toLocaleString()} Liters of ${lowestTank.fuelType} immediately to secure current lower wholesale rates.`,
                     colorClass: 'mi-directive--critical'
                 };
@@ -134,8 +141,8 @@ export function generateTacticalDirective(
                 // High inventory - storage optimization
                 return {
                     status: 'CAUTION',
-                    recommendation: `EPRA price hike notice ${diffText} detected. Your ${lowestTankName} inventory is healthy at ${lowestLevelPct}%. Hold sales and maximize storage gains.`,
-                    actionDetails: `Retain inventory. Schedule your manual pump retail price upward adjustment immediately once the new EPRA gazette takes effect to maximize inventory valuation profit.`,
+                    recommendation: `${regBody} price hike notice ${diffText} detected. Your ${lowestTankName} inventory is healthy at ${lowestLevelPct}%. Hold sales and maximize storage gains.`,
+                    actionDetails: `Retain inventory. Schedule your manual pump retail price upward adjustment immediately once the new ${regBody} gazette takes effect to maximize inventory valuation profit.`,
                     colorClass: 'mi-directive--caution'
                 };
             }
@@ -145,7 +152,7 @@ export function generateTacticalDirective(
                 // Defer order
                 return {
                     status: 'CAUTION',
-                    recommendation: `EPRA price reduction ${diffText} is scheduled. Your ${lowestTankName} inventory is at ${lowestLevelPct}%. Defer any major replenishments.`,
+                    recommendation: `${regBody} price reduction ${diffText} is scheduled. Your ${lowestTankName} inventory is at ${lowestLevelPct}%. Defer any major replenishments.`,
                     actionDetails: `Delay wholesale procurement orders until the price reduction takes effect. Maintain only minimum operational stock to avoid purchase price loss.`,
                     colorClass: 'mi-directive--caution'
                 };
@@ -153,8 +160,8 @@ export function generateTacticalDirective(
                 // High inventory - margin liquidation
                 return {
                     status: 'CRITICAL',
-                    recommendation: `EPRA price reduction ${diffText} is scheduled. Your ${lowestTankName} is holding high stock (${lowestLevelPct}%). Flush high-cost volume immediately.`,
-                    actionDetails: `Accelerate local pump throughput. Consider offering a minor local wholesale discount to liquidate inventory before the lower EPRA retail cap compresses margins.`,
+                    recommendation: `${regBody} price reduction ${diffText} is scheduled. Your ${lowestTankName} is holding high stock (${lowestLevelPct}%). Flush high-cost volume immediately.`,
+                    actionDetails: `Accelerate local pump throughput. Consider offering a minor local wholesale discount to liquidate inventory before the lower ${regBody} retail cap compresses margins.`,
                     colorClass: 'mi-directive--critical'
                 };
             }

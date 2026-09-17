@@ -72,9 +72,13 @@ export class DeviceCommandService {
     /**
      * Subscribes to commands for a specific station.
      */
-    static subscribeToCommands(stationId: string, onUpdate: (payload: any) => void) {
-        // M-07 FIX: Removed _${Date.now()} suffix \u2014 unstable names leak Supabase connection slots on re-renders.
+static subscribeToCommands(stationId: string, onUpdate: (payload: any) => void) {
+        // M-07 FIX: Removed _${Date.now()} suffix — unstable names leak Supabase connection slots on re-renders.
         const channelName = `device_commands_channel_${stationId}`;
+        // WORKAROUND (SUPABASE_FOLLOWUP_TICKET): production
+        // realtime.subscription_check_filters has invalid syntax, so server-side
+        // `filter:` clauses can silently drop the subscription. Subscribe to the
+        // whole table and filter by station_id client-side instead.
         return supabase
             .channel(channelName)
             .on(
@@ -82,15 +86,23 @@ export class DeviceCommandService {
                 {
                     event: '*',
                     schema: 'public',
-                    table: 'device_commands',
-                    filter: `station_id=eq.${stationId}`
+                    table: 'device_commands'
                 },
                 (payload) => {
+                    const newRecord = payload.new as any;
+                    const oldRecord = payload.old as any;
+                    const rowStationId = newRecord?.station_id ?? oldRecord?.station_id;
+                    if (rowStationId && rowStationId !== stationId) return;
+
                     // If the command is now processed or failed, remove from local tracking
-                    const newPayload = payload.new as any;
-                    if (newPayload && (newPayload.status === 'processed' || newPayload.status === 'failed')) {
-                        this.resolveLocally(newPayload.id);
+                    if (newRecord && (newRecord.status === 'processed' || newRecord.status === 'failed')) {
+                        this.resolveLocally(newRecord.id);
                     }
+                    onUpdate(payload);
+                }
+            )
+            .subscribe();
+    }
                     onUpdate(payload);
                 }
             )

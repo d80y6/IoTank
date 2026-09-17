@@ -36,13 +36,12 @@ export class MarketIntelligenceService {
 
     async fetchGlobalNews(): Promise<MarketSignal[]> {
         const domains = [
-            'nation.africa',
-            'businessdailyafrica.com',
-            'standardmedia.co.ke',
-            'the-star.co.ke',
             'reuters.com',
             'bloomberg.com',
-            'oilprice.com'
+            'oilprice.com',
+            'platts.com',
+            'argusmedia.com',
+            'ft.com'
         ].join(',');
 
         const now = new Date();
@@ -50,11 +49,11 @@ export class MarketIntelligenceService {
         const fromDate = tenDaysAgo.toISOString().split('T')[0];
 
         const queries = [
-            'EPRA fuel price Kenya',
-            'Suez Canal oil supply disruption',
-            'Kenyan shilling exchange rate fuel',
+            'fuel price regulation',
+            'crude oil supply disruption',
+            'currency exchange rate fuel',
             'Brent crude price drivers',
-            'KPC fuel storage Nairobi'
+            'oil storage terminal operations'
         ];
 
         const allArticles: any[] = [];
@@ -103,7 +102,7 @@ export class MarketIntelligenceService {
                 const title = article.title.toLowerCase();
                 let sourceType: SignalSourceType = 'General News';
                 let relevanceScore = 0.8;
-                if (title.includes('epra') || title.includes('legislation')) {
+                if (title.includes('regulator') || title.includes('regulation') || title.includes('legislation')) {
                     sourceType = 'Regulatory';
                     relevanceScore = 0.95;
                 } else if (title.includes('price') || title.includes('crude')) {
@@ -260,7 +259,7 @@ export class MarketIntelligenceService {
                         fuel_type: 'crude_oil',
                         region: 'Global/EIA',
                         price_per_liter: parseFloat(item.value),
-                        currency: 'KES',
+                        currency: 'USD',
                         timestamp: new Date(item.period).getTime() || Date.now(),
                         source: 'eia',
                         created_at: new Date().toISOString()
@@ -280,7 +279,7 @@ export class MarketIntelligenceService {
                     fuel_type: b.symbol,
                     region: 'Global',
                     price_per_liter: parseFloat(b.data.value),
-                    currency: 'KES',
+                    currency: 'USD',
                     timestamp: Date.now(),
                     source: 'alpha-vantage',
                     created_at: new Date().toISOString()
@@ -294,7 +293,7 @@ export class MarketIntelligenceService {
 
     private getFallbackNews(): MarketSignal[] {
         return [{
-            id: `fb-1-${Date.now()}`, type: 'market', source: 'Daily Nation', sourceType: 'News Outlet', title: 'EPRA Kenya signals retail price stabilization', summary: 'Improved landing costs and a stronger Shilling are key factors.', timestamp: Date.now() - 7200000, relevanceScore: 0.98, confidenceScore: 0.95, externalUrl: 'https://nation.africa/kenya/business/energy', attribution: 'Daily Nation Business'
+            id: `fb-1-${Date.now()}`, type: 'market', source: 'Global Energy Watch', sourceType: 'News Outlet', title: 'Global fuel markets signal retail price stabilization', summary: 'Improved landing costs and stable crude benchmarks are key factors.', timestamp: Date.now() - 7200000, relevanceScore: 0.98, confidenceScore: 0.95, externalUrl: 'https://www.reuters.com/business/energy/', attribution: 'Global Energy Desk'
         }];
     }
 }

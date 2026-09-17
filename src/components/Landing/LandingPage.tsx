@@ -1,6 +1,8 @@
 import React, { useEffect, useState, Suspense, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import {
   FiCheckCircle, FiMessageSquare, FiDroplet,
   FiTwitter, FiLinkedin, FiFacebook, FiMenu, FiX,
@@ -70,6 +72,8 @@ const SplitText: React.FC<{ text: string; className?: string; isVisible: boolean
 
 
 export const LandingPage: React.FC = () => {
+  useDocumentMeta();
+  const { currencySymbol } = useJurisdiction();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
@@ -648,7 +652,7 @@ export const LandingPage: React.FC = () => {
                   <h3 className="pricing-value-modern">
                     <CounterStat target={35} suffix="k" />
                   </h3>
-                  <span className="hardware-price-unit">Ksh</span>
+                  <span className="hardware-price-unit">{currencySymbol}</span>
                 </div>
                 <p className="pricing-period-modern">One-Time</p>
                 <p className="pricing-desc-modern">

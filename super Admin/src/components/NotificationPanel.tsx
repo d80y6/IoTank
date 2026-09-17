@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { 
     FiBell, FiAlertCircle, FiShield, FiCpu, 
@@ -17,6 +18,7 @@ interface Notification {
 }
 
 const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -125,7 +127,7 @@ const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             <div className="notif-footer">
-                <button className="view-all-btn">View Full Audit Stream</button>
+                <button className="view-all-btn" onClick={() => { onClose(); navigate('/logs'); }}>View Full Audit Stream</button>
             </div>
         </div>
     );

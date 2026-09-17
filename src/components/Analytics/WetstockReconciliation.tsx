@@ -5,11 +5,14 @@ import { Tank, FuelTransaction } from '@/types';
 interface WetstockReconciliationProps {
     tanks: Tank[];
     transactions: FuelTransaction[];
-    currency: 'Ksh';
+    currency: string;
     activeShift?: any;
+    costPerLiter?: number;
 }
 
-export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({ tanks, transactions, currency, activeShift }) => {
+export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({
+    tanks, transactions, currency, activeShift, costPerLiter = 1.45
+}) => {
     // Calculate forensic reconciliation metrics from telemetry and transactions
     const reconData = useMemo(() => {
         // [ONE TRUTH]: Opening stock is derived from the active shift snapshot (Database-backed)
@@ -35,7 +38,7 @@ export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({ 
         const expectedClosing = openingStock + deliveries - transactionalSales;
         const variance = measuredClosing - expectedClosing;
         const variancePct = expectedClosing > 0 ? (variance / expectedClosing) * 100 : 0;
-        const varianceCost = Math.abs(variance) * (currency === 'Ksh' ? 190.50 : 1.45);
+        const varianceCost = Math.abs(variance) * costPerLiter;
 
         return {
             openingStock,
@@ -48,7 +51,7 @@ export const WetstockReconciliation: React.FC<WetstockReconciliationProps> = ({ 
             varianceCost,
             score: Math.max(0, 100 - Math.abs(variancePct) * 50)
         };
-    }, [tanks, transactions, currency, activeShift]);
+    }, [tanks, transactions, costPerLiter, activeShift]);
 
     const isHealthy = Math.abs(reconData.variancePct) < 0.5;
 

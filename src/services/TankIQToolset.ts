@@ -1,5 +1,6 @@
 import { supabase } from '@/config/supabase';
 import { logger } from '@/utils/logger';
+import type { JurisdictionConfig } from '@/lib/jurisdiction';
 
 /**
  * TankIQ Toolset
@@ -57,7 +58,7 @@ export const TankIQToolset = {
     },
 
     /**
-     * Fetches market context including EPRA prices and regulatory notices.
+     * Fetches market context including regulatory prices and notices.
      */
     async get_market_context() {
         try {
@@ -173,7 +174,10 @@ export const TankIQToolset = {
 /**
  * Tool Definitions for the AI Models
  */
-export const TANKIQ_TOOLS_METADATA = [
+export function buildTankIQToolsMetadata(jurisdiction?: JurisdictionConfig) {
+    const regBody = jurisdiction?.regulatoryBody || 'EPRA';
+    const marketName = jurisdiction?.name || 'your region';
+    return [
     {
         type: 'function',
         function: {
@@ -212,7 +216,7 @@ export const TANKIQ_TOOLS_METADATA = [
         type: 'function',
         function: {
             name: 'get_market_context',
-            description: 'Get current EPRA fuel prices in Kenya and recent regulatory notices or advisories.',
+            description: `Get current ${regBody} fuel prices in ${marketName} and recent regulatory notices or advisories.`,
             parameters: { type: 'object', properties: {} }
         }
     },
@@ -220,7 +224,7 @@ export const TANKIQ_TOOLS_METADATA = [
         type: 'function',
         function: {
             name: 'get_shift_analytics',
-            description: 'Get summary of recent shift closures, volume sold, cash/mpesa collections, and variances (shortages/overages).',
+            description: 'Get summary of recent shift closures, volume sold, cash/mobile-money collections, and variances (shortages/overages).',
             parameters: {
                 type: 'object',
                 properties: {
@@ -280,3 +284,9 @@ export const TANKIQ_TOOLS_METADATA = [
         }
     }
 ];
+}
+
+/**
+ * Backward-compatible default tool metadata (built with default jurisdiction values).
+ */
+export const TANKIQ_TOOLS_METADATA = buildTankIQToolsMetadata();

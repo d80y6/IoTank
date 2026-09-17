@@ -4,13 +4,18 @@ import {
   FiAlertCircle, FiDroplet, FiTrendingUp, FiCheckCircle, 
   FiActivity, FiShield, FiZap, FiBox 
 } from 'react-icons/fi';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { formatNumber } from '@/lib/jurisdiction';
 import './InteractiveDashboardSnippet.css';
 
 const InteractiveDashboardSnippet: React.FC = () => {
+  const { jurisdiction, currencySymbol } = useJurisdiction();
+  const regBody = jurisdiction?.regulatoryBody || 'regulator';
+  const basePrice = Number((jurisdiction?.config as any)?.pricing?.superPetrol) || (currencySymbol === 'Ksh' ? 185.50 : 1.85);
   const [tankLevel, setTankLevel] = useState(14250); // Liters
   const [isSimulationActive, setIsSimulationActive] = useState<null | 'leak' | 'price'>(null);
   const [alerts, setAlerts] = useState<{ id: number; type: 'info' | 'warning' | 'critical'; message: string; timestamp: string }[]>([]);
-  const [priceProjection, setPriceProjection] = useState(185.50);
+  const [priceProjection, setPriceProjection] = useState(basePrice);
 
   // Simulation: Leak
   useEffect(() => {
@@ -34,11 +39,13 @@ const InteractiveDashboardSnippet: React.FC = () => {
   // Simulation: Price
   const handlePriceSimState = () => {
     setIsSimulationActive('price');
-    setPriceProjection(198.25);
+    const projectedPrice = basePrice * 1.07; // ~7% increase
+    const increase = projectedPrice - basePrice;
+    setPriceProjection(projectedPrice);
     const newAlert = {
       id: Date.now(),
       type: 'warning' as const,
-      message: "AI ADVISOR: Projected EPRA price increase of Ksh 12.75 detected. Recommended action: BUY NOW.",
+      message: `AI ADVISOR: Projected ${regBody} price increase of ${currencySymbol} ${formatNumber(increase, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} detected. Recommended action: BUY NOW.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setAlerts(prev => [newAlert, ...prev].slice(0, 3));
@@ -49,7 +56,7 @@ const InteractiveDashboardSnippet: React.FC = () => {
   const handleReset = () => {
     setIsSimulationActive(null);
     setTankLevel(14250);
-    setPriceProjection(185.50);
+    setPriceProjection(basePrice);
     setAlerts([]);
   };
 
@@ -84,7 +91,7 @@ const InteractiveDashboardSnippet: React.FC = () => {
         {/* The Dashboard Mock */}
         <div className="ids-dashboard-frame">
           <div className="dashboard-header-mock">
-            <div className="dash-title">Station Overview: Nairobi West</div>
+            <div className="dash-title">Station Overview: {jurisdiction?.name || 'Main Depot'}</div>
             <div className="dash-status-dot">
               <span className={`pulse ${isSimulationActive === 'leak' ? 'critical' : 'active'}`}></span>
               {isSimulationActive === 'leak' ? 'Alert Active' : 'System Secure'}
@@ -124,12 +131,12 @@ const InteractiveDashboardSnippet: React.FC = () => {
                 <div className="price-forecast">
                   <div className="current-price">
                     <span className="label">Current</span>
-                    <span className="value">Ksh 185.50</span>
+                    <span className="value">{currencySymbol} {formatNumber(basePrice, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="projection-arrow">→</div>
                   <div className={`projected-price ${isSimulationActive === 'price' ? 'active' : ''}`}>
                     <span className="label">Projected</span>
-                    <span className="value">Ksh {priceProjection.toFixed(2)}</span>
+                    <span className="value">{currencySymbol} {formatNumber(priceProjection, jurisdiction, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
                 <div className={`ai-decision-bubble ${isSimulationActive === 'price' ? 'recommend-buy' : ''}`}>
@@ -138,7 +145,7 @@ const InteractiveDashboardSnippet: React.FC = () => {
                       <FiZap className="icon pulse" />
                       <div>
                         <strong>BUY IMMEDIATELY</strong>
-                        <p>Potential savings: Ksh 191,250 on 15kL order.</p>
+                        <p>Potential savings: {currencySymbol} {formatNumber((priceProjection - basePrice) * 15000, jurisdiction, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} on 15kL order.</p>
                       </div>
                     </>
                   ) : (

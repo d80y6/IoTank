@@ -407,6 +407,10 @@ const SystemUsers: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                     <input className="input-premium-v2" value={bootstrapEmail} onChange={e => setBootstrapEmail(e.target.value)} required />
                                 </div>
                                 <div className="form-group-premium">
+                                    <label>Bootstrap Name (Full Name)</label>
+                                    <input className="input-premium-v2" value={bootstrapName} onChange={e => setBootstrapName(e.target.value)} required />
+                                </div>
+                                <div className="form-group-premium">
                                     <label>Auth UID (UUID)</label>
                                     <input className="input-premium-v2" value={bootstrapUid} onChange={e => setBootstrapUid(e.target.value)} required />
                                 </div>

@@ -24,6 +24,9 @@ interface Station {
     county: string;
     created_at: string;
     tanks: any[];
+    latitude?: number;
+    longitude?: number;
+    station_location?: string;
 }
 
 // Internal Pagination Component (Standardized)
@@ -127,8 +130,6 @@ const ClientsList: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
         setLoading(true);
         try {
             await supabase.rpc('refresh_tank_analytics');
-            // Mocking a hardware probe delay for premium feel
-            await new Promise(resolve => setTimeout(resolve, 1500));
             window.location.reload(); 
         } catch (error) {
             console.error('Hardware re-sync error:', error);
@@ -220,8 +221,8 @@ const ClientsList: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                         <div className="telemetry-radar-card" style={{ padding: '16px', background: '#f8fafc' }}>
                             <div className="radar-visualization" style={{ width: '180px', height: '180px' }}>
                                 <KenyaMap 
-                                    lat={-1.2921} // Defaulting to Nairobi if specific cords missing, or use station data if available
-                                    lng={36.8219} 
+                                    lat={station.latitude}
+                                    lng={station.longitude}
                                     className="border-none shadow-none"
                                 />
                             </div>
@@ -233,16 +234,16 @@ const ClientsList: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                 <div className="flex gap-12 mt-4">
                                     <div className="form-group">
                                         <label>Latitude</label>
-                                        <div className="audit-field-value mono" style={{ fontSize: '0.9rem' }}>1.2921° N</div>
+                                        <div className="audit-field-value mono" style={{ fontSize: '0.9rem' }}>{station.latitude != null ? `${station.latitude}°` : '—'}</div>
                                     </div>
                                     <div className="form-group">
                                         <label>Longitude</label>
-                                        <div className="audit-field-value mono" style={{ fontSize: '0.9rem' }}>36.8219° E</div>
+                                        <div className="audit-field-value mono" style={{ fontSize: '0.9rem' }}>{station.longitude != null ? `${station.longitude}°` : '—'}</div>
                                     </div>
                                 </div>
                                 <div className="mt-4 p-3 bg-white border border-slate-200 rounded-lg">
                                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Grid Reference</p>
-                                    <p className="text-[11px] font-bold text-slate-700">KENYA_SOUTH_CENTRAL_09X</p>
+                                    <p className="text-[11px] font-bold text-slate-700">{station.station_location || station.county || '—'}</p>
                                 </div>
                             </div>
                         </div>
@@ -530,7 +531,7 @@ const ClientsList: React.FC<{ isHubView?: boolean }> = ({ isHubView }) => {
                                             </td>
                                             <td className="text-right">
                                                 <div className="flex justify-end pr-4">
-                                                    <button className="action-circle view" title="View Audit">
+                                                    <button className="action-circle view" title="View Audit" onClick={(e) => { e.stopPropagation(); setSelectedStation(station); }}>
                                                         <FiExternalLink size={18} />
                                                     </button>
                                                 </div>

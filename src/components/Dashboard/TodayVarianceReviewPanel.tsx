@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX, FiInfo, FiUploadCloud, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { AuditService } from '@/services/AuditService';
 import { supabase } from '@/config/supabase';
 import { LossReview } from '../../types';
@@ -21,6 +22,7 @@ interface TodayVarianceReviewPanelProps {
 }
 
 export const TodayVarianceReviewPanel: React.FC<TodayVarianceReviewPanelProps> = ({ onClose, varianceData, onReviewComplete }) => {
+    const { currencySymbol, locale } = useJurisdiction();
     const [category, setCategory] = useState<LossReview['selectedCause'] | ''>('');
     const [explanation, setExplanation] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -161,7 +163,7 @@ export const TodayVarianceReviewPanel: React.FC<TodayVarianceReviewPanelProps> =
                                     <div className="text-right">
                                         <span className="text-[10px] font-bold text-rose-400 uppercase block mb-1">Valuation</span>
                                         <span className="text-sm font-black text-rose-800 bg-white/50 px-3 py-1 rounded-full border border-rose-200">
-                                            Ksh {(varianceData.estimatedValueKes || 0).toLocaleString()}
+                                            {currencySymbol} {(varianceData.estimatedValueKes || 0).toLocaleString(locale)}
                                         </span>
                                     </div>
                                 </div>

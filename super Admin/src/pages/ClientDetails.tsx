@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { clientsService } from '../services/clientsService';
 import Layout from '../components/Layout';
 import { FiArrowLeft, FiEdit2, FiSlash, FiCheckCircle, FiDollarSign, FiClock, FiActivity, FiMapPin, FiMail, FiPhone, FiShield, FiLoader, FiPlus, FiXCircle } from 'react-icons/fi';
+import { formatMoney } from '@shared/lib/jurisdiction';
 import './ClientDetails.css';
 
 const ClientDetails = () => {
@@ -16,13 +17,13 @@ const ClientDetails = () => {
     const [isRecordingPayment, setIsRecordingPayment] = useState(false);
     const [adjustmentAmount, setAdjustmentAmount] = useState('');
     const [adjustmentReason, setAdjustmentReason] = useState('');
-    const [paymentData, setPaymentData] = useState({ amount: '', method: 'M-PESA', reference: '' });
+    const [paymentData, setPaymentData] = useState({ amount: '', method: '', reference: '' });
     const [profileUpdates, setProfileUpdates] = useState({ 
         station_name: '', 
         email: '', 
         phone: '', 
         station_location: '', 
-        county: '' 
+        region: '' 
     });
     const [newTank, setNewTank] = useState({ name: '', type: 'Super Petrol (Unleaded Premium)', capacity: 10000 });
 
@@ -163,7 +164,8 @@ const ClientDetails = () => {
         e.preventDefault();
         if (!id) return;
         try {
-            await clientsService.updateProfile(id, profileUpdates);
+            const { region, ...rest } = profileUpdates;
+            await clientsService.updateProfile(id, { ...rest, county: region });
             const data = await clientsService.getClientById(id);
             setClient(data);
             setIsUpdatingProfile(false);
@@ -198,7 +200,7 @@ const ClientDetails = () => {
             const data = await clientsService.getClientById(id);
             setClient(data);
             setIsRecordingPayment(false);
-            setPaymentData({ amount: '', method: 'M-PESA', reference: '' });
+            setPaymentData({ amount: '', method: '', reference: '' });
             window.dispatchEvent(new CustomEvent('system-toast', {
                 detail: {
                     title: 'Remittance Recorded',
@@ -264,7 +266,7 @@ const ClientDetails = () => {
                                     email: client.email,
                                     phone: client.phone || '',
                                     station_location: client.station_location,
-                                    county: client.county
+                                    region: client.county
                                 });
                                 setIsUpdatingProfile(true);
                             }}
@@ -327,19 +329,19 @@ const ClientDetails = () => {
                                 <div className="stat-premium-card">
                                     <p className="stat-label">Outstanding Liability</p>
                                     <p className="stat-value value--danger">
-                                        {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(client.current_debt)}
+                                        {formatMoney(client.current_debt, { currency: 'USD', currencySymbol: '$', locale: 'en' })}
                                     </p>
                                 </div>
                                 <div className="stat-premium-card">
                                     <p className="stat-label">Total Remittances</p>
                                     <p className="stat-value value--success">
-                                        {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(client.total_paid)}
+                                        {formatMoney(client.total_paid, { currency: 'USD', currencySymbol: '$', locale: 'en' })}
                                     </p>
                                 </div>
                                 <div className="stat-premium-card">
                                     <p className="stat-label">Subject Capitalization</p>
                                     <p className="stat-value value--info">
-                                        {new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(client.lifetime_revenue)}
+                                        {formatMoney(client.lifetime_revenue, { currency: 'USD', currencySymbol: '$', locale: 'en' })}
                                     </p>
                                 </div>
                             </div>
@@ -514,7 +516,7 @@ const ClientDetails = () => {
                             
                             <form onSubmit={handleAdjustDebt} className="flex flex-col gap-6">
                                 <div className="input-group-premium">
-                                    <label>Adjustment Magnitude (KES)</label>
+                                    <label>Adjustment Magnitude</label>
                                     <input 
                                         type="number" 
                                         className="input-premium"
@@ -568,8 +570,8 @@ const ClientDetails = () => {
                                         <input type="text" className="input-premium" value={profileUpdates.phone} onChange={e => setProfileUpdates({...profileUpdates, phone: e.target.value})} />
                                     </div>
                                     <div className="input-group-premium">
-                                        <label>County</label>
-                                        <input type="text" className="input-premium" value={profileUpdates.county} onChange={e => setProfileUpdates({...profileUpdates, county: e.target.value})} />
+                                        <label>Region</label>
+                                        <input type="text" className="input-premium" value={profileUpdates.region} onChange={e => setProfileUpdates({...profileUpdates, region: e.target.value})} />
                                     </div>
                                 </div>
                                 <div className="input-group-premium">
@@ -594,15 +596,16 @@ const ClientDetails = () => {
                             </header>
                             <form onSubmit={handleRecordPayment} className="flex flex-col gap-6">
                                 <div className="input-group-premium">
-                                    <label>Amount (KES)</label>
+                                    <label>Amount</label>
                                     <input type="number" className="input-premium" value={paymentData.amount} onChange={e => setPaymentData({...paymentData, amount: e.target.value})} required />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="input-group-premium">
                                         <label>Payment Method</label>
                                         <select className="input-premium" value={paymentData.method} onChange={e => setPaymentData({...paymentData, method: e.target.value})}>
-                                            <option>M-PESA</option>
-                                            <option>Bank Transfer (RTGS/EFT)</option>
+                                            <option value="">Select Payment Method</option>
+                                            <option>Mobile Money</option>
+                                            <option>Bank Transfer</option>
                                             <option>Cash Deposit</option>
                                             <option>Cheque</option>
                                         </select>

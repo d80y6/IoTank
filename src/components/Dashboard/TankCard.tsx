@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { AuditService } from '@/services/AuditService';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { deleteTank } from '@/hooks/useSupabase';
 import { logger } from '@/utils/logger';
 
@@ -121,7 +122,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
     const reading = liveReading || initialReading;
 
     const [isSyncing, setIsSyncing] = useState(false);
-    const currency = 'Ksh';
+    const { currency, locale } = useJurisdiction();
 
     // 2. Fetch 24h historical data only when needed (e.g. hovered or detailed view)
     const timeRange = useMemo(() => ({
@@ -237,7 +238,7 @@ export const TankCard: React.FC<TankCardProps> = React.memo(({ tank, stationId, 
         }
 
         const volume = reading ? (reading.volumeCorrected || reading.volume || 0) : (tank.currentVolume || 0);
-        return (volume * retailPrice).toLocaleString(undefined, {
+        return (volume * retailPrice).toLocaleString(locale, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });

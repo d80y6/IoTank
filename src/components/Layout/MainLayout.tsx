@@ -62,7 +62,7 @@ export const MainLayout: React.FC = () => {
     useEPRANotifier();
 
     // Mobile Sidebar Inactivity Timer
-    const mobileMenuTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+    const mobileMenuTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const resetMobileTimer = React.useCallback(() => {
         if (mobileMenuTimerRef.current) {

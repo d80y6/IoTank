@@ -11,6 +11,7 @@ import { generateShiftPDF, exportShiftsToExcel } from '@/utils/exportUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { useShifts } from '@/hooks/useShifts';
 import { useTanks } from '@/hooks/useSupabase';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { Tank } from '@/types';
 import { useReports } from '@/hooks/useReports';
 import { supabase } from '@/config/supabase';
@@ -169,9 +170,10 @@ function ColorDot({ color }: { color: string }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-
 export const ReportingPage: React.FC = () => {
+
     const { currentUser } = useAuth();
+    const { jurisdiction } = useJurisdiction();
     const stationId = currentUser?.stationId || '';
     const userName = currentUser?.displayName || currentUser?.email || 'Unknown';
 
@@ -250,7 +252,7 @@ export const ReportingPage: React.FC = () => {
         const { logs, metrics } = await scanStationHistory(stationId, start, end, (selectedTankId && validateUUID(selectedTankId)) ? selectedTankId : undefined);
 
         // 3. Prepare professional forensic data for storage
-        const dynamicHighlights = getReportHighlights(selectedTemplate.id, metrics);
+        const dynamicHighlights = getReportHighlights(selectedTemplate.id, metrics, jurisdiction);
         
         const reportData = {
             window: windowLabel,
@@ -308,7 +310,7 @@ export const ReportingPage: React.FC = () => {
         
         // If we have reconstruction data (from a saved report), use the Forensic Reconstruction engine
         if (reconstructionData) {
-            ExportService.reconstructReport(effectiveTitle, currentUser?.companyName || 'IoTank Station', effectiveData, fmt);
+            ExportService.reconstructReport(effectiveTitle, currentUser?.companyName || 'IoTank Station', effectiveData, fmt, jurisdiction);
             return;
         }
 
@@ -340,7 +342,8 @@ export const ReportingPage: React.FC = () => {
                         averageVariancePct: metrics.avgVariancePct, 
                         incidents: metrics.incidentCount 
                     },
-                    logs
+                    logs,
+                    jurisdiction
                 );
                 return;
             }

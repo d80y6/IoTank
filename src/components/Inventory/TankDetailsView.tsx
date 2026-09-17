@@ -14,6 +14,7 @@ import { WetstockReconciliation } from '../Analytics/WetstockReconciliation';
 import { CalibrationWizard } from './CalibrationWizard';
 import { useActiveShift } from '@/hooks/useShifts';
 import { useShiftStatus } from '@/hooks/useShiftStatus';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
 import { useModals } from '@/contexts/ModalContext';
 import { Toast } from '../Common/Toast';
 import './TankDetailsView.css';
@@ -34,6 +35,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
     const [timeDomain, setTimeDomain] = useState<'shift' | 'week' | 'month'>('week');
     const [intelligenceType, setIntelligenceType] = useState('Historical Level Intelligence');
     const [showIntelligenceDropdown, setShowIntelligenceDropdown] = useState(false);
+    const { jurisdiction } = useJurisdiction();
     const { status: shiftStatus, openedAt } = useShiftStatus();
     const { activeShift } = useActiveShift(stationId);
     const { openModal } = useModals();
@@ -360,7 +362,7 @@ export const TankDetailsView: React.FC<TankDetailsViewProps> = ({
                                         <WetstockReconciliation 
                                             tanks={tanks} 
                                             transactions={transactions} 
-                                            currency="Ksh" 
+                                            currency={jurisdiction?.currency || 'USD'} 
                                             activeShift={activeShift}
                                         />
                                         <div className="h-px bg-slate-100 my-8" />

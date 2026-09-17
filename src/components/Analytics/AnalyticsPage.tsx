@@ -11,6 +11,8 @@ import { LazyComponent } from '../Common/LazyComponent';
 
 import { useActiveShift } from '@/hooks/useShifts';
 import { useAuth } from '@/hooks/useAuth';
+import { useJurisdiction } from '@/hooks/useJurisdiction';
+import { formatNumber } from '@/lib/jurisdiction';
 import { useTanks, useTankAnalytics30d } from '@/hooks/useSupabase';
 import { validateUUID } from '@/utils/sanitization';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -27,6 +29,7 @@ import './AnalyticsPage.css';
 
 export const AnalyticsPage: React.FC = () => {
     const { currentUser } = useAuth();
+    const { jurisdiction, currencySymbol } = useJurisdiction();
     
     // Forensic UUID validation to prevent RPC signature mismatches (PGRST202)
     const isValidStation = currentUser?.stationId && validateUUID(currentUser.stationId);
@@ -136,7 +139,7 @@ export const AnalyticsPage: React.FC = () => {
                     <div className="acp-kpi-icon green"><FiDollarSign /></div>
                     <div className="acp-kpi-body">
                         <span className="acp-kpi-label">Shift Revenue</span>
-                        <span className="acp-kpi-value">Ksh {stats.totalSale.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        <span className="acp-kpi-value">{currencySymbol} {formatNumber(stats.totalSale, jurisdiction, { maximumFractionDigits: 0 })}</span>
                         <span className="acp-kpi-sub opacity-60">Based on {shiftTransactions.length} operations</span>
                     </div>
                 </div>
@@ -189,7 +192,7 @@ export const AnalyticsPage: React.FC = () => {
                                     <WetstockReconciliation
                                         tanks={tanks}
                                         transactions={shiftTransactions}
-                                        currency="Ksh"
+                                        currency={jurisdiction?.currency || 'USD'}
                                         activeShift={activeShift}
                                     />
                                 </LazyComponent>

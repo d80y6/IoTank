@@ -1,4 +1,5 @@
 import { MarketSignal, SupplyRisk, RegulatoryNotice, GeminiInsight } from '@/types';
+import { JurisdictionConfig } from '@/lib/jurisdiction';
 import { logger } from '@/utils/logger';
 import { supabase } from '@/config/supabase';
 
@@ -64,7 +65,8 @@ export class IntelligenceAIService {
         risks: SupplyRisk[],
         notices: RegulatoryNotice[],
         tanks: any[] = [],
-        tankId: string = 'fleet'
+        tankId: string = 'fleet',
+        jurisdiction?: JurisdictionConfig
     ): Promise<GeminiInsight> {
         const tankData = tanks.map(t => ({ 
             id: t.id, 
@@ -73,11 +75,12 @@ export class IntelligenceAIService {
             level: t.currentLevel || t.currentVolume 
         }));
 
-        const context = { 
+        const context: any = { 
             signals: signals.slice(0, 5), 
             risks: risks.slice(0, 3), 
             notices: notices.slice(0, 2),
-            inventory: tankData
+            inventory: tankData,
+            jurisdiction
         };
         const promptLog = JSON.stringify(context);
         const providers: (keyof AIProviderConfig)[] = ['groq', 'gemini', 'deepseek'];
@@ -104,7 +107,8 @@ export class IntelligenceAIService {
      */
     async generateArticleDirective(
         article: any,
-        tanks: any[]
+        tanks: any[],
+        jurisdiction?: JurisdictionConfig
     ): Promise<ArticleAIDirective> {
         const safeTanks = Array.isArray(tanks) ? tanks : [];
         const tankData = safeTanks.map(t => ({ 
@@ -122,7 +126,8 @@ export class IntelligenceAIService {
                 category: article.implicationCategory
             },
             inventory: tankData,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            jurisdiction
         };
 
         const providers: (keyof AIProviderConfig)[] = ['groq', 'gemini', 'deepseek'];

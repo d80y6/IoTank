@@ -3,18 +3,23 @@ import { supabase } from '@/config/supabase';
 import { MarketSignal, SupplyRisk, RegulatoryNotice, MarketData, MarketActionItem } from '@/types';
 import { NewsService } from '@/services/NewsService';
 import { extractPricesFromText } from './useMarketNews';
+import { useJurisdiction } from './useJurisdiction';
 import { logger } from '@/utils/logger';
 
 export const useMarketIntelligence = (stationId: string) => {
+    const { jurisdiction, config, currency } = useJurisdiction();
+    const regulatory = (config.regulatory as Record<string, unknown>) || {};
+    const pricing = (config.pricing as Record<string, unknown>) || {};
+    const regionName = jurisdiction.name || 'Global';
+    const priceBandHigh = (regulatory.priceBand as number[] | undefined)?.[1] ?? 1000;
     // Cache key for news feed
     const MI_CACHE_KEY_SIGNALS = 'mi_cache_signals';
     
     const VERIFIED_BASE_PRICES: MarketData[] = [
-        { id: 'init-pms', fuelType: 'PMS', region: 'Kenya', pricePerLiter: 214.25, currency: 'KES', timestamp: 1778803200000, source: 'epra', metadata: { isOfficial: true, sourceDetail: 'User Verified' } as any },
-        { id: 'init-ago', fuelType: 'AGO', region: 'Kenya', pricePerLiter: 242.92, currency: 'KES', timestamp: 1778803200000, source: 'epra', metadata: { isOfficial: true, sourceDetail: 'User Verified' } as any },
-        { id: 'init-ik', fuelType: 'IK', region: 'Kenya', pricePerLiter: 152.78, currency: 'KES', timestamp: 1778803200000, source: 'epra', metadata: { isOfficial: true, sourceDetail: 'User Verified' } as any },
-        { id: 'init-brent', fuelType: 'BRENT', region: 'Global', pricePerLiter: 83.45, currency: 'USD', timestamp: 1778803200000, source: 'api' },
-        { id: 'init-fx', fuelType: 'FX', region: 'Kenya', pricePerLiter: 132.50, currency: 'KES', timestamp: 1778803200000, source: 'api' },
+        ...(pricing.superPetrol != null ? [{ id: 'init-pms', fuelType: 'PMS', region: regionName, pricePerLiter: pricing.superPetrol as number, currency, timestamp: Date.now(), source: 'api' as any, metadata: { isOfficial: true, sourceDetail: 'Jurisdiction Config' } as any }] : []),
+        ...(pricing.diesel != null ? [{ id: 'init-ago', fuelType: 'AGO', region: regionName, pricePerLiter: pricing.diesel as number, currency, timestamp: Date.now(), source: 'api' as any, metadata: { isOfficial: true, sourceDetail: 'Jurisdiction Config' } as any }] : []),
+        ...(pricing.kerosene != null ? [{ id: 'init-ik', fuelType: 'IK', region: regionName, pricePerLiter: pricing.kerosene as number, currency, timestamp: Date.now(), source: 'api' as any, metadata: { isOfficial: true, sourceDetail: 'Jurisdiction Config' } as any }] : []),
+        { id: 'init-brent', fuelType: 'BRENT', region: 'Global', pricePerLiter: 0, currency: 'USD', timestamp: Date.now(), source: 'api' as any },
     ];
 
     const [signals, setSignals] = useState<MarketSignal[]>(() => {
@@ -176,7 +181,7 @@ export const useMarketIntelligence = (stationId: string) => {
 
                 const extractedPrices: MarketData[] = [];
                 mergedSignals.forEach(signal => {
-                    const detections = extractPricesFromText(signal.title + ' ' + signal.summary, basePricesMap);
+                    const detections = extractPricesFromText(signal.title + ' ' + signal.summary, basePricesMap, currency, [0, priceBandHigh]);
                     const topicTags = (signal as any).topicTags || [];
                     const isEPRA = topicTags.includes('EPRA') || signal.source?.includes('EPRA') || signal.attribution?.includes('EPRA');
                     
@@ -212,7 +217,7 @@ export const useMarketIntelligence = (stationId: string) => {
                                         if (error) {
                                             logger.error(`[useMarketIntelligence] Sync extracted price failed for ${fuelType}:`, error.message);
                                         } else {
-                                            logger.info(`[useMarketIntelligence] Forensic update success for ${fuelType} to KES ${det.value}`);
+                                            logger.info(`[useMarketIntelligence] Forensic update success for ${fuelType} to ${det.currency || currency} ${det.value}`);
                                         }
                                     },
                                     (err: any) => {

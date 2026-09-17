@@ -15,6 +15,7 @@ import {
     MdSecurity,
     MdReportGmailerrorred,
     MdNotificationsActive,
+    MdPublic,
 } from 'react-icons/md';
 
 import { FiShield } from 'react-icons/fi';
@@ -39,6 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const { systemUser, canSee } = useAuth();
     const navigate = useNavigate();
     const [criticalEvents24h, setCriticalEvents24h] = useState(0);
+    const [hubCount, setHubCount] = useState<number | null>(null);
+    const [uptime, setUptime] = useState<number | null>(null);
 
     useEffect(() => {
         if (!canSee(1)) return;
@@ -58,8 +61,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }
         };
 
+        const loadHubs = async () => {
+            try {
+                const { count: hubs, error: hubError } = await supabase
+                    .from('fuel_stations')
+                    .select('*', { count: 'exact', head: true });
+                if (hubError) return;
+                const { data: deviceStatuses, error: deviceError } = await supabase
+                    .from('devices')
+                    .select('status');
+                if (deviceError) return;
+                const total = deviceStatuses?.length || 0;
+                setHubCount(hubs || 0);
+                setUptime(total > 0 ? Math.round(((deviceStatuses.filter(d => d.status === 'online' || d.status === 'maintenance').length) / total) * 1000) / 10 : null);
+            } catch (_err) {
+                // Ignore silent sidebar widget failures.
+            }
+        };
+
         loadCriticalEvents();
-        const interval = setInterval(loadCriticalEvents, 60000);
+        loadHubs();
+        const interval = setInterval(() => {
+            loadCriticalEvents();
+            loadHubs();
+        }, 60000);
         return () => clearInterval(interval);
     }, [canSee]);
 
@@ -76,6 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { name: 'forensic hub', path: '/governance', icon: <FiShield />, level: 1 },
         { name: 'pending requests', path: '/registrations', icon: <MdPersonAdd />, level: 1 },
         { name: 'security events', path: '/security-events', icon: <MdReportGmailerrorred />, level: 1 },
+        { name: 'jurisdictions', path: '/jurisdictions', icon: <MdPublic />, level: 1 },
 
         { name: 'business & revenue', isSection: true, path: 'sec-biz', level: 4 },
         { name: 'Payments & Debt', path: '/billing', icon: <MdAttachMoney />, level: 4 },
@@ -83,6 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         { name: 'workspace & support', isSection: true, path: 'sec-work', level: 4 },
         { name: 'workforce hub', path: '/workforce', icon: <MdPeople />, level: 4 },
+        { name: 'system utilities', path: '/system', icon: <MdSettings />, level: 1 },
         { name: 'system settings', path: '/settings', icon: <MdSettings />, level: 4 },
         
         { name: 'resource studio', isSection: true, path: 'sec-resources', level: 4 },
@@ -175,11 +202,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     <div className="status-metrics">
                         <div className="mini-metric">
-                            <span className="metric-val">320</span>
+                            <span className="metric-val">{hubCount ?? '—'}</span>
                             <span className="metric-unit">hubs</span>
                         </div>
                         <div className="mini-metric">
-                            <span className="metric-val">99.9%</span>
+                            <span className="metric-val">{uptime != null ? `${uptime}%` : '—'}</span>
                             <span className="metric-unit">uptime</span>
                         </div>
                     </div>

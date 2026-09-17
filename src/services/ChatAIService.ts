@@ -5,13 +5,16 @@ import { logger } from '@/utils/logger';
 
 export type AIModel = 'gemini' | 'groq' | 'deepseek';
 
-const SYSTEM_PROMPT = `You are the IoTank Intelligent Operational Assistant (V2.0.0). You provide mission-critical industrial fuel inventory insights and customer support for the IoTank ecosystem.
+export function buildSystemPrompt(jurisdiction?: { name?: string; regulatoryBody?: string | null }): string {
+    const marketName = jurisdiction?.name || 'East Africa';
+    const regBody = jurisdiction?.regulatoryBody || 'EPRA (Energy & Petroleum Regulatory Authority)';
+    return `You are the IoTank Intelligent Operational Assistant (V2.0.0). You provide mission-critical industrial fuel inventory insights and customer support for the IoTank ecosystem.
 
 PROJECT OVERVIEW:
 - IoTank V2.0.0 is a cloud-native fuel intelligence hub designed for industrial and commercial fuel management.
 - It uses IoT sensors for real-time tank level monitoring and diagnostics.
 - Core Features: Real-time tank monitoring, Automated Delivery reconciliation, Leak detection scoring, AI-powered predictive analytics, Forensic shift reporting, and Logistics optimization.
-- Market Context: Specialized for the Kenyan and East African markets, adhering to EPRA (Energy & Petroleum Regulatory Authority) and KRA (Kenya Revenue Authority) compliance standards.
+- Market Context: Specialized for the ${marketName} market, adhering to ${regBody} compliance standards.
 
 OPERATIONAL CONSTRAINTS:
 1. Always maintain a professional, helpful, technical, and precise tone.
@@ -19,6 +22,7 @@ OPERATIONAL CONSTRAINTS:
 3. Use Markdown for structured responses. Be concise but thorough in technical explanations.
 4. If you don't have enough context about a specific user's data, ask them to check their local dashboard or contact support at iotank.com@gmail.com.
 5. You represent the IoTank engineering and support team.`;
+}
 
 export class RateLimitError extends Error {
     constructor(public resetAt: string, message: string = 'Rate limit exceeded') {
@@ -30,13 +34,14 @@ export class RateLimitError extends Error {
 export class ChatAIService {
     private static modelPriority: AIModel[] = ['groq', 'gemini', 'deepseek'];
 
-    static async getChatResponse(message: string, history: { role: 'user' | 'assistant', content: string }[]): Promise<string> {
+    static async getChatResponse(message: string, history: { role: 'user' | 'assistant', content: string }[], jurisdiction?: { name?: string; regulatoryBody?: string | null }): Promise<string> {
         const errors: string[] = [];
+        const systemPrompt = buildSystemPrompt(jurisdiction);
 
         for (const model of this.modelPriority) {
             try {
                 // Intelligence flow: Attempting response
-                const response = await this.callModel(model, message, history);
+                const response = await this.callModel(model, message, history, systemPrompt);
                 if (response) return response;
 
                 errors.push(`${model}: Empty response`);
@@ -88,22 +93,22 @@ export class ChatAIService {
         return headers;
     }
 
-    private static async callModel(model: AIModel, message: string, history: any[]): Promise<string | null> {
+    private static async callModel(model: AIModel, message: string, history: any[], systemPrompt: string): Promise<string | null> {
         switch (model) {
             case 'gemini':
-                return this.callGemini(message, history);
+                return this.callGemini(message, history, systemPrompt);
             case 'groq':
-                return this.callGroq(message, history);
+                return this.callGroq(message, history, systemPrompt);
             case 'deepseek':
-                return this.callDeepSeek(message, history);
+                return this.callDeepSeek(message, history, systemPrompt);
             default:
                 return null;
         }
     }
 
-    private static async callGemini(message: string, history: any[]): Promise<string | null> {
+    private static async callGemini(message: string, history: any[], systemPrompt: string): Promise<string | null> {
         const messages = [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: systemPrompt },
             ...history,
             { role: 'user', content: message }
         ];
@@ -138,9 +143,9 @@ export class ChatAIService {
         }
     }
 
-    private static async callGroq(message: string, history: any[]): Promise<string | null> {
+    private static async callGroq(message: string, history: any[], systemPrompt: string): Promise<string | null> {
         const messages = [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: systemPrompt },
             ...history,
             { role: 'user', content: message }
         ];
@@ -175,9 +180,9 @@ export class ChatAIService {
         }
     }
 
-    private static async callDeepSeek(message: string, history: any[]): Promise<string | null> {
+    private static async callDeepSeek(message: string, history: any[], systemPrompt: string): Promise<string | null> {
         const messages = [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: systemPrompt },
             ...history,
             { role: 'user', content: message }
         ];

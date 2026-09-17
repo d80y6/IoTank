@@ -165,8 +165,9 @@ export async function scanStationHistory(
 /**
  * In-Memory Highlight Generator: Creates professional summary strings for the UI
  */
-export function getReportHighlights(type: string, metrics: AggregatedMetrics): string[] {
+export function getReportHighlights(type: string, metrics: AggregatedMetrics, jurisdiction?: { regulatoryBody?: string | null }): string[] {
     const highlights: string[] = [];
+    const regBody = jurisdiction?.regulatoryBody || 'EPRA';
     
     if (metrics.totalThroughput > 10000) {
         highlights.push(`High Volume Period: Total throughput exceeded ${metrics.totalThroughput.toLocaleString()}L.`);
@@ -182,7 +183,7 @@ export function getReportHighlights(type: string, metrics: AggregatedMetrics): s
     }
 
     if (metrics.incidentCount > 0) {
-        highlights.push(`Security: ${metrics.incidentCount} daily sessions exceeded the EPRA 1% variance threshold.`);
+        highlights.push(`Security: ${metrics.incidentCount} daily sessions exceeded the ${regBody} 1% variance threshold.`);
     }
 
     if (type === 'compliance-pack' && Math.abs(metrics.avgVariancePct) < 0.5) {

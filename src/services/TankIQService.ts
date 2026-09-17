@@ -1,5 +1,6 @@
 import { IntelligenceAIService, ChatMessage } from './IntelligenceAIService';
-import { TankIQToolset, TANKIQ_TOOLS_METADATA } from './TankIQToolset';
+import { TankIQToolset, buildTankIQToolsMetadata } from './TankIQToolset';
+import type { JurisdictionConfig } from '@/lib/jurisdiction';
 import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'tankiq_history';
@@ -11,11 +12,13 @@ export class TankIQService {
     private history: ChatMessage[] = [];
     private sessionId: string;
     private stationId: string;
+    private jurisdiction?: JurisdictionConfig;
 
-    constructor(stationId: string, sessionId: string = 'default') {
+    constructor(stationId: string, sessionId: string = 'default', jurisdiction?: JurisdictionConfig) {
         this.aiService = new IntelligenceAIService();
         this.stationId = stationId;
         this.sessionId = sessionId;
+        this.jurisdiction = jurisdiction;
         this.loadHistory();
     }
 
@@ -68,7 +71,7 @@ YOUR MANDATE:
 1. ALWAYS use 'get_station_summary' first to identify the station name, location, and current tank states.
 2. Use 'get_consumption_analytics' and 'get_shift_analytics' to analyze daily burn rates, pump sales, and variances before suggesting strategies.
 3. Be forensic: if a sensor is blackout (0 burn reported while tanks are active), use 'get_hardware_health' to diagnose signal strength or sensor quality.
-4. Provide data-driven strategies for procurement and sales based on EPRA market prices (via 'get_market_context') and tank inventory.
+4. Provide data-driven strategies for procurement and sales based on ${this.jurisdiction?.regulatoryBody || 'EPRA'} market prices (via 'get_market_context') and tank inventory.
 5. Use 'get_financial_status' to advise on debt management, invoice payments, and subscription standing.
 6. Use 'get_audit_logs' and 'get_support_summary' to investigate historical system changes, user activities, and the status of technical issues reported to engineers.
 7. Use 'get_usage_insights' to provide a cost-benefit analysis of platform usage (SMS, AI, data) and suggest optimization for the station's subscription budget.
@@ -83,7 +86,7 @@ YOUR MANDATE:
             const messagesToSend = [systemMessage, ...this.history];
 
             try {
-                response = await this.aiService.chat(currentProvider, messagesToSend, TANKIQ_TOOLS_METADATA);
+                response = await this.aiService.chat(currentProvider, messagesToSend, buildTankIQToolsMetadata(this.jurisdiction));
             } catch (err) {
                 logger.warn(`TankIQ: Provider ${currentProvider} failed, retrying...`, err);
                 retryCount++;
